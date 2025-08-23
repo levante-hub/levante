@@ -107,7 +107,9 @@ const api: LevanteAPI = {
       typeof name === 'string' && name.startsWith('levante/chat/stream/')
     )
     existingListeners.forEach(listenerName => {
-      ipcRenderer.removeAllListeners(listenerName)
+      if (typeof listenerName === 'string') {
+        ipcRenderer.removeAllListeners(listenerName)
+      }
     })
     
     const { streamId } = await ipcRenderer.invoke('levante/chat/stream', request)

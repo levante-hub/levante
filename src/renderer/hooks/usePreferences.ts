@@ -1,25 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { UIPreferences, PreferenceKey, PreferenceChangeEvent } from '../../types/preferences';
 
-interface PreferencesAPI {
-  get: <K extends PreferenceKey>(key: K) => Promise<{ success: boolean; data?: UIPreferences[K]; error?: string }>;
-  set: <K extends PreferenceKey>(key: K, value: UIPreferences[K]) => Promise<{ success: boolean; data?: UIPreferences[K]; error?: string }>;
-  getAll: () => Promise<{ success: boolean; data?: UIPreferences; error?: string }>;
-  reset: () => Promise<{ success: boolean; data?: UIPreferences; error?: string }>;
-  has: (key: PreferenceKey) => Promise<{ success: boolean; data?: boolean; error?: string }>;
-  delete: (key: PreferenceKey) => Promise<{ success: boolean; data?: boolean; error?: string }>;
-  export: () => Promise<{ success: boolean; data?: UIPreferences; error?: string }>;
-  import: (preferences: Partial<UIPreferences>) => Promise<{ success: boolean; data?: UIPreferences; error?: string }>;
-  info: () => Promise<{ success: boolean; data?: { path: string; size: number }; error?: string }>;
-}
-
-declare global {
-  interface Window {
-    levante: {
-      preferences: PreferencesAPI;
-    };
-  }
-}
 
 export function usePreferences() {
   const [preferences, setPreferences] = useState<UIPreferences | null>(null);

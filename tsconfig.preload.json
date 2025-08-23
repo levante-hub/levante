@@ -5,6 +5,7 @@
     "jsx": "preserve"
   },
   "include": [
-    "src/preload/**/*.ts"
+    "src/preload/**/*.ts",
+    "src/types/**/*.ts"
   ]
 }

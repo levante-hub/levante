@@ -17,7 +17,9 @@ export class TitleGenerationService {
         {
           id: 'system',
           role: 'system',
-          content: `You are a helpful assistant that creates short, descriptive titles for chat conversations.
+          parts: [{
+            type: 'text',
+            text: `You are a helpful assistant that creates short, descriptive titles for chat conversations.
 
 Rules:
 - Create a concise title (2-6 words maximum)  
@@ -36,11 +38,15 @@ Examples:
 - "Hello, how are you?" → "General Chat"
 - "Help me debug this React component" → "React Component Debug"
 - "Explain machine learning basics" → "Machine Learning Basics"`
+          }]
         },
         {
           id: 'user',
           role: 'user',
-          content: `Generate a short title for this message: "${firstUserMessage}"`
+          parts: [{
+            type: 'text',
+            text: `Generate a short title for this message: "${firstUserMessage}"`
+          }]
         }
       ];
 
