@@ -21,7 +21,8 @@
       "Bash(source:*)",
       "Bash(find:*)",
       "Bash(grep:*)",
-      "WebFetch(domain:docs.turso.tech)"
+      "WebFetch(domain:docs.turso.tech)",
+      "WebFetch(domain:openrouter.ai)"
     ],
     "deny": [],
     "ask": []

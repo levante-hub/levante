@@ -4,7 +4,7 @@ import { ModelFetchService } from '../services/modelFetchService';
 export function setupModelHandlers() {
   // Fetch OpenRouter models
   ipcMain.removeHandler('levante/models/openrouter');
-  ipcMain.handle('levante/models/openrouter', async (_, apiKey: string) => {
+  ipcMain.handle('levante/models/openrouter', async (_, apiKey?: string) => {
     try {
       const models = await ModelFetchService.fetchOpenRouterModels(apiKey);
       return {

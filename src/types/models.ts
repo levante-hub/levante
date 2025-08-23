@@ -27,7 +27,7 @@ export interface ProviderConfig {
 }
 
 export interface ModelService {
-  fetchOpenRouterModels(apiKey: string): Promise<Model[]>;
+  fetchOpenRouterModels(apiKey?: string): Promise<Model[]>;
   fetchGatewayModels(apiKey: string, baseUrl: string): Promise<Model[]>;
   discoverLocalModels(endpoint: string): Promise<Model[]>;
   getUserDefinedModels(providerId: string): Promise<Model[]>;

@@ -185,7 +185,7 @@ class ModelServiceImpl {
   }
 
   // OpenRouter model fetching
-  async fetchOpenRouterModels(apiKey: string): Promise<Model[]> {
+  async fetchOpenRouterModels(apiKey?: string): Promise<Model[]> {
     try {
       const result = await window.levante.models.fetchOpenRouter(apiKey);
       
@@ -204,7 +204,7 @@ class ModelServiceImpl {
           input: parseFloat(model.pricing.prompt) * 1000000, // Convert to per million tokens
           output: parseFloat(model.pricing.completion) * 1000000
         } : undefined,
-        capabilities: ['text'], // TODO: Parse from model info
+        capabilities: this.parseOpenRouterCapabilities(model),
         isAvailable: true,
         userDefined: false
       }));
@@ -244,6 +244,35 @@ class ModelServiceImpl {
       console.error('Failed to fetch Gateway models:', error);
       throw error;
     }
+  }
+
+  // Helper to parse OpenRouter model capabilities
+  private parseOpenRouterCapabilities(model: any): string[] {
+    const capabilities: string[] = ['text'];
+    
+    // Check for vision/multimodal capabilities
+    if (model.architecture?.modality?.includes('vision') || 
+        model.architecture?.modality?.includes('image') ||
+        model.id.toLowerCase().includes('vision') ||
+        model.name?.toLowerCase().includes('vision')) {
+      capabilities.push('vision');
+    }
+    
+    // Check for function/tool calling
+    if (model.supported_parameters?.includes('tools') ||
+        model.supported_parameters?.includes('functions') ||
+        model.architecture?.instruct_type === 'function') {
+      capabilities.push('tools');
+    }
+    
+    // Check for reasoning modes
+    if (model.id.includes('reasoning') || 
+        model.name?.toLowerCase().includes('reasoning') ||
+        model.architecture?.instruct_type === 'reasoning') {
+      capabilities.push('reasoning');
+    }
+    
+    return capabilities;
   }
 
   // Helper to format model names from IDs
@@ -324,9 +353,8 @@ class ModelServiceImpl {
     try {
       switch (provider.type) {
         case 'openrouter':
-          if (provider.apiKey) {
-            models = await this.fetchOpenRouterModels(provider.apiKey);
-          }
+          // OpenRouter allows public access to model list, but API key improves rate limits
+          models = await this.fetchOpenRouterModels(provider.apiKey);
           break;
         case 'vercel-gateway':
           if (provider.apiKey && provider.baseUrl) {

@@ -39,7 +39,7 @@ export interface LevanteAPI {
   
   // Model functionality  
   models: {
-    fetchOpenRouter: (apiKey: string) => Promise<{ success: boolean; data?: any[]; error?: string }>
+    fetchOpenRouter: (apiKey?: string) => Promise<{ success: boolean; data?: any[]; error?: string }>
     fetchGateway: (apiKey: string, baseUrl?: string) => Promise<{ success: boolean; data?: any[]; error?: string }>
     fetchLocal: (endpoint: string) => Promise<{ success: boolean; data?: any[]; error?: string }>
   }
@@ -140,7 +140,7 @@ const api: LevanteAPI = {
 
   // Model API
   models: {
-    fetchOpenRouter: (apiKey: string) => 
+    fetchOpenRouter: (apiKey?: string) => 
       ipcRenderer.invoke('levante/models/openrouter', apiKey),
     fetchGateway: (apiKey: string, baseUrl?: string) => 
       ipcRenderer.invoke('levante/models/gateway', apiKey, baseUrl),

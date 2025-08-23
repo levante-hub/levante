@@ -10,13 +10,19 @@ interface ModelResponse {
 
 export class ModelFetchService {
   // Fetch OpenRouter models
-  static async fetchOpenRouterModels(apiKey: string): Promise<any[]> {
+  static async fetchOpenRouterModels(apiKey?: string): Promise<any[]> {
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      
+      // Add authorization header only if API key is provided
+      if (apiKey) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+      }
+      
       const response = await fetch('https://openrouter.ai/api/v1/models', {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        }
+        headers
       });
 
       if (!response.ok) {

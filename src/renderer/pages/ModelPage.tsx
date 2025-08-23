@@ -44,23 +44,23 @@ const ModelPage = () => {
 
   const handleSelectAll = () => {
     if (!activeProvider) return;
-    
+
     const selections: { [modelId: string]: boolean } = {};
     activeProvider.models.filter(m => m.isAvailable).forEach(model => {
       selections[model.id] = true;
     });
-    
+
     setModelSelections(activeProvider.id, selections);
   };
 
   const handleDeselectAll = () => {
     if (!activeProvider) return;
-    
+
     const selections: { [modelId: string]: boolean } = {};
     activeProvider.models.filter(m => m.isAvailable).forEach(model => {
       selections[model.id] = false;
     });
-    
+
     setModelSelections(activeProvider.id, selections);
   };
 
@@ -96,175 +96,175 @@ const ModelPage = () => {
           </p>
         </div>
 
-      {error && (
-        <Alert variant="destructive">
-          <XCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
+        {error && (
+          <Alert variant="destructive">
+            <XCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
-      {success && (
-        <Alert>
-          <CheckCircle className="h-4 w-4" />
-          <AlertDescription>{success}</AlertDescription>
-        </Alert>
-      )}
+        {success && (
+          <Alert>
+            <CheckCircle className="h-4 w-4" />
+            <AlertDescription>{success}</AlertDescription>
+          </Alert>
+        )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Active Provider</CardTitle>
-          <CardDescription>
-            Select the AI provider to use for new conversations
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="provider-select">Provider</Label>
-              <Select value={activeProvider?.id || ''} onValueChange={handleProviderChange}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a provider" />
-                </SelectTrigger>
-                <SelectContent>
-                  {providers.map((provider) => (
-                    <SelectItem key={provider.id} value={provider.id}>
-                      <div className="flex items-center gap-2">
-                        <span>{provider.name}</span>
-                        {provider.apiKey && <Badge variant="secondary" className="text-xs">Configured</Badge>}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {activeProvider && (
-              <div className="text-sm text-muted-foreground">
-                <p>
-                  <strong>Models available:</strong> {activeProvider.models.filter(m => m.isAvailable).length}
-                </p>
-                <p>
-                  <strong>Model source:</strong> {activeProvider.modelSource === 'dynamic' ? 'Fetched automatically' : 'User-defined'}
-                </p>
-                {activeProvider.lastModelSync && (
-                  <p>
-                    <strong>Last sync:</strong> {new Date(activeProvider.lastModelSync).toLocaleString()}
-                  </p>
-                )}
+        <Card>
+          <CardHeader className='pb-2'>
+            <CardTitle>Active Provider</CardTitle>
+            <CardDescription>
+              Select the AI provider to use for new conversations
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <div>
+                <Label htmlFor="provider-select"></Label>
+                <Select value={activeProvider?.id || ''} onValueChange={handleProviderChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a provider" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {providers.map((provider) => (
+                      <SelectItem key={provider.id} value={provider.id}>
+                        <div className="flex items-center gap-2">
+                          <span>{provider.name}</span>
+                          {provider.apiKey && <Badge variant="secondary" className="text-xs">Configured</Badge>}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
 
-      <Tabs defaultValue="configuration" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="configuration">Configuration</TabsTrigger>
-          <TabsTrigger value="models">Models</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="configuration" className="space-y-4">
-          {activeProvider ? (
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      {activeProvider.name}
-                      <Badge>Active</Badge>
-                    </CardTitle>
-                    <CardDescription>
-                      {getProviderDescription(activeProvider.type)}
-                    </CardDescription>
-                  </div>
+              {activeProvider && (
+                <div className="text-sm text-muted-foreground">
+                  <p>
+                    <strong>Models available:</strong> {activeProvider.models.filter(m => m.isAvailable).length}
+                  </p>
+                  <p>
+                    <strong>Model source:</strong> {activeProvider.modelSource === 'dynamic' ? 'Fetched automatically' : 'User-defined'}
+                  </p>
+                  {activeProvider.lastModelSync && (
+                    <p>
+                      <strong>Last sync:</strong> {new Date(activeProvider.lastModelSync).toLocaleString()}
+                    </p>
+                  )}
                 </div>
-              </CardHeader>
-              <CardContent>
-                {renderProviderConfig(activeProvider)}
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardContent>
-                <p className="text-muted-foreground text-center py-8">
-                  No active provider selected. Please select a provider above.
-                </p>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
-        <TabsContent value="models" className="space-y-4">
-          {activeProvider && (
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>Available Models</CardTitle>
-                    <CardDescription>
-                      Models from {activeProvider.name}
-                    </CardDescription>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {activeProvider.modelSource === 'dynamic' && (
-                      <>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={handleSelectAll}
-                          disabled={syncing}
-                        >
-                          Select All
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={handleDeselectAll}
-                          disabled={syncing}
-                        >
-                          Deselect All
-                        </Button>
-                      </>
-                    )}
-                    {activeProvider.modelSource === 'dynamic' && (
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => syncProviderModels(activeProvider.id)}
-                        disabled={syncing}
-                      >
-                        <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-                        Sync Models
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {activeProvider.modelSource === 'dynamic' && (
-                  <div className="mb-4 p-3 bg-muted rounded-lg">
-                    <div className="flex items-center justify-between text-sm">
-                      <span>
-                        Selected: {activeProvider.models.filter(m => m.isAvailable && m.isSelected !== false).length} 
-                        {' of '} 
-                        {activeProvider.models.filter(m => m.isAvailable).length} models
-                      </span>
-                      <span className="text-muted-foreground">
-                        Only selected models appear in chat
-                      </span>
+        <Tabs defaultValue="configuration" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="configuration">Configuration</TabsTrigger>
+            <TabsTrigger value="models">Models</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="configuration" className="space-y-4">
+            {activeProvider ? (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        {activeProvider.name}
+                        <Badge>Active</Badge>
+                      </CardTitle>
+                      <CardDescription>
+                        {getProviderDescription(activeProvider.type)}
+                      </CardDescription>
                     </div>
                   </div>
-                )}
-                <ModelList 
-                  models={activeProvider.models.filter(m => m.isAvailable)} 
-                  showSelection={activeProvider.modelSource === 'dynamic'}
-                  onModelToggle={handleModelToggle}
-                />
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-      </Tabs>
+                </CardHeader>
+                <CardContent>
+                  {renderProviderConfig(activeProvider)}
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardContent>
+                  <p className="text-muted-foreground text-center py-8">
+                    No active provider selected. Please select a provider above.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="models" className="space-y-4">
+            {activeProvider && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>Available Models</CardTitle>
+                      <CardDescription>
+                        Models from {activeProvider.name}
+                      </CardDescription>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {activeProvider.modelSource === 'dynamic' && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleSelectAll}
+                            disabled={syncing}
+                          >
+                            Select All
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleDeselectAll}
+                            disabled={syncing}
+                          >
+                            Deselect All
+                          </Button>
+                        </>
+                      )}
+                      {activeProvider.modelSource === 'dynamic' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => syncProviderModels(activeProvider.id)}
+                          disabled={syncing}
+                        >
+                          <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+                          Sync Models
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {activeProvider.modelSource === 'dynamic' && (
+                    <div className="mb-4 p-3 bg-muted rounded-lg">
+                      <div className="flex items-center justify-between text-sm">
+                        <span>
+                          Selected: {activeProvider.models.filter(m => m.isAvailable && m.isSelected !== false).length}
+                          {' of '}
+                          {activeProvider.models.filter(m => m.isAvailable).length} models
+                        </span>
+                        <span className="text-muted-foreground">
+                          Only selected models appear in chat
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  <ModelList
+                    models={activeProvider.models.filter(m => m.isAvailable)}
+                    showSelection={activeProvider.modelSource === 'dynamic'}
+                    onModelToggle={handleModelToggle}
+                  />
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
@@ -305,19 +305,17 @@ const OpenRouterConfig = ({ provider }: { provider: ProviderConfig }) => {
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">
-          Get your API key from{' '}
+          API key is optional for model listing but required for inference.{' '}
           <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="underline">
-            OpenRouter Dashboard <ExternalLink className="w-3 h-3 inline" />
+            Get your key <ExternalLink className="w-3 h-3 inline" />
           </a>
         </p>
       </div>
-      
-      {provider.apiKey && (
-        <Button onClick={handleSync} disabled={syncing} variant="outline">
-          <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-          Sync Models
-        </Button>
-      )}
+
+      <Button onClick={handleSync} disabled={syncing} variant="outline">
+        <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+        Sync Models
+      </Button>
     </div>
   );
 };
@@ -362,7 +360,7 @@ const GatewayConfig = ({ provider }: { provider: ProviderConfig }) => {
           </Button>
         </div>
       </div>
-      
+
       <div className="space-y-2">
         <Label htmlFor="gateway-url">Base URL</Label>
         <Input
@@ -424,12 +422,12 @@ const CloudConfig = ({ provider }: { provider: ProviderConfig }) => {
   );
 };
 
-const ModelList = ({ 
-  models, 
-  showSelection = false, 
-  onModelToggle 
-}: { 
-  models: Model[]; 
+const ModelList = ({
+  models,
+  showSelection = false,
+  onModelToggle
+}: {
+  models: Model[];
   showSelection?: boolean;
   onModelToggle?: (modelId: string, selected: boolean) => void;
 }) => {
