@@ -4,6 +4,8 @@ import { config } from "dotenv";
 import { AIService, ChatRequest } from "./services/aiService";
 import { databaseService } from "./services/databaseService";
 import { setupDatabaseHandlers } from "./ipc/databaseHandlers";
+import { setupPreferencesHandlers } from "./ipc/preferencesHandlers";
+import { preferencesService } from "./services/preferencesService";
 
 // Load environment variables from .env.local and .env files
 config({ path: join(__dirname, "../../.env.local") });
@@ -81,8 +83,18 @@ app.whenReady().then(async () => {
     // Could show error dialog or continue with degraded functionality
   }
 
+  // Initialize preferences service
+  try {
+    await preferencesService.initialize();
+    console.log('Preferences service initialized successfully');
+  } catch (error) {
+    console.error('Failed to initialize preferences service:', error);
+    // Could show error dialog or continue with degraded functionality
+  }
+
   // Setup IPC handlers
   setupDatabaseHandlers();
+  setupPreferencesHandlers();
 
   createWindow();
 

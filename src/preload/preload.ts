@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { UIMessage } from 'ai'
+import { UIPreferences, PreferenceKey } from '../types/preferences'
 
 export interface ChatRequest {
   messages: UIMessage[];
@@ -24,6 +25,19 @@ export interface LevanteAPI {
   // Chat functionality
   sendMessage: (request: ChatRequest) => Promise<{ success: boolean; response: string; sources?: any[]; reasoning?: string }>
   streamChat: (request: ChatRequest, onChunk: (chunk: ChatStreamChunk) => void) => Promise<string>
+  
+  // Preferences functionality
+  preferences: {
+    get: <K extends PreferenceKey>(key: K) => Promise<{ success: boolean; data?: UIPreferences[K]; error?: string }>
+    set: <K extends PreferenceKey>(key: K, value: UIPreferences[K]) => Promise<{ success: boolean; data?: UIPreferences[K]; error?: string }>
+    getAll: () => Promise<{ success: boolean; data?: UIPreferences; error?: string }>
+    reset: () => Promise<{ success: boolean; data?: UIPreferences; error?: string }>
+    has: (key: PreferenceKey) => Promise<{ success: boolean; data?: boolean; error?: string }>
+    delete: (key: PreferenceKey) => Promise<{ success: boolean; data?: boolean; error?: string }>
+    export: () => Promise<{ success: boolean; data?: UIPreferences; error?: string }>
+    import: (preferences: Partial<UIPreferences>) => Promise<{ success: boolean; data?: UIPreferences; error?: string }>
+    info: () => Promise<{ success: boolean; data?: { path: string; size: number }; error?: string }>
+  }
   
   // Settings (placeholder for future implementation)
   getSettings: () => Promise<Record<string, any>>
@@ -77,6 +91,36 @@ const api: LevanteAPI = {
       
       ipcRenderer.on(`levante/chat/stream/${streamId}`, handleChunk)
     })
+  },
+
+  // Preferences API
+  preferences: {
+    get: <K extends PreferenceKey>(key: K) => 
+      ipcRenderer.invoke('levante/preferences/get', key),
+    
+    set: <K extends PreferenceKey>(key: K, value: UIPreferences[K]) => 
+      ipcRenderer.invoke('levante/preferences/set', key, value),
+    
+    getAll: () => 
+      ipcRenderer.invoke('levante/preferences/getAll'),
+    
+    reset: () => 
+      ipcRenderer.invoke('levante/preferences/reset'),
+    
+    has: (key: PreferenceKey) => 
+      ipcRenderer.invoke('levante/preferences/has', key),
+    
+    delete: (key: PreferenceKey) => 
+      ipcRenderer.invoke('levante/preferences/delete', key),
+    
+    export: () => 
+      ipcRenderer.invoke('levante/preferences/export'),
+    
+    import: (preferences: Partial<UIPreferences>) => 
+      ipcRenderer.invoke('levante/preferences/import', preferences),
+    
+    info: () => 
+      ipcRenderer.invoke('levante/preferences/info')
   },
     
   getSettings: () => 
