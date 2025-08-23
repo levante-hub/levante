@@ -1,8 +1,14 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron'
-import { join } from 'path'
+import { app, BrowserWindow, ipcMain, shell } from "electron";
+import { join } from "path";
+import { config } from "dotenv";
+import { AIService, ChatRequest } from "./services/aiService";
+
+// Load environment variables from .env.local and .env files
+config({ path: join(__dirname, "../../.env.local") });
+config({ path: join(__dirname, "../../.env") });
 
 // Keep a global reference of the window object
-let mainWindow: BrowserWindow | null = null
+let mainWindow: BrowserWindow | null = null;
 
 function createWindow(): void {
   // Create the browser window
@@ -12,91 +18,130 @@ function createWindow(): void {
     minWidth: 800,
     minHeight: 600,
     show: false,
-    icon: join(__dirname, '../../resources/icons/icon.png'), // App icon
-    titleBarStyle: process.platform === 'darwin' ? 'default' : 'default',
+    icon: join(__dirname, "../../resources/icons/icon.png"), // App icon
+    titleBarStyle: process.platform === "darwin" ? "default" : "default",
     webPreferences: {
-      preload: join(__dirname, '../preload/preload.js'),
+      preload: join(__dirname, "../preload/preload.js"),
       sandbox: false, // Required for some native modules
       contextIsolation: true,
       nodeIntegration: false,
-      webSecurity: true
-    }
-  })
+      webSecurity: true,
+    },
+  });
 
   // Load the app
-  if (process.env.NODE_ENV === 'development' && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
+  if (
+    process.env.NODE_ENV === "development" &&
+    process.env["ELECTRON_RENDERER_URL"]
+  ) {
+    mainWindow.loadURL(process.env["ELECTRON_RENDERER_URL"]);
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    mainWindow.loadFile(join(__dirname, "../renderer/index.html"));
   }
 
   // Show window when ready to prevent visual flash
-  mainWindow.on('ready-to-show', () => {
-    mainWindow?.show()
-    
-    if (process.env.NODE_ENV === 'development') {
-      mainWindow?.webContents.openDevTools()
+  mainWindow.on("ready-to-show", () => {
+    mainWindow?.show();
+
+    if (process.env.NODE_ENV === "development") {
+      mainWindow?.webContents.openDevTools();
+
+      // Note: Autofill DevTools errors are a known Electron issue and cannot be suppressed
+      // See: https://github.com/electron/electron/issues/46868
     }
-  })
+  });
 
   // Handle window closed
-  mainWindow.on('closed', () => {
-    mainWindow = null
-  })
+  mainWindow.on("closed", () => {
+    mainWindow = null;
+  });
 
   // Security: Handle external links
   mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
-    return { action: 'deny' }
-  })
+    shell.openExternal(details.url);
+    return { action: "deny" };
+  });
 }
 
 // App event handlers
 app.whenReady().then(() => {
   // Set app user model id for windows
-  if (process.platform === 'win32') {
-    app.setAppUserModelId('com.levante.app')
+  if (process.platform === "win32") {
+    app.setAppUserModelId("com.levante.app");
   }
 
-  createWindow()
+  createWindow();
 
-  app.on('activate', function () {
+  app.on("activate", function () {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
-  })
-})
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  });
+});
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit()
-})
+app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") app.quit();
+});
 
 // IPC handlers for secure communication
-ipcMain.handle('levante/app/version', () => {
-  return app.getVersion()
-})
+ipcMain.handle("levante/app/version", () => {
+  return app.getVersion();
+});
 
-ipcMain.handle('levante/app/platform', () => {
-  return process.platform
-})
+ipcMain.handle("levante/app/platform", () => {
+  return process.platform;
+});
 
-// Placeholder for chat functionality
-ipcMain.handle('levante/chat/send', async (event, message: string) => {
-  // This will be implemented with AI SDK integration
-  return { 
-    success: true, 
-    response: `Echo: ${message}` 
-  }
-})
+// Initialize AI service
+const aiService = new AIService();
 
-// In development, enable hot reload
-if (process.env.NODE_ENV === 'development') {
+// Streaming chat handler
+ipcMain.handle("levante/chat/stream", async (event, request: ChatRequest) => {
+  console.log("Received chat stream request:", request);
+  const streamId = `stream_${Date.now()}_${Math.random()
+    .toString(36)
+    .substring(2, 11)}`;
+
+  // Start streaming immediately - listeners should be ready (Expo pattern)
+  setTimeout(async () => {
+    try {
+      console.log("Starting AI stream...");
+      for await (const chunk of aiService.streamChat(request)) {
+        // Send chunk immediately without buffering (pattern from Expo)
+        event.sender.send(`levante/chat/stream/${streamId}`, chunk);
+        // Small yield to prevent blocking the event loop
+        await new Promise((resolve) => setImmediate(resolve));
+
+        // Log when stream completes
+        if (chunk.done) {
+          console.log("AI stream completed successfully");
+        }
+      }
+    } catch (error) {
+      console.error("AI Stream error:", error);
+      event.sender.send(`levante/chat/stream/${streamId}`, {
+        error: error instanceof Error ? error.message : "Stream error",
+        done: true,
+      });
+    }
+  }, 10); // Reduced delay following Expo patterns
+
+  console.log("Returning streamId:", streamId);
+  return { streamId };
+});
+
+// Non-streaming chat handler (for compatibility)
+ipcMain.handle("levante/chat/send", async (event, request: ChatRequest) => {
   try {
-    require('electron-reload')(__dirname, {
-      electron: join(__dirname, '../../node_modules/.bin/electron'),
-      hardResetMethod: 'exit'
-    })
-  } catch (e) {
-    // electron-reload not available, that's ok
+    const result = await aiService.sendSingleMessage(request);
+    return {
+      success: true,
+      ...result,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
   }
-}
+});

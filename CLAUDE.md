@@ -78,3 +78,4 @@ This is an early-stage project (post-initial commit) focused on building a cross
 - **User consent**: Explicit one-click consent for all MCP tool invocations
 - **Multi-provider**: Flexible AI provider switching through unified AI SDK interface
 - **Testability**: Hexagonal architecture enables easy mocking and testing of all components
+- utiliza el alias "@" cuando estamos dentro de ./src/renderer
