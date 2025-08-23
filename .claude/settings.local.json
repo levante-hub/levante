@@ -20,7 +20,8 @@
       "mcp__context7__get-library-docs",
       "Bash(source:*)",
       "Bash(find:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "WebFetch(domain:docs.turso.tech)"
     ],
     "deny": [],
     "ask": []
