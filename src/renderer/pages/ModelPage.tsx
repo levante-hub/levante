@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,149 +8,68 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, CheckCircle, XCircle, ExternalLink, RefreshCw } from 'lucide-react';
-import { modelService } from '@/services/modelService';
+import { useModelStore } from '@/stores/modelStore';
 import type { ProviderConfig, Model } from '../../types/models';
 
 const ModelPage = () => {
-  const [providers, setProviders] = useState<ProviderConfig[]>([]);
-  const [activeProvider, setActiveProvider] = useState<ProviderConfig | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [syncing, setSyncing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const {
+    providers,
+    activeProvider,
+    loading,
+    syncing,
+    error,
+    success,
+    initialize,
+    setActiveProvider,
+    updateProvider,
+    syncProviderModels,
+    toggleModelSelection,
+    setModelSelections,
+    clearMessages
+  } = useModelStore();
 
   useEffect(() => {
-    loadProviders();
-  }, []);
+    initialize();
+  }, [initialize]);
 
-  const loadProviders = async () => {
-    try {
-      setLoading(true);
-      await modelService.initialize();
-      setProviders(modelService.getProviders());
-      setActiveProvider(await modelService.getActiveProvider());
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load providers');
-    } finally {
-      setLoading(false);
-    }
+  const handleProviderChange = (providerId: string) => {
+    clearMessages();
+    setActiveProvider(providerId);
   };
 
-  const handleProviderChange = async (providerId: string) => {
-    try {
-      setError(null);
-      await modelService.setActiveProvider(providerId);
-      const newActiveProvider = await modelService.getActiveProvider();
-      setActiveProvider(newActiveProvider);
-      setProviders(modelService.getProviders());
-      setSuccess(`Switched to ${newActiveProvider?.name}`);
-      setTimeout(() => setSuccess(null), 3000);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to switch provider');
-    }
+  const handleModelToggle = (modelId: string, selected: boolean) => {
+    if (!activeProvider) return;
+    toggleModelSelection(activeProvider.id, modelId, selected);
   };
 
-  const handleApiKeyUpdate = async (providerId: string, apiKey: string) => {
-    try {
-      setError(null);
-      await modelService.updateProvider(providerId, { apiKey });
-      setProviders(modelService.getProviders());
-      setSuccess('API key updated successfully');
-      setTimeout(() => setSuccess(null), 3000);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update API key');
-    }
-  };
-
-  const handleSyncModels = async (providerId: string) => {
-    try {
-      setSyncing(true);
-      setError(null);
-      await modelService.syncProviderModels(providerId);
-      setProviders(modelService.getProviders());
-      setSuccess('Models synced successfully');
-      setTimeout(() => setSuccess(null), 3000);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to sync models');
-    } finally {
-      setSyncing(false);
-    }
-  };
-
-  const handleModelToggle = async (modelId: string, selected: boolean) => {
+  const handleSelectAll = () => {
     if (!activeProvider) return;
     
-    try {
-      setError(null);
-      await modelService.toggleModelSelection(activeProvider.id, modelId, selected);
-      
-      // Force refresh by creating new object references
-      const updatedProviders = JSON.parse(JSON.stringify(modelService.getProviders()));
-      const updatedActiveProvider = await modelService.getActiveProvider();
-      
-      setProviders(updatedProviders);
-      setActiveProvider(updatedActiveProvider);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update model selection');
-    }
+    const selections: { [modelId: string]: boolean } = {};
+    activeProvider.models.filter(m => m.isAvailable).forEach(model => {
+      selections[model.id] = true;
+    });
+    
+    setModelSelections(activeProvider.id, selections);
   };
 
-  const handleSelectAll = async () => {
+  const handleDeselectAll = () => {
     if (!activeProvider) return;
     
-    try {
-      setError(null);
-      const selections: { [modelId: string]: boolean } = {};
-      activeProvider.models.filter(m => m.isAvailable).forEach(model => {
-        selections[model.id] = true;
-      });
-      
-      await modelService.setModelSelections(activeProvider.id, selections);
-      
-      // Force refresh by creating new object references
-      const updatedProviders = JSON.parse(JSON.stringify(modelService.getProviders()));
-      const updatedActiveProvider = await modelService.getActiveProvider();
-      
-      setProviders(updatedProviders);
-      setActiveProvider(updatedActiveProvider);
-      setSuccess('All models selected');
-      setTimeout(() => setSuccess(null), 2000);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to select all models');
-    }
-  };
-
-  const handleDeselectAll = async () => {
-    if (!activeProvider) return;
+    const selections: { [modelId: string]: boolean } = {};
+    activeProvider.models.filter(m => m.isAvailable).forEach(model => {
+      selections[model.id] = false;
+    });
     
-    try {
-      setError(null);
-      const selections: { [modelId: string]: boolean } = {};
-      activeProvider.models.filter(m => m.isAvailable).forEach(model => {
-        selections[model.id] = false;
-      });
-      
-      await modelService.setModelSelections(activeProvider.id, selections);
-      
-      // Force refresh by creating new object references
-      const updatedProviders = JSON.parse(JSON.stringify(modelService.getProviders()));
-      const updatedActiveProvider = await modelService.getActiveProvider();
-      
-      setProviders(updatedProviders);
-      setActiveProvider(updatedActiveProvider);
-      setSuccess('All models deselected');
-      setTimeout(() => setSuccess(null), 2000);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to deselect all models');
-    }
+    setModelSelections(activeProvider.id, selections);
   };
 
   const renderProviderConfig = (provider: ProviderConfig) => {
     switch (provider.type) {
       case 'openrouter':
-        return <OpenRouterConfig provider={provider} onApiKeyUpdate={handleApiKeyUpdate} onSync={handleSyncModels} syncing={syncing} />;
+        return <OpenRouterConfig provider={provider} />;
       case 'vercel-gateway':
-        return <GatewayConfig provider={provider} onApiKeyUpdate={handleApiKeyUpdate} onSync={handleSyncModels} syncing={syncing} />;
+        return <GatewayConfig provider={provider} />;
       case 'local':
         return <LocalConfig provider={provider} />;
       case 'cloud':
@@ -311,7 +230,7 @@ const ModelPage = () => {
                       <Button 
                         variant="outline" 
                         size="sm" 
-                        onClick={() => handleSyncModels(activeProvider.id)}
+                        onClick={() => syncProviderModels(activeProvider.id)}
                         disabled={syncing}
                       >
                         <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
@@ -352,18 +271,22 @@ const ModelPage = () => {
 };
 
 // Provider-specific configuration components
-const OpenRouterConfig = ({ 
-  provider, 
-  onApiKeyUpdate, 
-  onSync, 
-  syncing 
-}: { 
-  provider: ProviderConfig; 
-  onApiKeyUpdate: (id: string, key: string) => void;
-  onSync: (id: string) => void;
-  syncing: boolean;
-}) => {
-  const [apiKey, setApiKey] = useState(provider.apiKey || '');
+const OpenRouterConfig = ({ provider }: { provider: ProviderConfig }) => {
+  const { updateProvider, syncProviderModels, syncing } = useModelStore();
+  const [apiKey, setApiKey] = React.useState(provider.apiKey || '');
+
+  // Sync local state when provider changes
+  React.useEffect(() => {
+    setApiKey(provider.apiKey || '');
+  }, [provider.apiKey]);
+
+  const handleSave = () => {
+    updateProvider(provider.id, { apiKey });
+  };
+
+  const handleSync = () => {
+    syncProviderModels(provider.id);
+  };
 
   return (
     <div className="space-y-4">
@@ -377,7 +300,7 @@ const OpenRouterConfig = ({
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
           />
-          <Button onClick={() => onApiKeyUpdate(provider.id, apiKey)}>
+          <Button onClick={handleSave}>
             Save
           </Button>
         </div>
@@ -390,7 +313,7 @@ const OpenRouterConfig = ({
       </div>
       
       {provider.apiKey && (
-        <Button onClick={() => onSync(provider.id)} disabled={syncing} variant="outline">
+        <Button onClick={handleSync} disabled={syncing} variant="outline">
           <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
           Sync Models
         </Button>
@@ -399,33 +322,27 @@ const OpenRouterConfig = ({
   );
 };
 
-const GatewayConfig = ({ 
-  provider, 
-  onApiKeyUpdate, 
-  onSync, 
-  syncing 
-}: { 
-  provider: ProviderConfig; 
-  onApiKeyUpdate: (id: string, key: string) => void;
-  onSync: (id: string) => void;
-  syncing: boolean;
-}) => {
-  const [apiKey, setApiKey] = useState(provider.apiKey || '');
-  const [baseUrl, setBaseUrl] = useState(provider.baseUrl || 'https://ai-gateway.vercel.sh/v1');
+const GatewayConfig = ({ provider }: { provider: ProviderConfig }) => {
+  const { updateProvider, syncProviderModels, syncing } = useModelStore();
+  const [apiKey, setApiKey] = React.useState(provider.apiKey || '');
+  const [baseUrl, setBaseUrl] = React.useState(provider.baseUrl || 'https://ai-gateway.vercel.sh/v1');
+
+  // Sync local state when provider changes
+  React.useEffect(() => {
+    setApiKey(provider.apiKey || '');
+    setBaseUrl(provider.baseUrl || 'https://ai-gateway.vercel.sh/v1');
+  }, [provider.apiKey, provider.baseUrl]);
 
   const handleSave = async () => {
-    try {
-      await modelService.updateProvider(provider.id, { 
-        apiKey, 
-        baseUrl 
-      });
-      // Trigger sync after saving
-      if (apiKey) {
-        onSync(provider.id);
-      }
-    } catch (error) {
-      console.error('Failed to update gateway config:', error);
+    await updateProvider(provider.id, { apiKey, baseUrl });
+    // Trigger sync after saving if API key is present
+    if (apiKey) {
+      syncProviderModels(provider.id);
     }
+  };
+
+  const handleSync = () => {
+    syncProviderModels(provider.id);
   };
 
   return (
@@ -464,7 +381,7 @@ const GatewayConfig = ({
       </div>
 
       {provider.apiKey && (
-        <Button onClick={() => onSync(provider.id)} disabled={syncing} variant="outline">
+        <Button onClick={handleSync} disabled={syncing} variant="outline">
           <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
           Sync Models
         </Button>
