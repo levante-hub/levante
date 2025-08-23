@@ -4,78 +4,168 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Development Commands
 
-The project uses pnpm as the package manager. Based on the README and build documentation:
-
 ```bash
 pnpm install                # Install dependencies
 pnpm dev                   # Run app in development mode
-pnpm build                 # Production build
-pnpm package              # Create installers per OS platform
+pnpm build                 # Production build (includes typecheck)
+pnpm typecheck             # Type checking only
+pnpm lint                  # ESLint checking
+pnpm lint:fix              # Auto-fix ESLint issues
+pnpm test                  # Run Vitest unit tests
+pnpm test:ui               # Run Vitest with UI
+pnpm test:e2e              # Run Playwright E2E tests
+pnpm package               # Create installers per OS platform
 ```
-
-Note: No actual package.json was found yet - this is an early-stage project with mostly documentation.
-
-## Testing
-
-From docs/TESTING.md, the project will use:
-- **Unit/Integration Tests**: Vitest/Jest + ts-node/tsx for DB, AI, and MCP services with mocks
-- **E2E Tests**: Playwright on dev packaging for complete user flows
-- **Performance Tests**: Node scripts for cold start and response times
-- **Security Tests**: Focus on keychain, encryption, and MCP permissions
 
 ## Architecture Overview
 
-Levante follows **Hexagonal Architecture** (Ports & Adapters pattern) as defined in ADR 0005:
+Levante is an Electron-based desktop AI chat application with multi-provider support. The architecture follows **Hexagonal Architecture** principles with clear separation between layers:
 
-### Core Layers
-- **Domain**: Core business entities (Session, Message, MCPServer, MCPTool, Provider, Model) and policies
-- **Application**: Use cases and ports (`ChatPort`, `MCPPort`, `SearchPort`, `SettingsPort`) 
-- **Adapters**: Infrastructure adapters (DB, AI SDK, MCP, Keychain) and UI (React + Electron)
+### Core Structure
+- **Main Process** (`src/main/`): Node.js backend with services and IPC handlers
+- **Preload** (`src/preload/`): Secure bridge between main and renderer processes
+- **Renderer** (`src/renderer/`): React frontend with TypeScript
 
 ### Key Technologies
-- **Platform**: Electron (Main/Preload/Renderer) with secure IPC
-- **Frontend**: React + TypeScript with context isolation
-- **AI**: AI SDK for multi-provider support (OpenAI, Anthropic, OpenRouter, Google, etc.)
-- **Database**: SQLite with Turso compatibility for local storage
-- **MCP**: Model Context Protocol for tool invocation with consent + audit
-- **Security**: Keychain integration, encrypted secrets, sandboxed renderer
+- **Platform**: Electron with secure IPC using `levante/*` namespace
+- **Frontend**: React + TypeScript with shadcn/ui components and Tailwind CSS
+- **State Management**: Zustand for global state (chat, models, preferences)
+- **AI Integration**: Vercel AI SDK with multi-provider support
+- **Database**: SQLite with schema migrations
+- **Storage**: electron-store for encrypted preferences at `~/Library/Application Support/Levante/ui-preferences.json`
 
-### Data Flow
-React UI → Preload API (validated) → Application port → Infrastructure adapter → External service (AI/MCP/DB) → back through port → UI render
+### Multi-Provider AI System
+
+The application supports multiple AI providers through a unified architecture:
+
+**Supported Providers:**
+- **OpenRouter**: Public model listing (API key optional), supports 500+ models
+- **Vercel AI Gateway**: Custom gateway with model filtering
+- **Local**: Ollama-compatible endpoints
+- **Cloud**: Direct provider APIs (OpenAI, Anthropic, Google)
+
+**Provider Architecture:**
+```
+ModelStore (Zustand) → ModelService → ModelFetchService → IPC → Main Process → External APIs
+```
+
+**Endpoint Handling:**
+- OpenRouter: `/api/v1/models` for listing, `/api/v1` for inference
+- Vercel Gateway: `/v1/models` for listing, `/v1/ai` for inference
+- API keys stored securely in electron-store with encryption
 
 ## Database Schema
 
-The SQLite database (see docs/DB/MIGRATIONS/0001_init.sql) includes:
-- `chat_sessions`: Chat session management with model and folder organization
-- `messages`: Message storage with role, content, and tool invocation tracking  
-- `providers` & `models`: AI provider and model configuration
-- `mcp_servers` & `mcp_tools`: MCP server registration and tool definitions
-- `settings`: Application settings key-value store
+SQLite database with migrations in `docs/DB/MIGRATIONS/`:
+- `chat_sessions`: Session management with model tracking
+- `messages`: Message storage with streaming support
+- Schema version tracking for migrations
 
-## IPC Contracts
+## IPC Communication
 
-Electron IPC uses `levante/*` namespace:
-- `levante/chat/send` → streams `{ delta?, done?, error? }`
-- `levante/mcp/invoke` → returns `{ output }`
-- `levante/db/searchText` → returns `{ items: Array<{id, snippet, score}> }`
+All IPC uses the `levante/*` namespace with structured responses:
 
-## MCP Integration
+**Chat:**
+- `levante/chat/stream` → Streaming chat responses
+- `levante/chat/send` → Single message requests
 
-Model Context Protocol integration focuses on:
-- **Server Registration**: Add by URL/manifest, local discovery, or profile import
-- **Consent & Permissions**: Per-server/tool consent with risk descriptions and audit trails
-- **Execution**: Isolated processes with timeouts, limits, and robust error handling
-- **UX**: Non-technical friendly interface with tool suggestions and invocation traces
+**Models:**
+- `levante/models/openrouter` → Fetch OpenRouter models
+- `levante/models/gateway` → Fetch Gateway models
+- `levante/models/local` → Discover local models
 
-## Project Status
+**Preferences:**
+- `levante/preferences/get|set|getAll` → Settings management
 
-This is an early-stage project (post-initial commit) focused on building a cross-platform desktop AI application. The codebase currently contains comprehensive documentation and architecture decisions, but implementation is just beginning.
+## State Management with Zustand
 
-## Key Design Principles
+**ChatStore** (`src/renderer/stores/chatStore.ts`):
+- Current chat state, streaming messages, session management
+- Database message handling with pagination
 
-- **Privacy by default**: All data stored locally, only AI provider calls leave device
-- **Security first**: Context isolation, sandboxed renderer, strict IPC schemas, keychain secrets
-- **User consent**: Explicit one-click consent for all MCP tool invocations
-- **Multi-provider**: Flexible AI provider switching through unified AI SDK interface
-- **Testability**: Hexagonal architecture enables easy mocking and testing of all components
-- utiliza el alias "@" cuando estamos dentro de ./src/renderer
+**ModelStore** (`src/renderer/stores/modelStore.ts`):
+- Provider configuration, model synchronization
+- Bulk and individual model selection
+- Real-time updates across UI components
+
+## Component Architecture
+
+**Pages:**
+- `ChatPage`: Main chat interface with model selection
+- `ModelPage`: Provider configuration and model management
+- `SettingsPage`: Application preferences
+
+**AI Components** (`src/renderer/components/ai-elements/`):
+- `prompt-input`: Chat input with model selector
+- `message`: Message display with streaming support
+- `code-block`: Syntax highlighted code blocks
+
+## Security & CSP
+
+Content Security Policy configured in `src/renderer/index.html`:
+```html
+script-src 'self' 'unsafe-inline' blob:; worker-src 'self' blob:;
+```
+
+This allows Vite workers in development while maintaining security.
+
+## Model Management System
+
+**Configuration Storage:**
+- Preferences saved to `ui-preferences.json` with encryption
+- Model lists cached locally for offline access
+- API keys stored securely per provider
+
+**Dynamic vs User-Defined Models:**
+- **Dynamic**: Fetched from provider APIs (OpenRouter, Gateway)
+- **User-Defined**: Manually configured (Local, Cloud providers)
+
+**Model Selection Flow:**
+1. Select Active Provider
+2. Configure API keys/endpoints
+3. Sync models from provider
+4. Select which models appear in chat
+5. Models available across all chat sessions
+
+## Development Patterns
+
+**Renderer Alias:**
+Use `@` alias for imports within `src/renderer`:
+```typescript
+import { modelService } from '@/services/modelService';
+import { Button } from '@/components/ui/button';
+```
+
+**Error Handling:**
+- IPC responses use `{ success: boolean; data?: T; error?: string }` pattern
+- Zustand stores handle async operations with loading/error states
+- UI displays errors using shadcn/ui Alert components
+
+**State Updates:**
+- Use Zustand actions for state modifications
+- Avoid direct state mutation
+- UI components subscribe to specific store slices for performance
+
+## Environment Configuration
+
+Environment variables loaded from:
+1. `.env.local` (highest priority, git-ignored)
+2. `.env` (committed defaults)
+
+Common variables:
+- `OPENAI_API_KEY`
+- `ANTHROPIC_API_KEY`
+- `GOOGLE_GENERATIVE_AI_API_KEY`
+
+## Testing Strategy
+
+- **Unit/Integration**: Vitest for services and utilities
+- **E2E**: Playwright for complete user flows
+- **Manual Testing**: Development mode with DevTools enabled
+
+## Build System
+
+- **Bundler**: electron-vite with Vite for renderer, esbuild for main/preload
+- **TypeScript**: Strict mode with separate configs for main and preload processes
+- **Assets**: Icons and resources in `resources/` directory
+- **Output**: Built files in `out/` directory for development, `dist-electron/` for distribution

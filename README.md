@@ -1,28 +1,74 @@
 # Levante - Personal, Secure, Free, Local AI
 
+![Levante Preview](docs/images/levante-preview-social.png)
 
-Levante is a cross‑platform desktop app (Windows, macOS, Linux) + MCP Support that brings AI tools closer to everyone, not just technical users. It focuses on privacy, clarity, and ease of use.
+Levante is a cross‑platform desktop app (Windows, macOS, Linux) that brings AI tools closer to everyone, not just technical users. It focuses on privacy, clarity, and ease of use with support for multiple AI providers and the Model Context Protocol (MCP).
 
 ## Key Features
-- **Local and cloud provider model:** choose local (when available) or cloud models per session.
-- **Model Context Protocol Store (MCP Store):** browse, add, manage, and invoke tools with explicit, one‑click consent.
-- **Privacy by default:** all data (sessions, messages, settings) is stored locally; only calls to cloud AI providers leave your device.
 
-## Download
+### 🎯 Multi-Provider AI Support
+- **OpenRouter Integration:** Access 100+ AI models from different providers with a single API key
+- **Vercel AI Gateway:** Use enterprise AI routing and fallback systems
+- **Local AI Models:** Connect to local services like Ollama, LM Studio, or custom endpoints
+- **Cloud Providers:** Direct integration with OpenAI, Anthropic, Google, and more
+- **Dynamic Model Management:** Automatically fetch and update available models from your configured providers
 
-| Platform | Download Link |
-|----------|---------------|
-| Windows  | [Download (.exe)](https://github.com/levante-app/releases/latest/download/Levante-Setup.exe) |
-| macOS    | [Download (.dmg)](https://github.com/levante-app/releases/latest/download/Levante.dmg) |
-| Linux    | [Download (.AppImage)](https://github.com/levante-app/releases/latest/download/Levante.AppImage) |
+### 🔐 Privacy & Security First
+- **Local-only storage:** All conversations, settings, and data stay on your device
+- **Secure API key management:** Encrypted storage using your system's keychain
+- **No telemetry:** Zero data collection or tracking
+- **Offline-capable:** Works with local models without internet connection
 
+### 🛠️ Model Context Protocol (MCP) Support
+- **MCP Store:** Browse, add, and manage AI tools with explicit consent
+- **One-click tool consent:** Clear understanding of what each tool does before execution
+- **Audit trail:** Complete history of tool invocations for transparency
+- **Sandboxed execution:** Safe tool execution with proper isolation
 
+## 🚀 Getting Started
 
-## Roadmap (high‑level)
-1) Foundations: Electron + React, local DB, sessions/messages
-2) Multi‑model + streaming (AI SDK)
-3) MCP basic (consent + audit)
-4) Packaging + auto‑update
+### Download
+*Note: Pre-built releases are coming soon. Currently available as source code for developers.*
+
+| Platform | Status |
+|----------|--------|
+| Windows  | 🔧 In Development |
+| macOS    | 🔧 In Development |
+| Linux    | 🔧 In Development |
+
+### Quick Setup
+1. **Choose Your AI Provider:**
+   - Create an [OpenRouter account](https://openrouter.ai) for easy access to 100+ models
+   - Or use your existing OpenAI, Anthropic, or Google API keys
+   - Or set up local models with Ollama
+
+2. **Configure in App:**
+   - Open Model Settings in the app
+   - Add your API key(s)
+   - Select which models you want to use
+   - Start chatting!
+
+3. **Privacy-First Design:**
+   - All data stays on your device
+   - API keys are encrypted and stored securely
+   - No account registration required
+
+## 🗺️ Current Status
+
+### ✅ Implemented Features
+- Multi-provider AI integration (OpenRouter, Vercel AI Gateway, Local, Cloud)
+- Secure API key management with encryption
+- Dynamic model fetching and selection
+- Local SQLite database for conversations
+- Real-time chat streaming
+- Cross-platform Electron app foundation
+
+### 🔧 In Development
+- MCP (Model Context Protocol) integration
+- Auto-update system
+- File upload and document analysis
+- Voice input and output
+- Long-term memory (RAG)
 
 ## Links
 - [Documentation](./docs/)
@@ -32,28 +78,23 @@ Levante is a cross‑platform desktop app (Windows, macOS, Linux) + MCP Support 
 - [Contact](https://levante.app/contact)
 
 
-## Tech Stack
-- Electron (Main/Preload/Renderer)
-- React + TypeScript (Renderer)
-- AI SDK (multi‑provider models)
-- SQLite (Turso‑compatible) for local storage
-- MCP (Model Context Protocol)
+## 💻 For Developers
 
-## Getting Started
+### Tech Stack
+- **Framework:** Electron with secure IPC architecture
+- **Frontend:** React + TypeScript with Zustand state management
+- **AI Integration:** Vercel AI SDK for multi-provider support
+- **Database:** SQLite (Turso-compatible) for local storage
+- **Security:** Encrypted keychain storage for API keys
+- **Architecture:** Hexagonal/Clean Architecture with ports & adapters
 
-Expected commands (subject to change):
+### Development Commands
 ```bash
-pnpm install
-pnpm dev      # run app in development
-pnpm build    # production build
-pnpm package  # create installers per OS
+pnpm install    # Install dependencies
+pnpm dev        # Run app in development mode
+pnpm build      # Production build
+pnpm package    # Create installers for current OS
 ```
-
-## Next Roadmap
-
-1) Upload Files
-2) RAG (Long term memory)
-3) Voice: Mic & Speak
 
 ## How to Contribute
 
