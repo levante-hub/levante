@@ -4,6 +4,7 @@ import { PreferenceKey, UIPreferences } from '../../types/preferences';
 
 export function setupPreferencesHandlers() {
   // Get single preference
+  ipcMain.removeHandler('levante/preferences/get');
   ipcMain.handle('levante/preferences/get', (_, key: PreferenceKey) => {
     try {
       const value = preferencesService.get(key);
@@ -21,6 +22,7 @@ export function setupPreferencesHandlers() {
   });
 
   // Set single preference
+  ipcMain.removeHandler('levante/preferences/set');
   ipcMain.handle('levante/preferences/set', (_, key: PreferenceKey, value: any) => {
     try {
       preferencesService.set(key, value);
@@ -38,6 +40,7 @@ export function setupPreferencesHandlers() {
   });
 
   // Get all preferences
+  ipcMain.removeHandler('levante/preferences/getAll');
   ipcMain.handle('levante/preferences/getAll', () => {
     try {
       const preferences = preferencesService.getAll();
@@ -55,6 +58,7 @@ export function setupPreferencesHandlers() {
   });
 
   // Reset all preferences
+  ipcMain.removeHandler('levante/preferences/reset');
   ipcMain.handle('levante/preferences/reset', () => {
     try {
       preferencesService.reset();
@@ -73,6 +77,7 @@ export function setupPreferencesHandlers() {
   });
 
   // Check if preference exists
+  ipcMain.removeHandler('levante/preferences/has');
   ipcMain.handle('levante/preferences/has', (_, key: PreferenceKey) => {
     try {
       const exists = preferencesService.has(key);
@@ -90,6 +95,7 @@ export function setupPreferencesHandlers() {
   });
 
   // Delete preference
+  ipcMain.removeHandler('levante/preferences/delete');
   ipcMain.handle('levante/preferences/delete', (_, key: PreferenceKey) => {
     try {
       preferencesService.delete(key);
@@ -107,6 +113,7 @@ export function setupPreferencesHandlers() {
   });
 
   // Export preferences
+  ipcMain.removeHandler('levante/preferences/export');
   ipcMain.handle('levante/preferences/export', () => {
     try {
       const preferences = preferencesService.export();
@@ -124,6 +131,7 @@ export function setupPreferencesHandlers() {
   });
 
   // Import preferences
+  ipcMain.removeHandler('levante/preferences/import');
   ipcMain.handle('levante/preferences/import', (_, preferences: Partial<UIPreferences>) => {
     try {
       preferencesService.import(preferences);
@@ -142,6 +150,7 @@ export function setupPreferencesHandlers() {
   });
 
   // Get store info (for debugging)
+  ipcMain.removeHandler('levante/preferences/info');
   ipcMain.handle('levante/preferences/info', () => {
     try {
       const info = {

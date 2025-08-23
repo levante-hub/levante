@@ -114,17 +114,25 @@ export const useChatStore = create<ChatStore>()(
         get().updateDisplayMessages();
       },
       appendDbMessages: (messages) => {
-        set((state) => ({ 
-          dbMessages: [...messages, ...state.dbMessages],
-          messagesOffset: state.messagesOffset + messages.length 
-        }));
+        set((state) => {
+          // Combine and sort messages by created_at to maintain chronological order
+          const combinedMessages = [...state.dbMessages, ...messages]
+            .sort((a, b) => a.created_at - b.created_at);
+          
+          return { 
+            dbMessages: combinedMessages,
+            messagesOffset: state.messagesOffset + messages.length 
+          };
+        });
         get().updateDisplayMessages();
       },
 
       // Update display messages (combine DB messages + streaming)
       updateDisplayMessages: () => {
         const { dbMessages, streamingMessage } = get();
-        const electronMessages = dbMessages.map(convertToElectronMessage);
+        // Ensure messages are sorted by created_at for deterministic display order
+        const sortedDbMessages = [...dbMessages].sort((a, b) => a.created_at - b.created_at);
+        const electronMessages = sortedDbMessages.map(convertToElectronMessage);
         
         if (streamingMessage) {
           set({ messages: [...electronMessages, streamingMessage] });
@@ -280,24 +288,47 @@ export const useChatStore = create<ChatStore>()(
             get().addDbMessage(newMessage);
             
             // Auto-generate title for first user message
-            const { dbMessages } = get();
-            if (role === 'user' && dbMessages.length === 1) {
-              // Generate title for the first user message
-              (async () => {
-                try {
-                  console.log('[ChatStore] Generating title for session:', currentSession.id);
-                  
-                  const titleResult = await window.levante.db.generateTitle(content);
-                  
-                  if (titleResult.success && titleResult.data) {
-                    const newTitle = titleResult.data;
-                    await get().updateSessionTitle(currentSession.id, newTitle);
-                    console.log('[ChatStore] Title generated and updated:', newTitle);
+            if (role === 'user') {
+              // Re-read the current state after addDbMessage to ensure we have the latest data
+              const currentState = get();
+              const { dbMessages } = currentState;
+              
+              // Check if this is the first user message for the current session
+              const userMessagesInSession = dbMessages.filter(msg => 
+                msg.session_id === currentSession.id && msg.role === 'user'
+              );
+              
+              if (userMessagesInSession.length === 1 && userMessagesInSession[0].id === newMessage.id) {
+                // This is definitely the first user message - generate title
+                const originalSessionId = currentSession.id;
+                
+                (async () => {
+                  try {
+                    console.log('[ChatStore] Generating title for session:', originalSessionId);
+                    
+                    const titleResult = await window.levante.db.generateTitle(content);
+                    
+                    if (titleResult.success && titleResult.data) {
+                      const newTitle = titleResult.data;
+                      
+                      // Verify session hasn't changed before updating title
+                      const currentStateAfterGeneration = get();
+                      if (currentStateAfterGeneration.currentSession?.id === originalSessionId) {
+                        try {
+                          await get().updateSessionTitle(originalSessionId, newTitle);
+                          console.log('[ChatStore] Title generated and updated:', newTitle);
+                        } catch (updateError) {
+                          console.error('[ChatStore] Failed to update session title:', updateError);
+                        }
+                      } else {
+                        console.log('[ChatStore] Session changed during title generation, ignoring result');
+                      }
+                    }
+                  } catch (error) {
+                    console.error('[ChatStore] Failed to generate title:', error);
                   }
-                } catch (error) {
-                  console.error('[ChatStore] Failed to generate title:', error);
-                }
-              })();
+                })();
+              }
             }
             
             console.log('[ChatStore] Message added:', newMessage.id);
@@ -382,7 +413,7 @@ export const useChatStore = create<ChatStore>()(
                   streamingMessage: state.streamingMessage ? {
                     ...state.streamingMessage,
                     parts: [
-                      ...state.streamingMessage.parts,
+                      ...(state.streamingMessage.parts || []),
                       ...chunk.sources!.map(source => ({
                         type: 'source-url' as const,
                         url: source.url
@@ -398,7 +429,7 @@ export const useChatStore = create<ChatStore>()(
                   streamingMessage: state.streamingMessage ? {
                     ...state.streamingMessage,
                     parts: [
-                      ...state.streamingMessage.parts,
+                      ...(state.streamingMessage.parts || []),
                       { type: 'reasoning', text: chunk.reasoning! }
                     ]
                   } : null
@@ -409,9 +440,28 @@ export const useChatStore = create<ChatStore>()(
               if (chunk.done) {
                 // Save assistant message when streaming is complete
                 if (fullResponse) {
-                  get().addMessage(fullResponse, 'assistant').then(() => {
-                    set({ streamingMessage: null, status: 'ready' });
-                    get().updateDisplayMessages();
+                  get().addMessage(fullResponse, 'assistant').then((savedMessage) => {
+                    if (savedMessage) {
+                      // Successfully saved - clear streaming message and set ready
+                      set({ streamingMessage: null, status: 'ready' });
+                      get().updateDisplayMessages();
+                    } else {
+                      // Failed to save - keep streaming message visible and set error status
+                      console.error('[ChatStore] Failed to save assistant message to database');
+                      set({ 
+                        status: 'error',
+                        error: 'Failed to save message. Your response is preserved above - you can retry or continue the conversation.'
+                      });
+                      // Keep the streamingMessage visible so the response isn't lost
+                    }
+                  }).catch((error) => {
+                    // Handle promise rejection
+                    console.error('[ChatStore] Error saving assistant message:', error);
+                    set({ 
+                      status: 'error',
+                      error: 'Failed to save message. Your response is preserved above - you can retry or continue the conversation.'
+                    });
+                    // Keep the streamingMessage visible so the response isn't lost
                   });
                 } else {
                   set({ streamingMessage: null, status: 'ready' });
@@ -436,6 +486,8 @@ export const useChatStore = create<ChatStore>()(
         const { currentSession, hasMoreMessages, loading, messagesOffset } = get();
         if (!currentSession || !hasMoreMessages || loading) return;
         
+        set({ loading: true });
+        
         try {
           const result = await window.levante.db.messages.list({ 
             session_id: currentSession.id, 
@@ -449,6 +501,8 @@ export const useChatStore = create<ChatStore>()(
           }
         } catch (err) {
           set({ error: err instanceof Error ? err.message : 'Unknown error' });
+        } finally {
+          set({ loading: false });
         }
       },
 
@@ -471,5 +525,7 @@ export const useChatStore = create<ChatStore>()(
   )
 );
 
-// Initialize sessions on first load
-useChatStore.getState().refreshSessions();
+// Export an initialization function instead
+export const initializeChatStore = () => {
+  useChatStore.getState().refreshSessions();
+};

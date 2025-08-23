@@ -219,10 +219,14 @@ export function useChatSession(initialSessionId?: string): UseChatSessionResult 
       
       if (result.success && result.data) {
         const newMessage = result.data;
+        
+        // Capture the current message count before updating state
+        const currentMessageCount = messages.length;
+        
         setMessages(prev => [...prev, newMessage]);
         
-        // Auto-generate title for the first user message
-        if (role === 'user' && messages.length === 0 && currentSession.title?.startsWith('Chat - ')) {
+        // Auto-generate title for the first user message using stable count
+        if (role === 'user' && currentMessageCount === 0 && currentSession.title?.startsWith('Chat - ')) {
           generateAndUpdateTitle(content, currentSession.id);
         }
         
@@ -236,7 +240,7 @@ export function useChatSession(initialSessionId?: string): UseChatSessionResult 
       setError(err instanceof Error ? err.message : 'Unknown error');
       return null;
     }
-  }, [currentSession, messages.length]);
+  }, [currentSession, messages]);
 
   // Generate title automatically for first user message
   const generateAndUpdateTitle = useCallback(async (firstMessage: string, sessionId: string) => {
@@ -283,7 +287,9 @@ export function useChatSession(initialSessionId?: string): UseChatSessionResult 
     if (initialSessionId) {
       loadSession(initialSessionId);
     }
-  }, [initialSessionId, refreshSessions, loadSession]);
+  // Only run on mount and when initialSessionId changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialSessionId]);
 
   return {
     currentSession,

@@ -4,7 +4,7 @@ export interface ChatSession {
   id: string;
   title?: string;
   model: string;
-  folder_id?: string;
+  folder_id?: string | null;
   created_at: number;
   updated_at: number;
 }
@@ -69,7 +69,7 @@ export interface Setting {
 export interface CreateChatSessionInput {
   title?: string;
   model: string;
-  folder_id?: string;
+  folder_id?: string | null;
 }
 
 export interface CreateMessageInput {
@@ -118,7 +118,7 @@ export interface UpdateChatSessionInput {
   id: string;
   title?: string;
   model?: string;
-  folder_id?: string;
+  folder_id?: string | null;
 }
 
 export interface UpdateMessageInput {

@@ -1,13 +1,18 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { MainLayout } from '@/components/layout/MainLayout'
 import ChatPage from '@/pages/ChatPage'
 import SettingsPage from '@/pages/SettingsPage'
 import ModelPage from '@/pages/ModelPage'
 import StorePage from '@/pages/StorePage'
-import { useChatStore } from '@/stores/chatStore'
+import { useChatStore, initializeChatStore } from '@/stores/chatStore'
 
 function App() {
   const [currentPage, setCurrentPage] = useState('chat')
+  
+  // Initialize chat store after component mounts
+  useEffect(() => {
+    initializeChatStore();
+  }, []);
   
   // Chat management for sidebar - using Zustand selectors
   const currentSession = useChatStore((state) => state.currentSession)
