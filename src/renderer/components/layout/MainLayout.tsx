@@ -112,7 +112,7 @@ export function MainLayout({ children, title = 'Chat', currentPage = 'chat', onP
             <h1 className="text-2xl font-bold">{title}</h1>
           </div>
         </header>
-        <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+        <div className="flex flex-1 flex-col gap-4 pt-0 h-full">
           {children}
         </div>
       </SidebarInset>

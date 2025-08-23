@@ -105,14 +105,6 @@
   }
 }
 
-@layer base {
-  * {
-    border-color: hsl(var(--border));
-  }
-  body {
-  }
-}
-
 /* Electron window dragging */
 .app-header {
   -webkit-app-region: drag;
@@ -133,5 +125,11 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+  
+  /* Ensure scrollable containers work properly in Electron */
+  .scrollable {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 }

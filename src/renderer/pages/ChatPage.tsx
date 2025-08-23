@@ -1,8 +1,3 @@
-import {
-  Conversation,
-  ConversationContent,
-  ConversationScrollButton,
-} from '@/components/ai-elements/conversation';
 import { Message, MessageContent } from '@/components/ai-elements/message';
 import {
   PromptInput,
@@ -17,7 +12,7 @@ import {
   PromptInputToolbar,
   PromptInputTools,
 } from '@/components/ai-elements/prompt-input';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useChatStore } from '@/stores/chatStore';
 import { ChatList } from '@/components/chat/ChatList';
 import { GlobeIcon } from 'lucide-react';
@@ -61,7 +56,8 @@ const ChatPage = () => {
   const [input, setInput] = useState('');
   const [model, setModel] = useState<string>(models[0].value);
   const [webSearch, setWebSearch] = useState(false);
-  
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
   // Using Zustand selectors for optimal performance
   const messages = useChatStore((state) => state.messages);
   const status = useChatStore((state) => state.status);
@@ -83,14 +79,20 @@ const ChatPage = () => {
     }
   };
 
+  // Auto-scroll to bottom when messages change or status changes
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+    }
+  }, [messages, status]);
+
   return (
-    <div className="max-w-4xl mx-auto relative size-full h-full">
-      <div className="flex flex-col h-full">
-        <Conversation className="h-full">
-          <ConversationContent>
-            {messages.map((message) => {
-              return (
-                <div key={message.id}>
+    <div className="flex flex-col" style={{ height: 'calc(100vh - 70px)' }}>
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto min-h-0">
+        <div className="max-w-4xl mx-auto px-4 py-4">
+          {messages.map((message) => {
+            return (
+              <div key={message.id}>
                 {message.role === 'assistant' && (
                   <Sources>
                     {message.parts.map((part, i) => {
@@ -147,15 +149,15 @@ const ChatPage = () => {
                     })}
                   </MessageContent>
                 </Message>
-                </div>
-              )
-            })}
-            {status === 'submitted' && <Loader />}
-          </ConversationContent>
-          <ConversationScrollButton />
-        </Conversation>
+              </div>
+            )
+          })}
+          {status === 'submitted' && <Loader />}
+        </div>
+      </div>
 
-        <PromptInput onSubmit={handleSubmit} className="mt-4">
+      <div className="bg-background mb-2 px-2">
+        <PromptInput onSubmit={handleSubmit} className="max-w-4xl mx-auto w-full px-4 py-4">
           <PromptInputTextarea
             onChange={(e) => setInput(e.target.value)}
             value={input}
@@ -197,7 +199,7 @@ const ChatPage = () => {
 
 // Static method to get sidebar content for chat page
 ChatPage.getSidebarContent = (
-  sessions: any[], 
+  sessions: any[],
   currentSessionId: string | undefined,
   onSessionSelect: (sessionId: string) => void,
   onNewChat: () => void,
