@@ -21,6 +21,7 @@ release
 # custom
 prueba/
 docs/PRD/
+dev-levante.db
 
 
 # TypeScript build info

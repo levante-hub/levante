@@ -2,6 +2,8 @@ import { app, BrowserWindow, ipcMain, shell } from "electron";
 import { join } from "path";
 import { config } from "dotenv";
 import { AIService, ChatRequest } from "./services/aiService";
+import { databaseService } from "./services/databaseService";
+import { setupDatabaseHandlers } from "./ipc/databaseHandlers";
 
 // Load environment variables from .env.local and .env files
 config({ path: join(__dirname, "../../.env.local") });
@@ -64,11 +66,23 @@ function createWindow(): void {
 }
 
 // App event handlers
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // Set app user model id for windows
   if (process.platform === "win32") {
     app.setAppUserModelId("com.levante.app");
   }
+
+  // Initialize database
+  try {
+    await databaseService.initialize();
+    console.log('Database initialized successfully');
+  } catch (error) {
+    console.error('Failed to initialize database:', error);
+    // Could show error dialog or continue with degraded functionality
+  }
+
+  // Setup IPC handlers
+  setupDatabaseHandlers();
 
   createWindow();
 
@@ -79,7 +93,15 @@ app.whenReady().then(() => {
   });
 });
 
-app.on("window-all-closed", () => {
+app.on("window-all-closed", async () => {
+  // Close database connection before quitting
+  try {
+    await databaseService.close();
+    console.log('Database connection closed');
+  } catch (error) {
+    console.error('Error closing database:', error);
+  }
+  
   if (process.platform !== "darwin") app.quit();
 });
 
