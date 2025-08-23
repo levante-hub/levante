@@ -1,0 +1,35 @@
+node_modules
+.DS_Store
+*.log
+dist
+dist-electron
+out
+release
+*.app
+*.dmg
+*.pkg
+*.zip
+*.tar.gz
+*.dmg
+*.dmg.zip
+*.dmg.tar.gz
+*.pkg.zip
+*.pkg.tar.gz
+*.app.zip
+*.app.tar.gz
+
+# custom
+prueba/
+
+
+# TypeScript build info
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+tsconfig.preload.tsbuildinfo
+
+# Electron
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local

@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh issue:*)",
+      "Bash(gh api:*)",
+      "WebFetch(domain:www.reddit.com)",
+      "Bash(pnpm install:*)",
+      "Bash(pnpm dev:*)",
+      "WebFetch(domain:www.electronjs.org)",
+      "WebFetch(domain:ui.shadcn.com)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:ai-sdk.dev)",
+      "Bash(pnpm update:*)",
+      "Bash(pnpm:*)",
+      "WebSearch",
+      "WebFetch(domain:electron-vite.org)",
+      "Bash(pkill:*)",
+      "mcp__sequential-thinking__sequentialthinking"
+    ],
+    "deny": [],
+    "ask": []
+  },
+  "enabledMcpjsonServers": [
+    "context7",
+    "sequential-thinking",
+    "time"
+  ]
+}

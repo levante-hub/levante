@@ -1,0 +1,54 @@
+issues:
+  - id: 0001
+    title: Foundations — Electron + React + Local DB (MVP)
+    labels: [mvp, platform, electron, react, db]
+    priority: P0
+    role: Platform Engineer
+  - id: 0002
+    title: AI SDK — Multi‑model support + streaming
+    labels: [mvp, ai, streaming]
+    priority: P0
+    role: AI Engineer
+  - id: 0003
+    title: MCP — Basic integration with consent and audit
+    labels: [mvp, mcp, security]
+    priority: P0
+    role: Integrations Engineer
+  - id: 0004
+    title: Security — OS keychain + opt‑in telemetry
+    labels: [mvp, security]
+    priority: P0
+    role: Security Engineer
+  - id: 0005
+    title: Search — Text search across chat history
+    labels: [mvp, search]
+    priority: P1
+    role: Full‑stack Engineer
+  - id: 0006
+    title: MCP — Robust Server Lifecycle Management
+    labels: [mcp, reliability, lifecycle]
+    priority: P1
+    role: Platform Engineer
+  - id: 0007
+    title: MCP — Automated Server Provisioning & Configuration
+    labels: [mcp, automation, devops]
+    priority: P2
+    role: DevOps Engineer
+  - id: 0008
+    title: MCP — Dynamic Server Allocation & On-Demand Scaling
+    labels: [mcp, scaling, performance]
+    priority: P1
+    role: Platform Engineer
+  - id: 0009
+    title: MCP — Tool Namespace & Collision Management
+    labels: [mcp, tooling, architecture]
+    priority: P0
+    role: Platform Engineer
+  - id: 0010
+    title: MCP — Intelligent Tool Curation & Performance Optimization
+    labels: [mcp, performance, ai-optimization]
+    priority: P0
+    role: AI Engineer
+
+
+
