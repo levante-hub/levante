@@ -215,7 +215,7 @@ export class ChatService {
         session_id: input.session_id,
         role: input.role,
         content: input.content,
-        tool_calls: input.tool_calls ? JSON.stringify(input.tool_calls) : undefined,
+        tool_calls: input.tool_calls ? JSON.stringify(input.tool_calls) : null,
         created_at: now
       };
 

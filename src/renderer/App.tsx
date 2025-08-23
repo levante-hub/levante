@@ -4,17 +4,30 @@ import ChatPage from '@/pages/ChatPage'
 import SettingsPage from '@/pages/SettingsPage'
 import ModelPage from '@/pages/ModelPage'
 import StorePage from '@/pages/StorePage'
+import { useChatStore } from '@/stores/chatStore'
 
 function App() {
   const [currentPage, setCurrentPage] = useState('chat')
+  
+  // Chat management for sidebar - using Zustand selectors
+  const currentSession = useChatStore((state) => state.currentSession)
+  const sessions = useChatStore((state) => state.sessions)
+  const startNewChat = useChatStore((state) => state.startNewChat)
+  const loadSession = useChatStore((state) => state.loadSession)
+  const deleteSession = useChatStore((state) => state.deleteSession)
 
   const getPageTitle = (page: string) => {
     switch (page) {
-      case 'chat': return 'Chat'
-      case 'settings': return 'Settings'
-      case 'model': return 'Model'
-      case 'store': return 'Store'
-      default: return 'Chat'
+      case 'chat': 
+        return currentSession?.title || 'Chat'
+      case 'settings': 
+        return 'Settings'
+      case 'model': 
+        return 'Model'
+      case 'store': 
+        return 'Store'
+      default: 
+        return 'Chat'
     }
   }
 
@@ -28,11 +41,27 @@ function App() {
     }
   }
 
+  // Get sidebar content for current page
+  const getSidebarContent = () => {
+    if (currentPage === 'chat' && typeof ChatPage.getSidebarContent === 'function') {
+      return ChatPage.getSidebarContent(
+        sessions,
+        currentSession?.id,
+        loadSession,
+        startNewChat, // Start new chat (no session creation yet)
+        deleteSession,
+        false // loading state
+      );
+    }
+    return null;
+  }
+
   return (
     <MainLayout 
       title={getPageTitle(currentPage)}
       currentPage={currentPage}
       onPageChange={setCurrentPage}
+      sidebarContent={getSidebarContent()}
     >
       {renderPage()}
     </MainLayout>

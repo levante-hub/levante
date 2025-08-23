@@ -1,0 +1,475 @@
+import { create } from 'zustand';
+import { devtools } from 'zustand/middleware';
+import { ChatSession, Message, CreateChatSessionInput, CreateMessageInput } from '../../types/database';
+import { ElectronMessage, ElectronChatStatus } from '@/hooks/useElectronChat';
+import { UIMessage } from 'ai';
+
+interface ChatStore {
+  // Current chat state
+  messages: ElectronMessage[];
+  status: ElectronChatStatus;
+  streamingMessage: ElectronMessage | null;
+  
+  // Session management
+  currentSession: ChatSession | null;
+  sessions: ChatSession[];
+  loading: boolean;
+  error: string | null;
+  
+  // Database messages (raw from DB)
+  dbMessages: Message[];
+  messagesOffset: number;
+  hasMoreMessages: boolean;
+  
+  // Actions
+  setStatus: (status: ElectronChatStatus) => void;
+  setStreamingMessage: (message: ElectronMessage | null) => void;
+  setError: (error: string | null) => void;
+  setLoading: (loading: boolean) => void;
+  
+  // Session actions
+  setSessions: (sessions: ChatSession[]) => void;
+  setCurrentSession: (session: ChatSession | null) => void;
+  addSession: (session: ChatSession) => void;
+  updateSession: (session: ChatSession) => void;
+  removeSession: (sessionId: string) => void;
+  
+  // Message actions
+  setDbMessages: (messages: Message[]) => void;
+  addDbMessage: (message: Message) => void;
+  appendDbMessages: (messages: Message[]) => void;
+  
+  // Computed/derived actions
+  updateDisplayMessages: () => void;
+  
+  // API actions (async)
+  refreshSessions: () => Promise<void>;
+  createSession: (title?: string, model?: string) => Promise<ChatSession | null>;
+  loadSession: (sessionId: string) => Promise<void>;
+  deleteSession: (sessionId: string) => Promise<boolean>;
+  updateSessionTitle: (sessionId: string, title: string) => Promise<boolean>;
+  addMessage: (content: string, role: 'user' | 'assistant' | 'system') => Promise<Message | null>;
+  sendMessage: (message: { text: string }, options?: { body?: { model?: string; webSearch?: boolean } }) => Promise<void>;
+  loadMoreMessages: () => Promise<void>;
+  
+  // UI actions
+  startNewChat: () => void;
+}
+
+// Helper to convert DB Message to ElectronMessage
+function convertToElectronMessage(dbMessage: Message): ElectronMessage {
+  return {
+    id: dbMessage.id,
+    role: dbMessage.role,
+    content: dbMessage.content,
+    parts: [{ type: 'text', text: dbMessage.content }]
+  };
+}
+
+export const useChatStore = create<ChatStore>()(
+  devtools(
+    (set, get) => ({
+      // Initial state
+      messages: [],
+      status: 'ready',
+      streamingMessage: null,
+      currentSession: null,
+      sessions: [],
+      loading: false,
+      error: null,
+      dbMessages: [],
+      messagesOffset: 0,
+      hasMoreMessages: true,
+
+      // Basic setters
+      setStatus: (status) => set({ status }),
+      setStreamingMessage: (streamingMessage) => {
+        set({ streamingMessage });
+        get().updateDisplayMessages();
+      },
+      setError: (error) => set({ error }),
+      setLoading: (loading) => set({ loading }),
+
+      // Session actions
+      setSessions: (sessions) => set({ sessions }),
+      setCurrentSession: (currentSession) => set({ currentSession }),
+      addSession: (session) => set((state) => ({ sessions: [session, ...state.sessions] })),
+      updateSession: (updatedSession) => set((state) => ({
+        sessions: state.sessions.map(s => s.id === updatedSession.id ? updatedSession : s),
+        currentSession: state.currentSession?.id === updatedSession.id ? updatedSession : state.currentSession
+      })),
+      removeSession: (sessionId) => set((state) => ({
+        sessions: state.sessions.filter(s => s.id !== sessionId),
+        currentSession: state.currentSession?.id === sessionId ? null : state.currentSession,
+        ...(state.currentSession?.id === sessionId && { messages: [], dbMessages: [] })
+      })),
+
+      // Message actions
+      setDbMessages: (dbMessages) => {
+        set({ dbMessages, messagesOffset: dbMessages.length, hasMoreMessages: true });
+        get().updateDisplayMessages();
+      },
+      addDbMessage: (message) => {
+        set((state) => ({ dbMessages: [...state.dbMessages, message] }));
+        get().updateDisplayMessages();
+      },
+      appendDbMessages: (messages) => {
+        set((state) => ({ 
+          dbMessages: [...messages, ...state.dbMessages],
+          messagesOffset: state.messagesOffset + messages.length 
+        }));
+        get().updateDisplayMessages();
+      },
+
+      // Update display messages (combine DB messages + streaming)
+      updateDisplayMessages: () => {
+        const { dbMessages, streamingMessage } = get();
+        const electronMessages = dbMessages.map(convertToElectronMessage);
+        
+        if (streamingMessage) {
+          set({ messages: [...electronMessages, streamingMessage] });
+        } else {
+          set({ messages: electronMessages });
+        }
+      },
+
+      // API Actions
+      refreshSessions: async () => {
+        try {
+          set({ error: null });
+          const result = await window.levante.db.sessions.list({ limit: 50, offset: 0 });
+          
+          if (result.success && result.data) {
+            set({ sessions: result.data.items });
+          } else {
+            set({ error: result.error || 'Failed to load sessions' });
+          }
+        } catch (err) {
+          set({ error: err instanceof Error ? err.message : 'Unknown error' });
+        }
+      },
+
+      createSession: async (title?: string, model = 'openai/gpt-4') => {
+        try {
+          set({ loading: true, error: null });
+          
+          const input: CreateChatSessionInput = {
+            title: title || `New Chat - ${new Date().toLocaleDateString()}`,
+            model,
+            folder_id: null
+          };
+          
+          const result = await window.levante.db.sessions.create(input);
+          
+          if (result.success && result.data) {
+            const newSession = result.data;
+            get().addSession(newSession);
+            set({ 
+              currentSession: newSession, 
+              dbMessages: [], 
+              messages: [],
+              messagesOffset: 0,
+              hasMoreMessages: false 
+            });
+            
+            console.log('[ChatStore] Session created:', newSession.id);
+            return newSession;
+          } else {
+            set({ error: result.error || 'Failed to create session' });
+            return null;
+          }
+        } catch (err) {
+          set({ error: err instanceof Error ? err.message : 'Unknown error' });
+          return null;
+        } finally {
+          set({ loading: false });
+        }
+      },
+
+      loadSession: async (sessionId: string) => {
+        try {
+          set({ loading: true, error: null });
+          
+          // Get session details
+          const sessionResult = await window.levante.db.sessions.get(sessionId);
+          
+          if (sessionResult.success && sessionResult.data) {
+            set({ currentSession: sessionResult.data });
+            
+            // Load messages for this session
+            const result = await window.levante.db.messages.list({ 
+              session_id: sessionId, 
+              limit: 50, 
+              offset: 0 
+            });
+            
+            if (result.success && result.data) {
+              get().setDbMessages(result.data.items);
+            }
+            
+            console.log('[ChatStore] Session loaded:', sessionId);
+          } else {
+            set({ error: sessionResult.error || 'Session not found' });
+          }
+        } catch (err) {
+          set({ error: err instanceof Error ? err.message : 'Unknown error' });
+        } finally {
+          set({ loading: false });
+        }
+      },
+
+      deleteSession: async (sessionId: string) => {
+        try {
+          set({ error: null });
+          const result = await window.levante.db.sessions.delete(sessionId);
+          
+          if (result.success) {
+            get().removeSession(sessionId);
+            console.log('[ChatStore] Session deleted:', sessionId);
+            return true;
+          } else {
+            set({ error: result.error || 'Failed to delete session' });
+            return false;
+          }
+        } catch (err) {
+          set({ error: err instanceof Error ? err.message : 'Unknown error' });
+          return false;
+        }
+      },
+
+      updateSessionTitle: async (sessionId: string, title: string) => {
+        try {
+          set({ error: null });
+          const result = await window.levante.db.sessions.update({ id: sessionId, title });
+          
+          if (result.success && result.data) {
+            get().updateSession(result.data);
+            console.log('[ChatStore] Session title updated:', sessionId);
+            return true;
+          } else {
+            set({ error: result.error || 'Failed to update session' });
+            return false;
+          }
+        } catch (err) {
+          set({ error: err instanceof Error ? err.message : 'Unknown error' });
+          return false;
+        }
+      },
+
+      addMessage: async (content: string, role: 'user' | 'assistant' | 'system') => {
+        const { currentSession } = get();
+        if (!currentSession) {
+          set({ error: 'No active session' });
+          return null;
+        }
+
+        try {
+          set({ error: null });
+          
+          const input: CreateMessageInput = {
+            session_id: currentSession.id,
+            role,
+            content,
+            tool_calls: null
+          };
+          
+          const result = await window.levante.db.messages.create(input);
+          
+          if (result.success && result.data) {
+            const newMessage = result.data;
+            get().addDbMessage(newMessage);
+            
+            // Auto-generate title for first user message
+            const { dbMessages } = get();
+            if (role === 'user' && dbMessages.length === 1) {
+              // Generate title for the first user message
+              (async () => {
+                try {
+                  console.log('[ChatStore] Generating title for session:', currentSession.id);
+                  
+                  const titleResult = await window.levante.db.generateTitle(content);
+                  
+                  if (titleResult.success && titleResult.data) {
+                    const newTitle = titleResult.data;
+                    await get().updateSessionTitle(currentSession.id, newTitle);
+                    console.log('[ChatStore] Title generated and updated:', newTitle);
+                  }
+                } catch (error) {
+                  console.error('[ChatStore] Failed to generate title:', error);
+                }
+              })();
+            }
+            
+            console.log('[ChatStore] Message added:', newMessage.id);
+            return newMessage;
+          } else {
+            set({ error: result.error || 'Failed to add message' });
+            return null;
+          }
+        } catch (err) {
+          set({ error: err instanceof Error ? err.message : 'Unknown error' });
+          return null;
+        }
+      },
+
+
+      sendMessage: async (message: { text: string }, options?) => {
+        const { model = 'openai/gpt-4o', webSearch = false } = options?.body || {};
+        
+        // Ensure we have a session
+        let session = get().currentSession;
+        if (!session) {
+          console.log('[ChatStore] Creating new session for first message');
+          // Use a temporary title, will be updated after title generation
+          session = await get().createSession('New Chat', model);
+          if (!session) {
+            set({ status: 'error' });
+            return;
+          }
+        }
+        
+        set({ status: 'submitted' });
+        
+        try {
+          // 1. Save user message to database
+          const userDbMessage = await get().addMessage(message.text, 'user');
+          if (!userDbMessage) {
+            set({ status: 'error' });
+            return;
+          }
+          
+          // 2. Create streaming assistant message
+          const streamingId = `streaming_${Date.now()}`;
+          const streamingAssistantMessage: ElectronMessage = {
+            id: streamingId,
+            role: 'assistant',
+            content: '',
+            parts: []
+          };
+          
+          set({ streamingMessage: streamingAssistantMessage, status: 'streaming' });
+          
+          // 3. Prepare API messages
+          const { dbMessages } = get();
+          const apiMessages: UIMessage[] = [...dbMessages, userDbMessage].map(msg => ({
+            id: msg.id,
+            role: msg.role,
+            content: msg.content,
+            parts: [{ type: 'text' as const, text: msg.content }]
+          }));
+          
+          let fullResponse = '';
+          
+          // 4. Stream the response
+          await window.levante.streamChat(
+            { messages: apiMessages, model, webSearch },
+            (chunk) => {
+              if (chunk.delta) {
+                fullResponse += chunk.delta;
+                
+                set((state) => ({
+                  streamingMessage: state.streamingMessage ? {
+                    ...state.streamingMessage,
+                    content: fullResponse,
+                    parts: [{ type: 'text', text: fullResponse }]
+                  } : null
+                }));
+                get().updateDisplayMessages();
+              }
+              
+              if (chunk.sources) {
+                set((state) => ({
+                  streamingMessage: state.streamingMessage ? {
+                    ...state.streamingMessage,
+                    parts: [
+                      ...state.streamingMessage.parts,
+                      ...chunk.sources!.map(source => ({
+                        type: 'source-url' as const,
+                        url: source.url
+                      }))
+                    ]
+                  } : null
+                }));
+                get().updateDisplayMessages();
+              }
+              
+              if (chunk.reasoning) {
+                set((state) => ({
+                  streamingMessage: state.streamingMessage ? {
+                    ...state.streamingMessage,
+                    parts: [
+                      ...state.streamingMessage.parts,
+                      { type: 'reasoning', text: chunk.reasoning! }
+                    ]
+                  } : null
+                }));
+                get().updateDisplayMessages();
+              }
+              
+              if (chunk.done) {
+                // Save assistant message when streaming is complete
+                if (fullResponse) {
+                  get().addMessage(fullResponse, 'assistant').then(() => {
+                    set({ streamingMessage: null, status: 'ready' });
+                    get().updateDisplayMessages();
+                  });
+                } else {
+                  set({ streamingMessage: null, status: 'ready' });
+                  get().updateDisplayMessages();
+                }
+              }
+            }
+          );
+          
+        } catch (error) {
+          console.error('[ChatStore] Chat error:', error);
+          set({ status: 'error' });
+          
+          // Save error message to database
+          await get().addMessage('Sorry, there was an error processing your request.', 'assistant');
+          set({ streamingMessage: null });
+          get().updateDisplayMessages();
+        }
+      },
+
+      loadMoreMessages: async () => {
+        const { currentSession, hasMoreMessages, loading, messagesOffset } = get();
+        if (!currentSession || !hasMoreMessages || loading) return;
+        
+        try {
+          const result = await window.levante.db.messages.list({ 
+            session_id: currentSession.id, 
+            limit: 50, 
+            offset: messagesOffset 
+          });
+          
+          if (result.success && result.data) {
+            get().appendDbMessages(result.data.items);
+            set({ hasMoreMessages: result.data.items.length === 50 });
+          }
+        } catch (err) {
+          set({ error: err instanceof Error ? err.message : 'Unknown error' });
+        }
+      },
+
+      // UI Actions
+      startNewChat: () => {
+        console.log('[ChatStore] Starting new chat (clearing current session)');
+        set({ 
+          currentSession: null,
+          messages: [],
+          dbMessages: [],
+          messagesOffset: 0,
+          hasMoreMessages: true,
+          streamingMessage: null,
+          status: 'ready',
+          error: null
+        });
+      }
+    }),
+    { name: 'chat-store' }
+  )
+);
+
+// Initialize sessions on first load
+useChatStore.getState().refreshSessions();

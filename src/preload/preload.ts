@@ -1,6 +1,17 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { UIMessage } from 'ai'
 import { UIPreferences, PreferenceKey } from '../types/preferences'
+import { 
+  CreateChatSessionInput, 
+  CreateMessageInput, 
+  UpdateChatSessionInput,
+  GetMessagesQuery, 
+  GetChatSessionsQuery,
+  DatabaseResult,
+  PaginatedResult,
+  ChatSession,
+  Message
+} from '../types/database'
 
 export interface ChatRequest {
   messages: UIMessage[];
@@ -26,6 +37,31 @@ export interface LevanteAPI {
   sendMessage: (request: ChatRequest) => Promise<{ success: boolean; response: string; sources?: any[]; reasoning?: string }>
   streamChat: (request: ChatRequest, onChunk: (chunk: ChatStreamChunk) => void) => Promise<string>
   
+  // Database functionality
+  db: {
+    // Health check
+    health: () => Promise<{ success: boolean; data?: { healthy: boolean; path: string; isInitialized: boolean; environment: string }; error?: string }>
+    
+    // Chat sessions
+    sessions: {
+      create: (input: CreateChatSessionInput) => Promise<DatabaseResult<ChatSession>>
+      get: (id: string) => Promise<DatabaseResult<ChatSession | null>>
+      list: (query?: GetChatSessionsQuery) => Promise<DatabaseResult<PaginatedResult<ChatSession>>>
+      update: (input: UpdateChatSessionInput) => Promise<DatabaseResult<ChatSession | null>>
+      delete: (id: string) => Promise<DatabaseResult<boolean>>
+    }
+    
+    // Messages
+    messages: {
+      create: (input: CreateMessageInput) => Promise<DatabaseResult<Message>>
+      list: (query: GetMessagesQuery) => Promise<DatabaseResult<PaginatedResult<Message>>>
+      search: (searchQuery: string, sessionId?: string, limit?: number) => Promise<DatabaseResult<Message[]>>
+    }
+    
+    // Utilities
+    generateTitle: (message: string) => Promise<{ success: boolean; data?: string; error?: string }>
+  }
+
   // Preferences functionality
   preferences: {
     get: <K extends PreferenceKey>(key: K) => Promise<{ success: boolean; data?: UIPreferences[K]; error?: string }>
@@ -91,6 +127,42 @@ const api: LevanteAPI = {
       
       ipcRenderer.on(`levante/chat/stream/${streamId}`, handleChunk)
     })
+  },
+
+  // Database API
+  db: {
+    health: () => ipcRenderer.invoke('levante/db/health'),
+    
+    sessions: {
+      create: (input: CreateChatSessionInput) => 
+        ipcRenderer.invoke('levante/db/sessions/create', input),
+      
+      get: (id: string) => 
+        ipcRenderer.invoke('levante/db/sessions/get', id),
+      
+      list: (query?: GetChatSessionsQuery) => 
+        ipcRenderer.invoke('levante/db/sessions/list', query || {}),
+      
+      update: (input: UpdateChatSessionInput) => 
+        ipcRenderer.invoke('levante/db/sessions/update', input),
+      
+      delete: (id: string) => 
+        ipcRenderer.invoke('levante/db/sessions/delete', id)
+    },
+    
+    messages: {
+      create: (input: CreateMessageInput) => 
+        ipcRenderer.invoke('levante/db/messages/create', input),
+      
+      list: (query: GetMessagesQuery) => 
+        ipcRenderer.invoke('levante/db/messages/list', query),
+      
+      search: (searchQuery: string, sessionId?: string, limit?: number) => 
+        ipcRenderer.invoke('levante/db/messages/search', searchQuery, sessionId, limit)
+    },
+    
+    generateTitle: (message: string) => 
+      ipcRenderer.invoke('levante/db/generateTitle', message)
   },
 
   // Preferences API

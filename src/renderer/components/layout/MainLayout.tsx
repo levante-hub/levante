@@ -19,9 +19,10 @@ interface MainLayoutProps {
   title?: string
   currentPage?: string
   onPageChange?: (page: string) => void
+  sidebarContent?: React.ReactNode // Custom sidebar content for specific pages
 }
 
-export function MainLayout({ children, title = 'Chat', currentPage = 'chat', onPageChange }: MainLayoutProps) {
+export function MainLayout({ children, title = 'Chat', currentPage = 'chat', onPageChange, sidebarContent }: MainLayoutProps) {
   const [version, setVersion] = useState<string>('')
   const [platform, setPlatform] = useState<string>('')
 
@@ -47,19 +48,25 @@ export function MainLayout({ children, title = 'Chat', currentPage = 'chat', onP
           <h2 className="text-lg font-semibold p-2">Levante</h2>
         </SidebarHeader>
         <SidebarContent>
-          <SidebarGroup>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  onClick={() => onPageChange?.('chat')}
-                  isActive={currentPage === 'chat'}
-                >
-                  <MessageSquare className="w-4 h-4" />
-                  Chat
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroup>
+          {sidebarContent ? (
+            // Custom sidebar content for specific pages (like ChatList for chat page)
+            sidebarContent
+          ) : (
+            // Default navigation sidebar
+            <SidebarGroup>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    onClick={() => onPageChange?.('chat')}
+                    isActive={currentPage === 'chat'}
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    Chat
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroup>
+          )}
         </SidebarContent>
         <SidebarFooter>
           <SidebarMenu>

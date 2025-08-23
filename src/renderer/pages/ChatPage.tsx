@@ -18,7 +18,8 @@ import {
   PromptInputTools,
 } from '@/components/ai-elements/prompt-input';
 import { useState } from 'react';
-import { useElectronChat } from '@/hooks/useElectronChat';
+import { useChatStore } from '@/stores/chatStore';
+import { ChatList } from '@/components/chat/ChatList';
 import { GlobeIcon } from 'lucide-react';
 import {
   Source,
@@ -52,11 +53,19 @@ const models = [
   },
 ];
 
+interface ChatPageProps {
+  sidebarContent?: React.ReactNode;
+}
+
 const ChatPage = () => {
   const [input, setInput] = useState('');
   const [model, setModel] = useState<string>(models[0].value);
   const [webSearch, setWebSearch] = useState(false);
-  const { messages, sendMessage, status } = useElectronChat();
+  
+  // Using Zustand selectors for optimal performance
+  const messages = useChatStore((state) => state.messages);
+  const status = useChatStore((state) => state.status);
+  const sendMessage = useChatStore((state) => state.sendMessage);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -183,6 +192,27 @@ const ChatPage = () => {
         </PromptInput>
       </div>
     </div>
+  );
+};
+
+// Static method to get sidebar content for chat page
+ChatPage.getSidebarContent = (
+  sessions: any[], 
+  currentSessionId: string | undefined,
+  onSessionSelect: (sessionId: string) => void,
+  onNewChat: () => void,
+  onDeleteChat: (sessionId: string) => void,
+  loading: boolean = false
+) => {
+  return (
+    <ChatList
+      sessions={sessions}
+      currentSessionId={currentSessionId}
+      onSessionSelect={onSessionSelect}
+      onNewChat={onNewChat}
+      onDeleteChat={onDeleteChat}
+      loading={loading}
+    />
   );
 };
 

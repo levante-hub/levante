@@ -14,7 +14,7 @@ export interface Message {
   session_id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
-  tool_calls?: string; // JSON string
+  tool_calls?: string | null; // JSON string or null
   created_at: number;
 }
 
@@ -76,7 +76,7 @@ export interface CreateMessageInput {
   session_id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
-  tool_calls?: object[]; // Will be JSON stringified
+  tool_calls?: object[] | null; // Will be JSON stringified or null
 }
 
 export interface CreateProviderInput {
