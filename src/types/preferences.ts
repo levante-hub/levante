@@ -1,3 +1,5 @@
+import type { ProviderConfig } from './models';
+
 export interface UIPreferences {
   theme: 'light' | 'dark' | 'system';
   language: string;
@@ -25,6 +27,8 @@ export interface UIPreferences {
     toggleSidebar: string;
     search: string;
   };
+  providers: ProviderConfig[];
+  activeProvider: string | null;
 }
 
 export type PreferenceKey = keyof UIPreferences;
@@ -59,5 +63,7 @@ export const DEFAULT_PREFERENCES: UIPreferences = {
     newChat: 'Cmd+N',
     toggleSidebar: 'Cmd+B',
     search: 'Cmd+F'
-  }
+  },
+  providers: [],
+  activeProvider: null
 };

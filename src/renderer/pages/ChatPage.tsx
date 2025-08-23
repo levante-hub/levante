@@ -15,7 +15,7 @@ import {
 import { useState, useEffect, useRef } from 'react';
 import { useChatStore } from '@/stores/chatStore';
 import { ChatList } from '@/components/chat/ChatList';
-import { GlobeIcon } from 'lucide-react';
+import { GlobeIcon, Loader2 } from 'lucide-react';
 import {
   Source,
   Sources,
@@ -28,25 +28,8 @@ import {
   ReasoningTrigger,
 } from '@/components/ai-elements/reasoning';
 import { Loader } from '@/components/ai-elements/loader';
-
-const models = [
-  {
-    name: 'GPT-5 Mini',
-    value: 'openai/gpt-5-mini',
-  },
-  {
-    name: 'Deepseek R1',
-    value: 'deepseek/deepseek-r1',
-  },
-  {
-    name: 'Claude 3 Haiku',
-    value: 'anthropic/claude-3-haiku-20240307',
-  },
-  {
-    name: 'Gemini 1.5 Pro',
-    value: 'google/gemini-1.5-pro',
-  },
-];
+import { modelService } from '@/services/modelService';
+import type { Model } from '../../types/models';
 
 interface ChatPageProps {
   sidebarContent?: React.ReactNode;
@@ -54,8 +37,10 @@ interface ChatPageProps {
 
 const ChatPage = () => {
   const [input, setInput] = useState('');
-  const [model, setModel] = useState<string>(models[0].value);
+  const [model, setModel] = useState<string>('');
   const [webSearch, setWebSearch] = useState(false);
+  const [availableModels, setAvailableModels] = useState<Model[]>([]);
+  const [modelsLoading, setModelsLoading] = useState(true);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Using Zustand selectors for optimal performance
@@ -79,6 +64,11 @@ const ChatPage = () => {
     }
   };
 
+  // Load available models on component mount
+  useEffect(() => {
+    loadAvailableModels();
+  }, []);
+
   // Auto-scroll to bottom when messages change or status changes
   useEffect(() => {
     if (scrollContainerRef.current) {
@@ -86,8 +76,26 @@ const ChatPage = () => {
     }
   }, [messages, status]);
 
+  const loadAvailableModels = async () => {
+    try {
+      setModelsLoading(true);
+      await modelService.initialize();
+      const models = await modelService.getAvailableModels();
+      setAvailableModels(models);
+
+      // Set default model if none selected
+      if (!model && models.length > 0) {
+        setModel(models[0].id);
+      }
+    } catch (error) {
+      console.error('Failed to load models:', error);
+    } finally {
+      setModelsLoading(false);
+    }
+  };
+
   return (
-    <div className="flex flex-col" style={{ height: 'calc(100vh - 70px)' }}>
+    <div className="flex flex-col h-full">
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto min-h-0">
         <div className="max-w-4xl mx-auto px-4 py-4">
           {messages.map((message) => {
@@ -156,7 +164,7 @@ const ChatPage = () => {
         </div>
       </div>
 
-      <div className="bg-background mb-2 px-2">
+      <div className="bg-background">
         <PromptInput onSubmit={handleSubmit} className="max-w-4xl mx-auto w-full px-4 py-4">
           <PromptInputTextarea
             onChange={(e) => setInput(e.target.value)}
@@ -181,11 +189,22 @@ const ChatPage = () => {
                   <PromptInputModelSelectValue />
                 </PromptInputModelSelectTrigger>
                 <PromptInputModelSelectContent>
-                  {models.map((model) => (
-                    <PromptInputModelSelectItem key={model.value} value={model.value}>
-                      {model.name}
-                    </PromptInputModelSelectItem>
-                  ))}
+                  {modelsLoading ? (
+                    <div className="flex items-center justify-center p-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span className="ml-2 text-sm">Loading models...</span>
+                    </div>
+                  ) : availableModels.length > 0 ? (
+                    availableModels.map((modelItem) => (
+                      <PromptInputModelSelectItem key={modelItem.id} value={modelItem.id}>
+                        {modelItem.name}
+                      </PromptInputModelSelectItem>
+                    ))
+                  ) : (
+                    <div className="flex items-center justify-center p-2 text-sm text-muted-foreground">
+                      No models available. Configure a provider in Settings.
+                    </div>
+                  )}
                 </PromptInputModelSelectContent>
               </PromptInputModelSelect>
             </PromptInputTools>

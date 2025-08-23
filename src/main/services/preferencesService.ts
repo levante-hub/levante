@@ -93,6 +93,14 @@ export class PreferencesService {
           },
           required: ['newChat', 'toggleSidebar', 'search'],
           default: { newChat: 'Cmd+N', toggleSidebar: 'Cmd+B', search: 'Cmd+F' }
+        },
+        providers: {
+          type: 'array',
+          default: []
+        },
+        activeProvider: {
+          type: ['string', 'null'],
+          default: null
         }
       }
     });

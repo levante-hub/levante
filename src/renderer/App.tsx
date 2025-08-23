@@ -5,13 +5,21 @@ import SettingsPage from '@/pages/SettingsPage'
 import ModelPage from '@/pages/ModelPage'
 import StorePage from '@/pages/StorePage'
 import { useChatStore, initializeChatStore } from '@/stores/chatStore'
+import { modelService } from '@/services/modelService'
 
 function App() {
   const [currentPage, setCurrentPage] = useState('chat')
   
-  // Initialize chat store after component mounts
+  // Initialize services after component mounts
   useEffect(() => {
-    initializeChatStore();
+    const initializeServices = async () => {
+      await Promise.all([
+        initializeChatStore(),
+        modelService.initialize()
+      ]);
+    };
+    
+    initializeServices().catch(console.error);
   }, []);
   
   // Chat management for sidebar - using Zustand selectors

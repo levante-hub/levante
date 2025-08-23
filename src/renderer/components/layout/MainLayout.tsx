@@ -105,14 +105,14 @@ export function MainLayout({ children, title = 'Chat', currentPage = 'chat', onP
           </div>
         </SidebarFooter>
       </Sidebar>
-      <SidebarInset className='rounded-l-2xl'>
+      <SidebarInset className='rounded-l-2xl h-screen flex flex-col'>
         <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
           <div className="flex items-center gap-2 px-4">
             <SidebarTrigger className="-ml-1" />
             <h1 className="text-2xl font-bold">{title}</h1>
           </div>
         </header>
-        <div className="flex flex-1 flex-col gap-4 pt-0 h-full">
+        <div className="flex-1 overflow-hidden px-0 py-2">
           {children}
         </div>
       </SidebarInset>

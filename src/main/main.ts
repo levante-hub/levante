@@ -5,6 +5,7 @@ import { AIService, ChatRequest } from "./services/aiService";
 import { databaseService } from "./services/databaseService";
 import { setupDatabaseHandlers } from "./ipc/databaseHandlers";
 import { setupPreferencesHandlers } from "./ipc/preferencesHandlers";
+import { setupModelHandlers } from "./ipc/modelHandlers";
 import { preferencesService } from "./services/preferencesService";
 
 // Load environment variables from .env.local and .env files
@@ -95,6 +96,7 @@ app.whenReady().then(async () => {
   // Setup IPC handlers
   setupDatabaseHandlers();
   setupPreferencesHandlers();
+  setupModelHandlers();
 
   createWindow();
 

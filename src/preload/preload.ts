@@ -37,6 +37,13 @@ export interface LevanteAPI {
   sendMessage: (request: ChatRequest) => Promise<{ success: boolean; response: string; sources?: any[]; reasoning?: string }>
   streamChat: (request: ChatRequest, onChunk: (chunk: ChatStreamChunk) => void) => Promise<string>
   
+  // Model functionality  
+  models: {
+    fetchOpenRouter: (apiKey: string) => Promise<{ success: boolean; data?: any[]; error?: string }>
+    fetchGateway: (apiKey: string, baseUrl?: string) => Promise<{ success: boolean; data?: any[]; error?: string }>
+    fetchLocal: (endpoint: string) => Promise<{ success: boolean; data?: any[]; error?: string }>
+  }
+  
   // Database functionality
   db: {
     // Health check
@@ -127,6 +134,16 @@ const api: LevanteAPI = {
       
       ipcRenderer.on(`levante/chat/stream/${streamId}`, handleChunk)
     })
+  },
+
+  // Model API
+  models: {
+    fetchOpenRouter: (apiKey: string) => 
+      ipcRenderer.invoke('levante/models/openrouter', apiKey),
+    fetchGateway: (apiKey: string, baseUrl?: string) => 
+      ipcRenderer.invoke('levante/models/gateway', apiKey, baseUrl),
+    fetchLocal: (endpoint: string) => 
+      ipcRenderer.invoke('levante/models/local', endpoint),
   },
 
   // Database API
