@@ -12,14 +12,16 @@ import {
   SidebarProvider,
   SidebarTrigger
 } from '@/components/ui/sidebar'
-import { MessageSquare, Settings, User } from 'lucide-react'
+import { MessageSquare, Settings, User, Bot, Store } from 'lucide-react'
 
 interface MainLayoutProps {
   children: React.ReactNode
   title?: string
+  currentPage?: string
+  onPageChange?: (page: string) => void
 }
 
-export function MainLayout({ children, title = 'Chat' }: MainLayoutProps) {
+export function MainLayout({ children, title = 'Chat', currentPage = 'chat', onPageChange }: MainLayoutProps) {
   const [version, setVersion] = useState<string>('')
   const [platform, setPlatform] = useState<string>('')
 
@@ -43,39 +45,60 @@ export function MainLayout({ children, title = 'Chat' }: MainLayoutProps) {
       <Sidebar>
         <SidebarHeader>
           <h2 className="text-lg font-semibold p-2">Levante</h2>
-          <p className="text-sm text-muted-foreground px-2">v{version} • {platform}</p>
         </SidebarHeader>
         <SidebarContent>
           <SidebarGroup>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton>
+                <SidebarMenuButton
+                  onClick={() => onPageChange?.('chat')}
+                  isActive={currentPage === 'chat'}
+                >
                   <MessageSquare className="w-4 h-4" />
                   Chat
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton>
-                  <Settings className="w-4 h-4" />
-                  Settings
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton>
-                  <User className="w-4 h-4" />
-                  Profile
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroup>
         </SidebarContent>
         <SidebarFooter>
-          <p className="text-xs text-muted-foreground text-center p-2">
-            Electron + React + TypeScript + Shadcn UI foundation is ready! 🚀
-          </p>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                onClick={() => onPageChange?.('store')}
+                isActive={currentPage === 'store'}
+              >
+                <Store className="w-4 h-4" />
+                Store
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                onClick={() => onPageChange?.('model')}
+                isActive={currentPage === 'model'}
+              >
+                <Bot className="w-4 h-4" />
+                Model
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                onClick={() => onPageChange?.('settings')}
+                isActive={currentPage === 'settings'}
+              >
+                <Settings className="w-4 h-4" />
+                Settings
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+          <div className="border-t pt-2">
+            <p className="text-xs text-muted-foreground text-center p-2">
+              v{version} • {platform}
+            </p>
+          </div>
         </SidebarFooter>
       </Sidebar>
-      <SidebarInset>
+      <SidebarInset className='rounded-l-2xl'>
         <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
           <div className="flex items-center gap-2 px-4">
             <SidebarTrigger className="-ml-1" />
