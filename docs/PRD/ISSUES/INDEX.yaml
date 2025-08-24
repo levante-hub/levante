@@ -49,6 +49,11 @@ issues:
     labels: [mcp, performance, ai-optimization]
     priority: P0
     role: AI Engineer
+  - id: 0011
+    title: Hexagonal Architecture — Refactor Tight Coupling & Implement Proper Ports/Adapters
+    labels: [architecture, refactoring, hexagonal, technical-debt]
+    priority: P1
+    role: Platform Engineer
 
 
 
