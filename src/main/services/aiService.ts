@@ -9,7 +9,6 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { google } from "@ai-sdk/google";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { createGateway } from "@ai-sdk/gateway";
-import { ipcMain } from "electron";
 import type { ProviderConfig } from "../../types/models";
 
 export interface ChatRequest {
@@ -32,89 +31,100 @@ export class AIService {
       // Get providers configuration from preferences via IPC
       // Since this is in main process, we need to simulate the IPC call
       const { preferencesService } = await import("./preferencesService");
-      
+
       let providers: ProviderConfig[];
       try {
-        providers = preferencesService.get('providers') as ProviderConfig[] || [];
+        providers =
+          (preferencesService.get("providers") as ProviderConfig[]) || [];
       } catch (error) {
-        console.warn('No providers found in preferences, using empty array');
+        console.warn("No providers found in preferences, using empty array");
         providers = [];
       }
-      
+
       // If no providers configured, use fallback
       if (providers.length === 0) {
-        console.log('No providers configured, using fallback provider');
+        console.log("No providers configured, using fallback provider");
         return this.getFallbackProvider(modelId);
       }
-      
+
       // Find which provider this model belongs to
-      const providerWithModel = providers.find(provider => 
-        provider.models.some(model => model.id === modelId && model.isSelected !== false)
+      const providerWithModel = providers.find((provider) =>
+        provider.models.some(
+          (model) => model.id === modelId && model.isSelected !== false
+        )
       );
-      
+
       if (!providerWithModel) {
-        console.log(`Model ${modelId} not found in configured providers, using fallback`);
+        console.log(
+          `Model ${modelId} not found in configured providers, using fallback`
+        );
         return this.getFallbackProvider(modelId);
       }
-      
+
       // Configure provider based on type
       switch (providerWithModel.type) {
-        case 'vercel-gateway':
+        case "vercel-gateway":
           if (!providerWithModel.apiKey || !providerWithModel.baseUrl) {
-            throw new Error(`Vercel AI Gateway configuration incomplete for provider ${providerWithModel.name}`);
+            throw new Error(
+              `Vercel AI Gateway configuration incomplete for provider ${providerWithModel.name}`
+            );
           }
-          
+
           // For AI calls, use /v1/ai endpoint (different from models listing endpoint)
-          const gatewayApiUrl = providerWithModel.baseUrl.includes('/v1/ai') 
-            ? providerWithModel.baseUrl 
-            : providerWithModel.baseUrl.replace('/v1', '/v1/ai');
-          
+          const gatewayApiUrl = providerWithModel.baseUrl.includes("/v1/ai")
+            ? providerWithModel.baseUrl
+            : providerWithModel.baseUrl.replace("/v1", "/v1/ai");
+
           const gateway = createGateway({
             apiKey: providerWithModel.apiKey,
             baseURL: gatewayApiUrl,
           });
-          
+
           return gateway(modelId);
-          
-        case 'openrouter':
+
+        case "openrouter":
           if (!providerWithModel.apiKey) {
-            throw new Error(`OpenRouter API key missing for provider ${providerWithModel.name}`);
+            throw new Error(
+              `OpenRouter API key missing for provider ${providerWithModel.name}`
+            );
           }
-          
+
           const openrouter = createOpenAICompatible({
-            name: 'openrouter',
+            name: "openrouter",
             apiKey: providerWithModel.apiKey,
-            baseURL: 'https://openrouter.ai/api/v1',
+            baseURL: "https://openrouter.ai/api/v1",
           });
-          
+
           return openrouter(modelId);
-          
-        case 'local':
+
+        case "local":
           if (!providerWithModel.baseUrl) {
-            throw new Error(`Local provider endpoint missing for provider ${providerWithModel.name}`);
+            throw new Error(
+              `Local provider endpoint missing for provider ${providerWithModel.name}`
+            );
           }
-          
+
           const localProvider = createOpenAICompatible({
-            name: 'local',
+            name: "local",
             baseURL: providerWithModel.baseUrl,
           });
-          
+
           return localProvider(modelId);
-          
-        case 'cloud':
+
+        case "cloud":
           // For cloud providers, use direct SDK with environment variables
           return this.getCloudProvider(modelId);
-          
+
         default:
           throw new Error(`Unknown provider type: ${providerWithModel.type}`);
       }
     } catch (error) {
-      console.error('Error getting model provider configuration:', error);
+      console.error("Error getting model provider configuration:", error);
       // Fallback to old behavior
       return this.getFallbackProvider(modelId);
     }
   }
-  
+
   private getFallbackProvider(modelId: string) {
     if (modelId.startsWith("openai/")) {
       if (!process.env.OPENAI_API_KEY) {
@@ -154,7 +164,7 @@ export class AIService {
     }
     return openai("gpt-4o-mini");
   }
-  
+
   private getCloudProvider(modelId: string) {
     if (modelId.startsWith("openai/")) {
       if (!process.env.OPENAI_API_KEY) {
