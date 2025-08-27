@@ -156,15 +156,27 @@ export function SearchResults({ onNavigateToSession }: SearchResultsProps) {
     return () => clearTimeout(timeoutId);
   }, [searchQuery, searchMessages, clearSearch]);
 
+  // Keep input focused when search results change
+  useEffect(() => {
+    if (inputRef.current && searchQuery && !searchLoading) {
+      requestAnimationFrame(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+        }
+      });
+    }
+  }, [searchResults, searchLoading, searchQuery]);
+
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
     const cursorPosition = e.target.selectionStart;
     
     setSearchQuery(newValue);
     
-    // Preserve cursor position after state update
+    // Preserve focus and cursor position after state update
     requestAnimationFrame(() => {
       if (inputRef.current && cursorPosition !== null) {
+        inputRef.current.focus();
         inputRef.current.setSelectionRange(cursorPosition, cursorPosition);
       }
     });
@@ -173,6 +185,13 @@ export function SearchResults({ onNavigateToSession }: SearchResultsProps) {
   const handleClearSearch = useCallback(() => {
     setSearchQuery('');
     clearSearch();
+    
+    // Keep focus on input after clearing
+    requestAnimationFrame(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+    });
   }, [clearSearch]);
 
   // Memoized grouping for performance
