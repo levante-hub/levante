@@ -22,6 +22,7 @@ release
 prueba/
 docs/PRD/
 dev-levante.db
+.claude/settings.local.json
 
 
 # TypeScript build info

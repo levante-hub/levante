@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, MessageSquare, Plus, Trash2, MoreVertical } from 'lucide-react';
+import { Search, Plus, Trash2, MoreVertical } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { ChatSession } from '../../../types/database';
 import { cn } from '@/lib/utils';
+import { searchTextMatch } from '@/utils/textUtils';
 
 interface ChatListProps {
   sessions: ChatSession[];
@@ -31,15 +32,14 @@ export function ChatList({
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredSessions, setFilteredSessions] = useState<ChatSession[]>(sessions);
 
-  // Filter sessions based on search query
+  // Filter sessions based on search query (accent-insensitive)
   useEffect(() => {
     if (!searchQuery.trim()) {
       setFilteredSessions(sessions);
     } else {
-      const query = searchQuery.toLowerCase();
       const filtered = sessions.filter(session =>
-        session.title?.toLowerCase().includes(query) ||
-        session.model.toLowerCase().includes(query)
+        searchTextMatch(session.title || '', searchQuery) ||
+        searchTextMatch(session.model, searchQuery)
       );
       setFilteredSessions(filtered);
     }
@@ -79,14 +79,6 @@ export function ChatList({
     return order.indexOf(a) - order.indexOf(b);
   });
 
-  const formatTime = (timestamp: number) => {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
-  };
 
   return (
     <div className="flex flex-col h-full">

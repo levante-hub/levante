@@ -132,4 +132,15 @@
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }
+  
+  /* Search result highlighting */
+  .highlight-message {
+    @apply ring-2 ring-primary/50 rounded-lg transition-all duration-500;
+    animation: pulse 1s ease-in-out 2;
+  }
+  
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
 }

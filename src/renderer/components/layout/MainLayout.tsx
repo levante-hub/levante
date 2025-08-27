@@ -12,7 +12,7 @@ import {
   SidebarProvider,
   SidebarTrigger
 } from '@/components/ui/sidebar'
-import { MessageSquare, Settings, User, Bot, Store } from 'lucide-react'
+import { MessageSquare, Settings, Bot, Store, Search } from 'lucide-react'
 
 interface MainLayoutProps {
   children: React.ReactNode
@@ -62,6 +62,15 @@ export function MainLayout({ children, title = 'Chat', currentPage = 'chat', onP
                   >
                     <MessageSquare className="w-4 h-4" />
                     Chat
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    onClick={() => onPageChange?.('search')}
+                    isActive={currentPage === 'search'}
+                  >
+                    <Search className="w-4 h-4" />
+                    Search
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>

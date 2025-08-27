@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { MainLayout } from '@/components/layout/MainLayout'
 import ChatPage from '@/pages/ChatPage'
+import SearchPage from '@/pages/SearchPage'
 import SettingsPage from '@/pages/SettingsPage'
 import ModelPage from '@/pages/ModelPage'
 import StorePage from '@/pages/StorePage'
@@ -33,6 +34,8 @@ function App() {
     switch (page) {
       case 'chat': 
         return currentSession?.title || 'Chat'
+      case 'search': 
+        return 'Search'
       case 'settings': 
         return 'Settings'
       case 'model': 
@@ -47,6 +50,7 @@ function App() {
   const renderPage = () => {
     switch (currentPage) {
       case 'chat': return <ChatPage />
+      case 'search': return <SearchPage onNavigateToChat={() => setCurrentPage('chat')} />
       case 'settings': return <SettingsPage />
       case 'model': return <ModelPage />
       case 'store': return <StorePage />
