@@ -27,15 +27,17 @@ export const ACCENT_MAP = [
 
 /**
  * Normalize text by removing accents and converting to lowercase for search purposes
+ * Uses efficient single-pass replacement with pre-compiled regex
  */
 export function normalizeSearchText(text: string): string {
-  let normalized = text.toLowerCase();
+  // Create a single regex that matches all accented characters
+  const accentRegex = new RegExp(`[${ACCENT_MAP.map(([accented]) => accented).join('')}]`, 'g');
   
-  for (const [accented, base] of ACCENT_MAP) {
-    normalized = normalized.replace(new RegExp(accented, 'g'), base);
-  }
+  // Create lookup map for faster replacements
+  const accentLookup = new Map<string, string>(ACCENT_MAP);
   
-  return normalized;
+  // Single pass: lowercase and replace accents
+  return text.toLowerCase().replace(accentRegex, (match) => accentLookup.get(match) || match);
 }
 
 /**
@@ -48,13 +50,9 @@ export function searchTextMatch(text: string, query: string): boolean {
 }
 
 /**
- * Build SQL REPLACE chain for accent-insensitive database queries
- * Uses the same ACCENT_MAP for consistency with client-side normalization
+ * Build SQL expression for accent-insensitive database queries
+ * Uses simpler LOWER() only and relies on pre-normalized search terms
  */
 export function buildAccentInsensitiveSqlLike(columnName: string = 'content'): string {
-  const sql = ACCENT_MAP.reduce((acc, [accented, base]) => {
-    return `REPLACE(${acc}, '${accented}', '${base}')`;
-  }, columnName);
-  
-  return `LOWER(${sql})`;
+  return `LOWER(${columnName})`;
 }

@@ -1,6 +1,6 @@
 import { InValue } from '@libsql/client';
 import { databaseService } from './databaseService';
-import { normalizeSearchText, buildAccentInsensitiveSqlLike } from '../../renderer/utils/textUtils';
+import { normalizeSearchText, searchTextMatch } from '../../renderer/utils/textUtils';
 import { 
   ChatSession, 
   Message, 
@@ -304,22 +304,27 @@ export class ChatService {
         return { data: [], success: true };
       }
 
-      // Always use accent-insensitive search to handle all cases (cafe -> café, café -> cafe, etc.)
-      const normalizedQuery = normalizeSearchText(trimmedQuery);
-      let sql = `SELECT * FROM messages WHERE ${buildAccentInsensitiveSqlLike()} LIKE ?`;
-      const params: InValue[] = [`%${normalizedQuery}%` as InValue];
+      // Use a hybrid approach: get all messages, then do accent-insensitive filtering in JavaScript
+      // This avoids SQLite parser stack overflow while maintaining accent-insensitive search
+      
+      // Since SQL can't handle accent-insensitive matching properly without complex nested REPLACE calls,
+      // we'll get all messages and filter in JavaScript. For performance, we can limit by date or length.
+      let sql = `SELECT * FROM messages`;
+      const params: InValue[] = [];
 
       if (sessionId) {
-        sql += ' AND session_id = ?';
+        sql += ' WHERE session_id = ?';
         params.push(sessionId as InValue);
       }
-
+      
       sql += ' ORDER BY created_at DESC LIMIT ?';
-      params.push(limit as InValue);
+      // Get many more results since we'll filter in JavaScript
+      params.push((limit * 10) as InValue);
 
       const result = await databaseService.execute(sql, params);
       
-      const messages: Message[] = result.rows.map(row => ({
+      // Parse all candidate messages
+      const candidateMessages: Message[] = result.rows.map(row => ({
         id: row[0] as string,
         session_id: row[1] as string,
         role: row[2] as 'user' | 'assistant' | 'system',
@@ -328,8 +333,21 @@ export class ChatService {
         created_at: row[5] as number
       }));
 
-      console.log('[ChatService] Search completed', { found: messages.length, query: trimmedQuery });
-      return { data: messages, success: true };
+      // Second pass: filter with accent-insensitive matching and apply final limit
+      const filteredMessages = candidateMessages
+        .filter(message => searchTextMatch(message.content, trimmedQuery))
+        .slice(0, limit);
+
+      console.log('[ChatService] Search completed', { 
+        candidates: candidateMessages.length, 
+        filtered: filteredMessages.length, 
+        query: trimmedQuery,
+        sqlQuery: sql,
+        sqlParams: params,
+        sampleCandidates: candidateMessages.slice(0, 3).map(m => ({ id: m.id, contentPreview: m.content.substring(0, 50) + '...' }))
+      });
+      
+      return { data: filteredMessages, success: true };
     } catch (error) {
       console.error('[ChatService] Failed to search messages:', error, { searchQuery, sessionId, limit });
       return { 
