@@ -21,11 +21,22 @@ interface ChatStore {
   messagesOffset: number;
   hasMoreMessages: boolean;
   
+  // Search state
+  searchResults: Message[];
+  searchLoading: boolean;
+  searchError: string | null;
+  
   // Actions
   setStatus: (status: ElectronChatStatus) => void;
   setStreamingMessage: (message: ElectronMessage | null) => void;
   setError: (error: string | null) => void;
   setLoading: (loading: boolean) => void;
+  
+  // Search actions
+  setSearchResults: (results: Message[]) => void;
+  setSearchLoading: (loading: boolean) => void;
+  setSearchError: (error: string | null) => void;
+  clearSearch: () => void;
   
   // Session actions
   setSessions: (sessions: ChatSession[]) => void;
@@ -51,6 +62,9 @@ interface ChatStore {
   addMessage: (content: string, role: 'user' | 'assistant' | 'system') => Promise<Message | null>;
   sendMessage: (message: { text: string }, options?: { body?: { model?: string; webSearch?: boolean } }) => Promise<void>;
   loadMoreMessages: () => Promise<void>;
+  
+  // Search API actions
+  searchMessages: (query: string, sessionId?: string) => Promise<void>;
   
   // UI actions
   startNewChat: () => void;
@@ -80,6 +94,11 @@ export const useChatStore = create<ChatStore>()(
       dbMessages: [],
       messagesOffset: 0,
       hasMoreMessages: true,
+      
+      // Search state
+      searchResults: [],
+      searchLoading: false,
+      searchError: null,
 
       // Basic setters
       setStatus: (status) => set({ status }),
@@ -89,6 +108,12 @@ export const useChatStore = create<ChatStore>()(
       },
       setError: (error) => set({ error }),
       setLoading: (loading) => set({ loading }),
+      
+      // Search setters
+      setSearchResults: (searchResults) => set({ searchResults }),
+      setSearchLoading: (searchLoading) => set({ searchLoading }),
+      setSearchError: (searchError) => set({ searchError }),
+      clearSearch: () => set({ searchResults: [], searchError: null }),
 
       // Session actions
       setSessions: (sessions) => set({ sessions }),
@@ -503,6 +528,33 @@ export const useChatStore = create<ChatStore>()(
           set({ error: err instanceof Error ? err.message : 'Unknown error' });
         } finally {
           set({ loading: false });
+        }
+      },
+
+      searchMessages: async (query: string, sessionId?: string) => {
+        const trimmedQuery = query.trim();
+        
+        if (!trimmedQuery) {
+          get().clearSearch();
+          return;
+        }
+        
+        try {
+          set({ searchLoading: true, searchError: null });
+          
+          const result = await window.levante.db.messages.search(trimmedQuery, sessionId, 50);
+          
+          if (result.success && result.data) {
+            set({ searchResults: result.data, searchLoading: false });
+            console.log('[ChatStore] Search completed', { found: result.data.length, query: trimmedQuery });
+          } else {
+            set({ searchError: result.error || 'Search failed', searchLoading: false });
+          }
+        } catch (err) {
+          set({ 
+            searchError: err instanceof Error ? err.message : 'Search error', 
+            searchLoading: false 
+          });
         }
       },
 

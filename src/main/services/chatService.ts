@@ -298,8 +298,14 @@ export class ChatService {
     console.log('[ChatService] Searching messages', { searchQuery, sessionId, limit });
     
     try {
-      let sql = 'SELECT * FROM messages WHERE content LIKE ?';
-      const params: InValue[] = [`%${searchQuery}%` as InValue];
+      const trimmedQuery = searchQuery.trim();
+      if (!trimmedQuery) {
+        return { data: [], success: true };
+      }
+
+      // Simple case-insensitive search with COLLATE NOCASE for better performance
+      let sql = 'SELECT * FROM messages WHERE content LIKE ? COLLATE NOCASE';
+      const params: InValue[] = [`%${trimmedQuery}%` as InValue];
 
       if (sessionId) {
         sql += ' AND session_id = ?';
@@ -311,7 +317,7 @@ export class ChatService {
 
       const result = await databaseService.execute(sql, params);
       
-      const messages: Message[] = result.rows.map(row => ({
+      let messages: Message[] = result.rows.map(row => ({
         id: row[0] as string,
         session_id: row[1] as string,
         role: row[2] as 'user' | 'assistant' | 'system',
@@ -320,7 +326,27 @@ export class ChatService {
         created_at: row[5] as number
       }));
 
-      console.log('[ChatService] Search completed', { found: messages.length, query: searchQuery });
+      // If no results with simple search, try accent-insensitive search
+      if (messages.length === 0 && this.hasAccents(trimmedQuery)) {
+        const normalizedQuery = this.normalizeSearchText(trimmedQuery);
+        const accentSql = `SELECT * FROM messages WHERE ${this.buildAccentInsensitiveLike()} LIKE ?${sessionId ? ' AND session_id = ?' : ''} ORDER BY created_at DESC LIMIT ?`;
+        const accentParams: InValue[] = [`%${normalizedQuery}%` as InValue];
+        
+        if (sessionId) accentParams.push(sessionId as InValue);
+        accentParams.push(limit as InValue);
+
+        const accentResult = await databaseService.execute(accentSql, accentParams);
+        messages = accentResult.rows.map(row => ({
+          id: row[0] as string,
+          session_id: row[1] as string,
+          role: row[2] as 'user' | 'assistant' | 'system',
+          content: row[3] as string,
+          tool_calls: row[4] as string,
+          created_at: row[5] as number
+        }));
+      }
+
+      console.log('[ChatService] Search completed', { found: messages.length, query: trimmedQuery });
       return { data: messages, success: true };
     } catch (error) {
       console.error('[ChatService] Failed to search messages:', error, { searchQuery, sessionId, limit });
@@ -335,6 +361,27 @@ export class ChatService {
   // Utility methods
   private generateId(): string {
     return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+  }
+
+  private normalizeSearchText(text: string): string {
+    return text
+      .toLowerCase()
+      .replace(/[áàäâãå]/g, 'a')
+      .replace(/[éèëê]/g, 'e')
+      .replace(/[íìïî]/g, 'i')
+      .replace(/[óòöôõ]/g, 'o')
+      .replace(/[úùüû]/g, 'u')
+      .replace(/[ýÿ]/g, 'y')
+      .replace(/ñ/g, 'n')
+      .replace(/ç/g, 'c');
+  }
+
+  private hasAccents(text: string): boolean {
+    return /[áàäâãåéèëêíìïîóòöôõúùüûýÿñç]/i.test(text);
+  }
+
+  private buildAccentInsensitiveLike(): string {
+    return `LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(content, 'á', 'a'), 'à', 'a'), 'ä', 'a'), 'â', 'a'), 'ã', 'a'), 'å', 'a'), 'é', 'e'), 'è', 'e'), 'ë', 'e'), 'ê', 'e'), 'í', 'i'), 'ì', 'i'), 'ï', 'i'), 'î', 'i'), 'ó', 'o'), 'ò', 'o'), 'ö', 'o'), 'ô', 'o'), 'õ', 'o'), 'ú', 'u'), 'ù', 'u'), 'ü', 'u'), 'û', 'u'), 'ý', 'y'), 'ÿ', 'y'), 'ñ', 'n'), 'ç', 'c'))`;
   }
 }
 
