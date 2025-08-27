@@ -46,3 +46,15 @@ export function searchTextMatch(text: string, query: string): boolean {
   const normalizedQuery = normalizeSearchText(query);
   return normalizedText.includes(normalizedQuery);
 }
+
+/**
+ * Build SQL REPLACE chain for accent-insensitive database queries
+ * Uses the same ACCENT_MAP for consistency with client-side normalization
+ */
+export function buildAccentInsensitiveSqlLike(columnName: string = 'content'): string {
+  const sql = ACCENT_MAP.reduce((acc, [accented, base]) => {
+    return `REPLACE(${acc}, '${accented}', '${base}')`;
+  }, columnName);
+  
+  return `LOWER(${sql})`;
+}
