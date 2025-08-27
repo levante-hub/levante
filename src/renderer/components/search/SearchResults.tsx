@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Search, MessageSquare, Calendar, User, Bot, ChevronRight } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useChatStore } from '@/stores/chatStore';
 import { Message } from '../../../types/database';
 import { cn } from '@/lib/utils';
+import { normalizeSearchText } from '@/utils/textUtils';
 
 interface SearchResultsProps {
   onNavigateToSession?: (sessionId: string, messageId: string) => void;
@@ -25,18 +26,54 @@ interface SearchResultItemProps {
 function highlightText(text: string, query: string): React.ReactNode {
   if (!query.trim()) return text;
   
-  const regex = new RegExp(`(${query})`, 'gi');
-  const parts = text.split(regex);
+  const normalizedQuery = normalizeSearchText(query);
+  const normalizedText = normalizeSearchText(text);
   
-  return parts.map((part, index) =>
-    regex.test(part) ? (
-      <mark key={index} className="bg-yellow-200 dark:bg-yellow-800 px-1 rounded">
-        {part}
+  // Find all matches in the normalized text
+  const matches: Array<{ start: number; end: number; originalText: string }> = [];
+  let searchStart = 0;
+  
+  while (searchStart < normalizedText.length) {
+    const matchIndex = normalizedText.indexOf(normalizedQuery, searchStart);
+    if (matchIndex === -1) break;
+    
+    const matchEnd = matchIndex + normalizedQuery.length;
+    matches.push({
+      start: matchIndex,
+      end: matchEnd,
+      originalText: text.substring(matchIndex, matchEnd)
+    });
+    searchStart = matchEnd;
+  }
+  
+  if (matches.length === 0) return text;
+  
+  // Build the highlighted result
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  
+  matches.forEach((match, index) => {
+    // Add text before match
+    if (match.start > lastIndex) {
+      parts.push(text.substring(lastIndex, match.start));
+    }
+    
+    // Add highlighted match
+    parts.push(
+      <mark key={`highlight-${index}`} className="bg-yellow-200 dark:bg-yellow-800 px-1 rounded">
+        {text.substring(match.start, match.end)}
       </mark>
-    ) : (
-      part
-    )
-  );
+    );
+    
+    lastIndex = match.end;
+  });
+  
+  // Add remaining text
+  if (lastIndex < text.length) {
+    parts.push(text.substring(lastIndex));
+  }
+  
+  return parts;
 }
 
 function SearchResultItem({ message, sessionTitle, onNavigate, searchQuery }: SearchResultItemProps) {
@@ -95,6 +132,7 @@ function SearchResultItem({ message, sessionTitle, onNavigate, searchQuery }: Se
 
 export function SearchResults({ onNavigateToSession }: SearchResultsProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
   
   const {
     searchResults,
@@ -119,7 +157,17 @@ export function SearchResults({ onNavigateToSession }: SearchResultsProps) {
   }, [searchQuery, searchMessages, clearSearch]);
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
+    const newValue = e.target.value;
+    const cursorPosition = e.target.selectionStart;
+    
+    setSearchQuery(newValue);
+    
+    // Preserve cursor position after state update
+    requestAnimationFrame(() => {
+      if (inputRef.current && cursorPosition !== null) {
+        inputRef.current.setSelectionRange(cursorPosition, cursorPosition);
+      }
+    });
   }, []);
 
   const handleClearSearch = useCallback(() => {
@@ -160,6 +208,7 @@ export function SearchResults({ onNavigateToSession }: SearchResultsProps) {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
           <Input
+            ref={inputRef}
             placeholder="Search across all messages..."
             value={searchQuery}
             onChange={handleInputChange}
