@@ -1,23 +1,41 @@
 /**
+ * Comprehensive accent mapping for search normalization
+ */
+export const ACCENT_MAP = [
+  // A variations
+  ['á', 'a'], ['à', 'a'], ['ä', 'a'], ['â', 'a'], ['ã', 'a'], ['å', 'a'], ['ā', 'a'], ['ă', 'a'], ['ą', 'a'],
+  // E variations  
+  ['é', 'e'], ['è', 'e'], ['ë', 'e'], ['ê', 'e'], ['ē', 'e'], ['ė', 'e'], ['ę', 'e'],
+  // I variations
+  ['í', 'i'], ['ì', 'i'], ['ï', 'i'], ['î', 'i'], ['ī', 'i'], ['į', 'i'], ['ĩ', 'i'],
+  // O variations
+  ['ó', 'o'], ['ò', 'o'], ['ö', 'o'], ['ô', 'o'], ['õ', 'o'], ['ō', 'o'], ['ő', 'o'],
+  // U variations
+  ['ú', 'u'], ['ù', 'u'], ['ü', 'u'], ['û', 'u'], ['ū', 'u'], ['ų', 'u'], ['ũ', 'u'], ['ű', 'u'],
+  // Y variations
+  ['ý', 'y'], ['ÿ', 'y'],
+  // Other letters
+  ['ñ', 'n'], ['ń', 'n'],
+  ['ç', 'c'], ['ć', 'c'], ['č', 'c'],
+  ['ș', 's'], ['ş', 's'],
+  ['ț', 't'], ['ţ', 't'],
+  ['ř', 'r'],
+  ['ł', 'l'],
+  ['ž', 'z'],
+  ['đ', 'd']
+] as const;
+
+/**
  * Normalize text by removing accents and converting to lowercase for search purposes
  */
 export function normalizeSearchText(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[áàäâãåāăą]/g, 'a')
-    .replace(/[éèëêēėę]/g, 'e')
-    .replace(/[íìïîīįĩ]/g, 'i')
-    .replace(/[óòöôõōő]/g, 'o')
-    .replace(/[úùüûūųũű]/g, 'u')
-    .replace(/[ýÿ]/g, 'y')
-    .replace(/ñń/g, 'n')
-    .replace(/[çćč]/g, 'c')
-    .replace(/[șş]/g, 's')
-    .replace(/[țţ]/g, 't')
-    .replace(/ř/g, 'r')
-    .replace(/ł/g, 'l')
-    .replace(/ž/g, 'z')
-    .replace(/đ/g, 'd');
+  let normalized = text.toLowerCase();
+  
+  for (const [accented, base] of ACCENT_MAP) {
+    normalized = normalized.replace(new RegExp(accented, 'g'), base);
+  }
+  
+  return normalized;
 }
 
 /**

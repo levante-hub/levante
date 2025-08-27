@@ -344,22 +344,34 @@ export class ChatService {
     return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
   }
 
+  private static readonly ACCENT_MAP = [
+    ['á', 'a'], ['à', 'a'], ['ä', 'a'], ['â', 'a'], ['ã', 'a'], ['å', 'a'], ['ā', 'a'], ['ă', 'a'], ['ą', 'a'],
+    ['é', 'e'], ['è', 'e'], ['ë', 'e'], ['ê', 'e'], ['ē', 'e'], ['ė', 'e'], ['ę', 'e'],
+    ['í', 'i'], ['ì', 'i'], ['ï', 'i'], ['î', 'i'], ['ī', 'i'], ['į', 'i'], ['ĩ', 'i'],
+    ['ó', 'o'], ['ò', 'o'], ['ö', 'o'], ['ô', 'o'], ['õ', 'o'], ['ō', 'o'], ['ő', 'o'],
+    ['ú', 'u'], ['ù', 'u'], ['ü', 'u'], ['û', 'u'], ['ū', 'u'], ['ų', 'u'], ['ũ', 'u'], ['ű', 'u'],
+    ['ý', 'y'], ['ÿ', 'y'],
+    ['ñ', 'n'], ['ń', 'n'],
+    ['ç', 'c'], ['ć', 'c'], ['č', 'c'],
+    ['ș', 's'], ['ş', 's'],
+    ['ț', 't'], ['ţ', 't'],
+    ['ř', 'r'], ['ł', 'l'], ['ž', 'z'], ['đ', 'd']
+  ] as const;
+
   private normalizeSearchText(text: string): string {
-    return text
-      .toLowerCase()
-      .replace(/[áàäâãå]/g, 'a')
-      .replace(/[éèëê]/g, 'e')
-      .replace(/[íìïî]/g, 'i')
-      .replace(/[óòöôõ]/g, 'o')
-      .replace(/[úùüû]/g, 'u')
-      .replace(/[ýÿ]/g, 'y')
-      .replace(/ñ/g, 'n')
-      .replace(/ç/g, 'c');
+    let normalized = text.toLowerCase();
+    for (const [accented, base] of ChatService.ACCENT_MAP) {
+      normalized = normalized.replace(new RegExp(accented, 'g'), base);
+    }
+    return normalized;
   }
 
-
   private buildAccentInsensitiveLike(): string {
-    return `LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(content, 'á', 'a'), 'à', 'a'), 'ä', 'a'), 'â', 'a'), 'ã', 'a'), 'å', 'a'), 'é', 'e'), 'è', 'e'), 'ë', 'e'), 'ê', 'e'), 'í', 'i'), 'ì', 'i'), 'ï', 'i'), 'î', 'i'), 'ó', 'o'), 'ò', 'o'), 'ö', 'o'), 'ô', 'o'), 'õ', 'o'), 'ú', 'u'), 'ù', 'u'), 'ü', 'u'), 'û', 'u'), 'ý', 'y'), 'ÿ', 'y'), 'ñ', 'n'), 'ç', 'c'))`;
+    const sql = ChatService.ACCENT_MAP.reduce((acc, [accented, base]) => {
+      return `REPLACE(${acc}, '${accented}', '${base}')`;
+    }, 'content');
+    
+    return `LOWER(${sql})`;
   }
 }
 
