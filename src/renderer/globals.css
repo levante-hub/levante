@@ -117,8 +117,6 @@
   -webkit-app-region: no-drag;
 }
 
-
-
 @layer base {
   * {
     @apply border-border;
@@ -126,10 +124,53 @@
   body {
     @apply bg-background text-foreground;
   }
-  
+
   /* Ensure scrollable containers work properly in Electron */
   .scrollable {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+  }
+
+  /* Custom markdown styles */
+  .prose {
+    @apply text-foreground;
+  }
+
+  .prose h1,
+  .prose h2,
+  .prose h3,
+  .prose h4,
+  .prose h5,
+  .prose h6 {
+    @apply text-foreground font-semibold;
+  }
+
+  .prose p {
+    @apply text-foreground;
+  }
+
+  .prose strong {
+    @apply text-foreground font-semibold;
+  }
+
+  .prose code {
+    @apply text-foreground bg-muted px-1 py-0.5 rounded text-sm;
+  }
+
+  .prose pre {
+    @apply bg-muted border rounded-md;
+  }
+
+  .prose blockquote {
+    @apply border-l-4 border-border bg-muted/50 text-muted-foreground;
+  }
+
+  .prose ul,
+  .prose ol {
+    @apply text-foreground;
+  }
+
+  .prose li {
+    @apply text-foreground;
   }
 }
