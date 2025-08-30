@@ -108,7 +108,6 @@ const ChatPage = () => {
           {messages.map((message) => {
             return (
               <div key={message.id}>
-                💦
                 {message.role === "assistant" && (
                   <Sources>
                     {message.parts.map((part, i) => {
