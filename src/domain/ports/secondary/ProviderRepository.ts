@@ -65,6 +65,10 @@ export interface ProviderSyncStatus {
 
 export interface ProviderRepository extends BaseRepository<Provider, ProviderId> {
   /**
+   * Find all providers
+   */
+  findAll(): Promise<RepositoryResult<Provider[]>>;
+  /**
    * Create a new provider
    */
   create(input: ProviderCreateInput): Promise<RepositoryResult<Provider>>;

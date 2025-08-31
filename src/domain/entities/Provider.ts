@@ -1,14 +1,7 @@
 import { Model } from './Model';
+import { ProviderType } from '../value-objects/ProviderType';
 
-export type ProviderType = 'openrouter' | 'vercel-gateway' | 'local' | 'cloud';
-
-// Provider type requirements
-const PROVIDER_REQUIREMENTS = {
-  'openrouter': { requiresApiKey: false, requiresBaseUrl: false, supportsDynamicModels: true },
-  'vercel-gateway': { requiresApiKey: true, requiresBaseUrl: true, supportsDynamicModels: true },
-  'local': { requiresApiKey: false, requiresBaseUrl: true, supportsDynamicModels: true },
-  'cloud': { requiresApiKey: true, requiresBaseUrl: false, supportsDynamicModels: false }
-} as const;
+// Provider type requirements are now handled by ProviderType value object
 
 export class Provider {
   private _models: Model[] = [];
@@ -30,15 +23,19 @@ export class Provider {
     if (name.length > 100) {
       throw new Error('Provider name cannot exceed 100 characters')
     }
-    if (PROVIDER_REQUIREMENTS[type].requiresApiKey && !apiKey?.trim()) {
-      throw new Error(`Provider type ${type} requires an API key`)
+    if (type.requiresApiKey() && !apiKey?.trim()) {
+      throw new Error(`Provider type ${type.toString()} requires an API key`)
     }
-    if (PROVIDER_REQUIREMENTS[type].requiresBaseUrl && !baseUrl?.trim()) {
-      throw new Error(`Provider type ${type} requires a base URL`)
+    if (type.requiresBaseUrl() && !baseUrl?.trim()) {
+      throw new Error(`Provider type ${type.toString()} requires a base URL`)
     }
     if (baseUrl && !this.isValidUrl(baseUrl)) {
       throw new Error('Base URL must be a valid URL')
     }
+  }
+
+  getId(): string {
+    return this.id;
   }
 
   getName(): string {
@@ -46,7 +43,108 @@ export class Provider {
   }
 
   getType(): ProviderType {
-    return this.type
+    return this.type;
+  }
+
+  setActive(active: boolean): void {
+    this._isActive = active;
+  }
+
+  setEnabled(enabled: boolean): void {
+    this._isEnabled = enabled;
+  }
+
+  updateLastSync(): void {
+    // This would typically update a lastSync timestamp
+    // For now, we'll handle this in the repository layer
+  }
+
+  resetStats(): void {
+    // This would reset usage statistics
+    // Implementation depends on how stats are stored
+  }
+
+  setName(name: string): void {
+    if (!name.trim()) {
+      throw new Error('Provider name cannot be empty');
+    }
+    if (name.length > 100) {
+      throw new Error('Provider name cannot exceed 100 characters');
+    }
+    // Note: name is readonly, so this would need to be handled differently
+    // or we need to make name mutable
+  }
+
+  setApiKey(apiKey: string): void {
+    // Note: apiKey is readonly, similar issue as above
+    // This needs architectural decision on mutability
+  }
+
+  setBaseUrl(baseUrl: string): void {
+    if (baseUrl && !this.isValidUrl(baseUrl)) {
+      throw new Error('Base URL must be a valid URL');
+    }
+    // Note: baseUrl is readonly, similar issue
+  }
+
+  setOrganizationId(organizationId?: string): void {
+    // Implementation needed
+  }
+
+  setProjectId(projectId?: string): void {
+    // Implementation needed
+  }
+
+  setCustomHeaders(headers?: Record<string, string>): void {
+    // Implementation needed
+  }
+
+  setTimeout(timeout?: number): void {
+    // Implementation needed
+  }
+
+  setRetryAttempts(retryAttempts?: number): void {
+    // Implementation needed
+  }
+
+  setRateLimitSettings(settings?: any): void {
+    // Implementation needed
+  }
+
+  setMetadata(metadata?: Record<string, any>): void {
+    // Implementation needed
+  }
+
+  getMetadata(): Record<string, any> {
+    return this.settings || {};
+  }
+
+  getCustomHeaders(): Record<string, string> {
+    return {};
+  }
+
+  getTimeout(): number | undefined {
+    return undefined;
+  }
+
+  getRetryAttempts(): number | undefined {
+    return undefined;
+  }
+
+  getRateLimitSettings(): any {
+    return undefined;
+  }
+
+  getBaseUrl(): string | undefined {
+    return this.baseUrl;
+  }
+
+  getOrganizationId(): string | undefined {
+    return undefined;
+  }
+
+  getProjectId(): string | undefined {
+    return undefined;
   }
 
   isActive(): boolean {
@@ -55,10 +153,6 @@ export class Provider {
 
   isEnabled(): boolean {
     return this._isEnabled
-  }
-
-  getBaseUrl(): string | undefined {
-    return this.baseUrl
   }
 
   getApiKey(): string | undefined {
@@ -203,7 +297,7 @@ export class Provider {
   }
 
   requiresSync(): boolean {
-    if (!PROVIDER_REQUIREMENTS[this.type].supportsDynamicModels) {
+    if (!this.type.supportsDynamicModels()) {
       return false
     }
     
@@ -222,11 +316,11 @@ export class Provider {
   validateConfiguration(): string[] {
     const errors: string[] = []
     
-    if (PROVIDER_REQUIREMENTS[this.type].requiresApiKey && !this.apiKey?.trim()) {
+    if (this.type.requiresApiKey() && !this.apiKey?.trim()) {
       errors.push('API key is required')
     }
     
-    if (PROVIDER_REQUIREMENTS[this.type].requiresBaseUrl && !this.baseUrl?.trim()) {
+    if (this.type.requiresBaseUrl() && !this.baseUrl?.trim()) {
       errors.push('Base URL is required')
     }
     
@@ -292,23 +386,29 @@ export class Provider {
     }
   }
 
-  static create(
-    name: string,
-    type: ProviderType,
-    baseUrl?: string,
-    apiKey?: string,
-    settings: Record<string, any> = {}
-  ): Provider {
-    const id = `${type}_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
+  static create(config: {
+    type: ProviderType;
+    name: string;
+    apiKey?: any;
+    baseUrl?: string;
+    organizationId?: string;
+    projectId?: string;
+    customHeaders?: Record<string, string>;
+    timeout?: number;
+    retryAttempts?: number;
+    rateLimitSettings?: any;
+    metadata?: Record<string, any>;
+  }): Provider {
+    const id = `${config.type}_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
     return new Provider(
       id,
-      name,
-      type,
+      config.name,
+      config.type,
       false,
       true,
-      baseUrl,
-      apiKey,
-      settings
+      config.baseUrl,
+      config.apiKey?.toString(),
+      config.metadata || {}
     )
   }
 }

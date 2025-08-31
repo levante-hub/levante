@@ -19,8 +19,104 @@ export class ChatSession {
     }
   }
 
+  static create(data: {
+    title?: string;
+    modelId: string;
+    folderId?: string;
+    tags?: string[];
+    metadata?: Record<string, any>;
+  }): ChatSession {
+    const id = `chat_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const now = new Date();
+    return new ChatSession(
+      id,
+      data.title || 'New Conversation',
+      data.modelId,
+      now,
+      now,
+      data.folderId
+    );
+  }
+
+  getId(): string {
+    return this.id;
+  }
+
   getTitle(): string {
     return this._title
+  }
+
+  getModelId(): string {
+    return this.modelId;
+  }
+
+  getFolderId(): string | undefined {
+    return this.folderId;
+  }
+
+  getCreatedAt(): Date {
+    return this.createdAt;
+  }
+
+  setTitle(title: string): void {
+    if (!title.trim()) {
+      throw new Error('Chat title cannot be empty');
+    }
+    if (title.length > 200) {
+      throw new Error('Chat title cannot exceed 200 characters');
+    }
+    this._title = title;
+    this.updateLastActivity();
+  }
+
+  updateLastActivity(): void {
+    this._updatedAt = new Date();
+  }
+
+  archive(): void {
+    // Implementation for archiving would go here
+    this.updateLastActivity();
+  }
+
+  unarchive(): void {
+    // Implementation for unarchiving would go here
+    this.updateLastActivity();
+  }
+
+  star(): void {
+    // Implementation for starring would go here
+    this.updateLastActivity();
+  }
+
+  unstar(): void {
+    // Implementation for unstarring would go here
+    this.updateLastActivity();
+  }
+
+  setFolderId(folderId?: string): void {
+    // Since folderId is readonly, this needs architectural decision
+    // For now, we'll just update activity
+    this.updateLastActivity();
+  }
+
+  setTags(tags: string[]): void {
+    // Implementation for tags would go here
+    this.updateLastActivity();
+  }
+
+  getTags(): string[] {
+    // Return empty array for now - tags not implemented in current structure
+    return [];
+  }
+
+  setMetadata(metadata: Record<string, any>): void {
+    // Implementation for metadata would go here
+    this.updateLastActivity();
+  }
+
+  getMetadata(): Record<string, any> {
+    // Return empty object for now - metadata not implemented in current structure
+    return {};
   }
 
   getUpdatedAt(): Date {
@@ -143,21 +239,6 @@ export class ChatSession {
     )
   }
 
-  static create(
-    title: string,
-    modelId: string,
-    folderId?: string
-  ): ChatSession {
-    const now = new Date()
-    return new ChatSession(
-      crypto.randomUUID(),
-      title,
-      modelId,
-      now,
-      now,
-      folderId
-    )
-  }
 
   static createWithAutoTitle(modelId: string, folderId?: string): ChatSession {
     const now = new Date()

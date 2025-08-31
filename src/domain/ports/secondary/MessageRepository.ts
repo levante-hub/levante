@@ -58,6 +58,39 @@ export interface ConversationThread {
 
 export interface MessageRepository extends BaseRepository<Message, MessageId> {
   /**
+   * Find messages by session ID
+   */
+  findBySessionId(sessionId: string, options?: {
+    limit?: number;
+    offset?: number;
+    includeSystemMessages?: boolean;
+  }): Promise<RepositoryResult<Message[]>>;
+
+  /**
+   * Count messages by session ID
+   */
+  countBySessionId(sessionId: string): Promise<RepositoryResult<number>>;
+
+  /**
+   * Delete messages by session ID
+   */
+  deleteBySessionId(sessionId: string): Promise<RepositoryResult<number>>;
+
+  /**
+   * Count all messages
+   */
+  count(): Promise<RepositoryResult<number>>;
+
+  /**
+   * Find messages before a specific message
+   */
+  findBeforeMessage(sessionId: string, messageId: string, limit: number): Promise<RepositoryResult<Message[]>>;
+
+  /**
+   * Find messages after a specific message
+   */
+  findAfterMessage(sessionId: string, messageId: string, limit: number): Promise<RepositoryResult<Message[]>>;
+  /**
    * Create a new message
    */
   create(input: MessageCreateInput): Promise<RepositoryResult<Message>>;

@@ -237,9 +237,19 @@ export interface AIProviderAdapter {
   sendMessage(request: ChatRequest): Promise<ChatResponse>;
 
   /**
+   * Generate a complete response (alias for sendMessage)
+   */
+  generateResponse(request: ChatRequest): Promise<ChatResponse>;
+
+  /**
    * Stream chat response in real-time
    */
   streamChat(request: ChatRequest): AsyncGenerator<ChatStreamChunk>;
+
+  /**
+   * Stream response (alias for streamChat)
+   */
+  streamResponse(request: ChatRequest): AsyncGenerator<ChatStreamChunk>;
 
   /**
    * Generate a title for a conversation

@@ -22,7 +22,8 @@
       "Bash(find:*)",
       "Bash(grep:*)",
       "WebFetch(domain:docs.turso.tech)",
-      "WebFetch(domain:openrouter.ai)"
+      "WebFetch(domain:openrouter.ai)",
+      "Bash(pnmp typecheck:*)"
     ],
     "deny": [],
     "ask": []

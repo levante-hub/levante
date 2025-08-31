@@ -90,6 +90,33 @@ export interface LevanteAPI {
   listMCPServers: () => Promise<any[]>
   invokeMCPTool: (serverId: string, toolId: string, params: any) => Promise<any>
   
+  // Hexagonal Architecture APIs
+  hexagonal: {
+    health: () => Promise<{ success: boolean; data?: any; error?: string }>
+    chatSessions: {
+      create: (title: string, modelId?: string, metadata?: Record<string, any>) => Promise<{ success: boolean; data?: any; error?: string }>
+      findById: (id: string) => Promise<{ success: boolean; data?: any; error?: string }>
+      findAll: (options?: { limit?: number; offset?: number; orderBy?: string; orderDirection?: 'ASC' | 'DESC' }) => Promise<{ success: boolean; data?: any[]; error?: string }>
+      update: (id: string, updates: { title?: string; modelId?: string; metadata?: Record<string, any> }) => Promise<{ success: boolean; data?: any; error?: string }>
+      delete: (id: string) => Promise<{ success: boolean; data?: boolean; error?: string }>
+      search: (query: string, options?: { limit?: number; offset?: number }) => Promise<{ success: boolean; data?: any[]; error?: string }>
+      export: (id?: string) => Promise<{ success: boolean; data?: any; error?: string }>
+      import: (data: any) => Promise<{ success: boolean; data?: any[]; error?: string }>
+    }
+    providers: {
+      configure: (config: any) => Promise<{ success: boolean; data?: any; error?: string }>
+      remove: (providerId: string) => Promise<{ success: boolean; data?: boolean; error?: string }>
+      getAll: () => Promise<{ success: boolean; data?: any[]; error?: string }>
+      get: (providerId: string) => Promise<{ success: boolean; data?: any; error?: string }>
+      setActive: (providerId: string) => Promise<{ success: boolean; error?: string }>
+      getActive: () => Promise<{ success: boolean; data?: any; error?: string }>
+      syncModels: (providerId: string, options?: any) => Promise<{ success: boolean; data?: any[]; error?: string }>
+      syncAllModels: (options?: any) => Promise<{ success: boolean; data?: any; error?: string }>
+      selectModels: (providerId: string, modelIds: string[], options: any) => Promise<{ success: boolean; error?: string }>
+      testConnection: (providerId: string, config?: any) => Promise<{ success: boolean; data?: any; error?: string }>
+    }
+  }
+  
 }
 
 // Expose protected methods that allow the renderer process to use
@@ -224,7 +251,70 @@ const api: LevanteAPI = {
     ipcRenderer.invoke('levante/mcp/list-servers'),
     
   invokeMCPTool: (serverId: string, toolId: string, params: any) => 
-    ipcRenderer.invoke('levante/mcp/invoke-tool', { serverId, toolId, params })
+    ipcRenderer.invoke('levante/mcp/invoke-tool', { serverId, toolId, params }),
+
+  // Hexagonal Architecture APIs
+  hexagonal: {
+    health: () => ipcRenderer.invoke('levante/health'),
+    
+    chatSessions: {
+      create: (title: string, modelId?: string, metadata?: Record<string, any>) =>
+        ipcRenderer.invoke('levante/hexagonal/chat-sessions/create', { title, modelId, metadata }),
+      
+      findById: (id: string) =>
+        ipcRenderer.invoke('levante/hexagonal/chat-sessions/find-by-id', id),
+      
+      findAll: (options?: { limit?: number; offset?: number; orderBy?: string; orderDirection?: 'ASC' | 'DESC' }) =>
+        ipcRenderer.invoke('levante/hexagonal/chat-sessions/find-all', options),
+      
+      update: (id: string, updates: { title?: string; modelId?: string; metadata?: Record<string, any> }) =>
+        ipcRenderer.invoke('levante/hexagonal/chat-sessions/update', id, updates),
+      
+      delete: (id: string) =>
+        ipcRenderer.invoke('levante/hexagonal/chat-sessions/delete', id),
+      
+      search: (query: string, options?: { limit?: number; offset?: number }) =>
+        ipcRenderer.invoke('levante/hexagonal/chat-sessions/search', query, options),
+      
+      export: (id?: string) =>
+        ipcRenderer.invoke('levante/hexagonal/chat-sessions/export', id),
+      
+      import: (data: any) =>
+        ipcRenderer.invoke('levante/hexagonal/chat-sessions/import', data)
+    },
+    
+    providers: {
+      configure: (config: any) =>
+        ipcRenderer.invoke('levante/hexagonal/providers/configure', config),
+      
+      remove: (providerId: string) =>
+        ipcRenderer.invoke('levante/hexagonal/providers/remove', providerId),
+      
+      getAll: () =>
+        ipcRenderer.invoke('levante/hexagonal/providers/get-all'),
+      
+      get: (providerId: string) =>
+        ipcRenderer.invoke('levante/hexagonal/providers/get', providerId),
+      
+      setActive: (providerId: string) =>
+        ipcRenderer.invoke('levante/hexagonal/providers/set-active', providerId),
+      
+      getActive: () =>
+        ipcRenderer.invoke('levante/hexagonal/providers/get-active'),
+      
+      syncModels: (providerId: string, options?: any) =>
+        ipcRenderer.invoke('levante/hexagonal/providers/sync-models', providerId, options),
+      
+      syncAllModels: (options?: any) =>
+        ipcRenderer.invoke('levante/hexagonal/providers/sync-all-models', options),
+      
+      selectModels: (providerId: string, modelIds: string[], options: any) =>
+        ipcRenderer.invoke('levante/hexagonal/providers/select-models', providerId, modelIds, options),
+      
+      testConnection: (providerId: string, config?: any) =>
+        ipcRenderer.invoke('levante/hexagonal/providers/test-connection', providerId, config)
+    }
+  }
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

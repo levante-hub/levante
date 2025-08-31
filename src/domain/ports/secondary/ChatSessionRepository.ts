@@ -32,6 +32,46 @@ export interface ChatSessionWithStats extends ChatSession {
 
 export interface ChatSessionRepository extends BaseRepository<ChatSession, ChatId> {
   /**
+   * Find all sessions
+   */
+  findAll(): Promise<RepositoryResult<ChatSession[]>>;
+
+  /**
+   * Find sessions with pagination
+   */
+  findWithPagination(options: {
+    limit: number;
+    offset: number;
+    sortBy: string;
+    sortOrder: 'asc' | 'desc';
+  }): Promise<RepositoryResult<ChatSession[]>>;
+
+  /**
+   * Count total sessions
+   */
+  count(filters?: { archived?: boolean }): Promise<RepositoryResult<number>>;
+
+
+  /**
+   * Search count
+   */
+  searchCount(options: {
+    query: string;
+    includeArchived: boolean;
+    modelFilter?: string[];
+    dateRange?: { start?: Date; end?: Date };
+  }): Promise<RepositoryResult<number>>;
+
+  /**
+   * Get model usage statistics
+   */
+  getModelUsageStats(): Promise<RepositoryResult<Array<{ modelId: string; count: number }>>>;
+
+  /**
+   * Count sessions by date range
+   */
+  countByDateRange(startDate: Date, endDate: Date): Promise<RepositoryResult<number>>;
+  /**
    * Create a new chat session
    */
   create(input: ChatSessionCreateInput): Promise<RepositoryResult<ChatSession>>;

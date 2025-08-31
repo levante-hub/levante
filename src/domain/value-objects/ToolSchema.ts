@@ -246,7 +246,7 @@ export class ToolSchema {
   }
 
   private generateExampleForType(schema: JSONSchemaProperty | JSONSchemaDefinition): any {
-    if (schema.default !== undefined) {
+    if ('default' in schema && schema.default !== undefined) {
       return schema.default
     }
 
@@ -256,10 +256,10 @@ export class ToolSchema {
 
     switch (schema.type) {
       case 'string':
-        return schema.enum ? schema.enum[0] : 'example'
+        return ('enum' in schema && schema.enum) ? schema.enum[0] : 'example'
       case 'number':
       case 'integer':
-        return schema.minimum || 0
+        return ('minimum' in schema && typeof schema.minimum === 'number') ? schema.minimum : 0
       case 'boolean':
         return true
       case 'array':

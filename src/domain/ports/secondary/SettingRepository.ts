@@ -65,6 +65,11 @@ export interface SettingValidationReport {
 
 export interface SettingRepository extends BaseRepository<Setting, string> {
   /**
+   * Find all settings
+   */
+  findAll(): Promise<RepositoryResult<Setting[]>>;
+
+  /**
    * Create a new setting
    */
   create(input: SettingCreateInput): Promise<RepositoryResult<Setting>>;

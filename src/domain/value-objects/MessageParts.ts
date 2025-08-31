@@ -141,8 +141,9 @@ export class MessageParts {
         case 'source-url':
           return total + part.url.length + (part.title?.length || 0) + (part.description?.length || 0);
         case 'image':
+          return total + part.url.length + (part.alt || '').length;
         case 'file':
-          return total + part.url.length + (part.name || part.alt || '').length;
+          return total + part.url.length + (part.name || '').length;
         default:
           return total;
       }

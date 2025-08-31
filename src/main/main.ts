@@ -1,12 +1,15 @@
 import { app, BrowserWindow, ipcMain, shell } from "electron";
 import { join } from "path";
 import { config } from "dotenv";
-import { AIService, ChatRequest } from "./services/aiService";
-import { databaseService } from "./services/databaseService";
-import { setupDatabaseHandlers } from "./ipc/databaseHandlers";
-import { setupPreferencesHandlers } from "./ipc/preferencesHandlers";
-import { setupModelHandlers } from "./ipc/modelHandlers";
-import { preferencesService } from "./services/preferencesService";
+
+// Hexagonal Architecture imports
+import { 
+  initializeMainProcessContainer,
+  getMainProcessContainer,
+  disposeMainProcessContainer,
+  checkMainProcessHealth
+} from "./infrastructure/container/ElectronServiceContainer";
+import { setupHexagonalIPCHandlers, cleanupHexagonalIPCHandlers } from "./ipc/ElectronBridge";
 
 // Load environment variables from .env.local and .env files
 config({ path: join(__dirname, "../../.env.local") });
@@ -75,28 +78,29 @@ app.whenReady().then(async () => {
     app.setAppUserModelId("com.levante.app");
   }
 
-  // Initialize database
+
+  // Initialize Hexagonal Architecture
   try {
-    await databaseService.initialize();
-    console.log('Database initialized successfully');
+    console.log('Initializing hexagonal architecture...');
+    initializeMainProcessContainer();
+    console.log('Hexagonal architecture initialized successfully');
+
+    // Perform health check
+    const healthCheck = await checkMainProcessHealth();
+    if (healthCheck.healthy) {
+      console.log('All hexagonal services are healthy');
+    } else {
+      console.warn('Some hexagonal services are unhealthy:', healthCheck.services);
+    }
   } catch (error) {
-    console.error('Failed to initialize database:', error);
-    // Could show error dialog or continue with degraded functionality
+    console.error('Failed to initialize hexagonal architecture:', error);
+    // Could show error dialog or continue with legacy services
   }
 
-  // Initialize preferences service
-  try {
-    await preferencesService.initialize();
-    console.log('Preferences service initialized successfully');
-  } catch (error) {
-    console.error('Failed to initialize preferences service:', error);
-    // Could show error dialog or continue with degraded functionality
-  }
 
-  // Setup IPC handlers
-  setupDatabaseHandlers();
-  setupPreferencesHandlers();
-  setupModelHandlers();
+  // Setup Hexagonal IPC handlers
+  setupHexagonalIPCHandlers();
+  console.log('Hexagonal IPC handlers initialized successfully');
 
   createWindow();
 
@@ -108,13 +112,16 @@ app.whenReady().then(async () => {
 });
 
 app.on("window-all-closed", async () => {
-  // Close database connection before quitting
+  // Cleanup hexagonal architecture
   try {
-    await databaseService.close();
-    console.log('Database connection closed');
+    console.log('Cleaning up hexagonal architecture...');
+    cleanupHexagonalIPCHandlers();
+    disposeMainProcessContainer();
+    console.log('Hexagonal architecture cleanup completed');
   } catch (error) {
-    console.error('Error closing database:', error);
+    console.error('Error cleaning up hexagonal architecture:', error);
   }
+
   
   if (process.platform !== "darwin") app.quit();
 });
@@ -128,56 +135,19 @@ ipcMain.handle("levante/app/platform", () => {
   return process.platform;
 });
 
-// Initialize AI service
-const aiService = new AIService();
 
-// Streaming chat handler
-ipcMain.handle("levante/chat/stream", async (event, request: ChatRequest) => {
-  console.log("Received chat stream request:", request);
-  const streamId = `stream_${Date.now()}_${Math.random()
-    .toString(36)
-    .substring(2, 11)}`;
-
-  // Start streaming immediately - listeners should be ready (Expo pattern)
-  setTimeout(async () => {
-    try {
-      console.log("Starting AI stream...");
-      for await (const chunk of aiService.streamChat(request)) {
-        // Send chunk immediately without buffering (pattern from Expo)
-        event.sender.send(`levante/chat/stream/${streamId}`, chunk);
-        // Small yield to prevent blocking the event loop
-        await new Promise((resolve) => setImmediate(resolve));
-
-        // Log when stream completes
-        if (chunk.done) {
-          console.log("AI stream completed successfully");
-        }
-      }
-    } catch (error) {
-      console.error("AI Stream error:", error);
-      event.sender.send(`levante/chat/stream/${streamId}`, {
-        error: error instanceof Error ? error.message : "Stream error",
-        done: true,
-      });
-    }
-  }, 10); // Reduced delay following Expo patterns
-
-  console.log("Returning streamId:", streamId);
-  return { streamId };
-});
-
-// Non-streaming chat handler (for compatibility)
-ipcMain.handle("levante/chat/send", async (event, request: ChatRequest) => {
+// Health check endpoint for hexagonal architecture
+ipcMain.handle("levante/health", async () => {
   try {
-    const result = await aiService.sendSingleMessage(request);
+    const healthCheck = await checkMainProcessHealth();
     return {
       success: true,
-      ...result,
+      data: healthCheck
     };
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: error instanceof Error ? error.message : "Unknown error"
     };
   }
 });

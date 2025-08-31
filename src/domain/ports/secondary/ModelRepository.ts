@@ -1,7 +1,8 @@
 import { Model } from '../../entities/Model';
 import { ModelId } from '../../value-objects/ModelId';
 import { ProviderId } from '../../value-objects/ProviderId';
-import { ModelCapabilities, ModelCapability } from '../../value-objects/ModelCapabilities';
+import { ModelCapabilities } from '../../value-objects/ModelCapabilities';
+import { ModelCapability } from '../../entities/Model';
 import { PricingInfo } from '../../value-objects/PricingInfo';
 import { BaseRepository, RepositoryResult, PaginatedResult, QueryOptions } from './BaseRepository';
 
@@ -82,6 +83,25 @@ export interface ModelSyncResult {
 }
 
 export interface ModelRepository extends BaseRepository<Model, ModelId> {
+  /**
+   * Find all models
+   */
+  findAll(): Promise<RepositoryResult<Model[]>>;
+
+  /**
+   * Find models by multiple IDs
+   */
+  findByIds(ids: string[]): Promise<RepositoryResult<Model[]>>;
+
+  /**
+   * Save multiple models
+   */
+  saveMany(models: Model[]): Promise<RepositoryResult<Model[]>>;
+
+  /**
+   * Delete models by provider ID
+   */
+  deleteByProviderId(providerId: string): Promise<RepositoryResult<number>>;
   /**
    * Create a new model
    */

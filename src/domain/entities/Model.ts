@@ -1,3 +1,5 @@
+import { ModelCapabilities } from '../value-objects/ModelCapabilities';
+
 export type ModelCapability = 
   | 'text'
   | 'vision'
@@ -47,20 +49,68 @@ export class Model {
     }
   }
 
+  static create(data: {
+    id?: string;
+    name: string;
+    providerId: string;
+    capabilities: ModelCapability[];
+    contextLength: number;
+    pricing: ModelPricing;
+    selected?: boolean;
+    available?: boolean;
+    displayName?: string;
+    description?: string;
+  }): Model {
+    const id = data.id || `${data.providerId}/${data.name}`;
+    return new Model(
+      id,
+      data.name,
+      data.providerId,
+      data.capabilities,
+      data.contextLength,
+      data.pricing,
+      data.selected ?? false,
+      data.available ?? true,
+      data.displayName,
+      data.description
+    );
+  }
+
+  getId(): string {
+    return this.id;
+  }
+
+  getProviderId(): string {
+    return this.providerId;
+  }
+
+  isSelected(): boolean {
+    return this._isSelected;
+  }
+
+  setSelected(selected: boolean): void {
+    this._isSelected = selected;
+  }
+
+  isAvailable(): boolean {
+    return this._isAvailable;
+  }
+
+  setAvailable(available: boolean): void {
+    this._isAvailable = available;
+  }
+
+  getCapabilities(): ModelCapabilities {
+    // Return a ModelCapabilities value object
+    return ModelCapabilities.create(this.capabilities);
+  }
+
   getDisplayName(): string {
     return this.displayName || this.name
   }
 
   getDescription(): string {
     return this.description || ''
-  }
-
-  isSelected(): boolean {
-    return this._isSelected
-  }
-
-  isAvailable(): boolean {
-    return this._isAvailable
   }
 
   select(): void {
@@ -207,27 +257,4 @@ export class Model {
     }
   }
 
-  static create(
-    name: string,
-    providerId: string,
-    capabilities: ModelCapability[],
-    contextLength: number,
-    pricing: ModelPricing,
-    displayName?: string,
-    description?: string
-  ): Model {
-    const id = `${providerId}/${name}`
-    return new Model(
-      id,
-      name,
-      providerId,
-      capabilities,
-      contextLength,
-      pricing,
-      false,
-      true,
-      displayName,
-      description
-    )
-  }
 }
