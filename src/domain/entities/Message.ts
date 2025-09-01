@@ -8,6 +8,7 @@ export interface ToolCallData {
 export class Message {
   constructor(
     public readonly id: string,
+    public readonly sessionId: string,
     public readonly role: 'user' | 'assistant' | 'system',
     public readonly content: string,
     public readonly createdAt: Date,
@@ -32,6 +33,7 @@ export class Message {
     }
     return new Message(
       this.id,
+      this.sessionId,
       this.role,
       this.content,
       this.createdAt,
@@ -46,6 +48,7 @@ export class Message {
     
     return new Message(
       this.id,
+      this.sessionId,
       this.role,
       this.content,
       this.createdAt,
@@ -89,16 +92,42 @@ export class Message {
   }
 
   static create(
+    sessionId: string,
     role: 'user' | 'assistant' | 'system',
     content: string,
     toolCalls: ToolCallData[] = []
   ): Message {
     return new Message(
       crypto.randomUUID(),
+      sessionId,
       role,
       content,
       new Date(),
       toolCalls
     )
+  }
+
+  static fromDatabase(dbData: any): Message {
+    const toolCalls = dbData.tool_calls ? JSON.parse(dbData.tool_calls) : [];
+    return new Message(
+      dbData.id,
+      dbData.session_id,
+      dbData.role,
+      dbData.content,
+      new Date(dbData.created_at),
+      toolCalls
+    );
+  }
+
+  getSessionId(): string {
+    return this.sessionId;
+  }
+
+  getRole(): 'user' | 'assistant' | 'system' {
+    return this.role;
+  }
+
+  getContent(): string {
+    return this.content;
   }
 }

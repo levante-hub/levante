@@ -170,4 +170,27 @@ export class ChatSession {
       folderId
     )
   }
+
+  static fromDatabase(dbData: any): ChatSession {
+    return new ChatSession(
+      dbData.id,
+      dbData.title,
+      dbData.model,
+      new Date(dbData.created_at),
+      new Date(dbData.updated_at),
+      dbData.folder_id || undefined
+    )
+  }
+
+  getId(): string {
+    return this.id
+  }
+
+  getModelId(): string {
+    return this.modelId
+  }
+
+  getFolderId(): string | undefined {
+    return this.folderId
+  }
 }

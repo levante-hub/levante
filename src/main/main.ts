@@ -6,6 +6,8 @@ import { databaseService } from "./services/databaseService";
 import { setupDatabaseHandlers } from "./ipc/databaseHandlers";
 import { setupPreferencesHandlers } from "./ipc/preferencesHandlers";
 import { setupModelHandlers } from "./ipc/modelHandlers";
+import { setupHexagonalChatHandlers } from "./ipc/hexagonalChatHandlers";
+import { setupDependencies } from "../infrastructure/di/setup";
 import { preferencesService } from "./services/preferencesService";
 
 // Load environment variables from .env.local and .env files
@@ -93,10 +95,27 @@ app.whenReady().then(async () => {
     // Could show error dialog or continue with degraded functionality
   }
 
-  // Setup IPC handlers
+  // Setup hexagonal architecture
+  try {
+    await setupDependencies();
+    console.log('Hexagonal dependencies configured successfully');
+  } catch (error) {
+    console.error('Failed to setup hexagonal dependencies:', error);
+    // Continue with degraded functionality
+  }
+
+  // Setup IPC handlers (existing + hexagonal)
   setupDatabaseHandlers();
   setupPreferencesHandlers();
   setupModelHandlers();
+  
+  try {
+    await setupHexagonalChatHandlers();
+    console.log('Hexagonal chat handlers registered successfully');
+  } catch (error) {
+    console.error('Failed to setup hexagonal handlers:', error);
+    // Continue with existing handlers only
+  }
 
   createWindow();
 
@@ -167,7 +186,7 @@ ipcMain.handle("levante/chat/stream", async (event, request: ChatRequest) => {
 });
 
 // Non-streaming chat handler (for compatibility)
-ipcMain.handle("levante/chat/send", async (event, request: ChatRequest) => {
+ipcMain.handle("levante/chat/send", async (_, request: ChatRequest) => {
   try {
     const result = await aiService.sendSingleMessage(request);
     return {
