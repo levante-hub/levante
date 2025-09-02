@@ -11,6 +11,8 @@ export type ModelCapability =
 export interface ModelPricing {
   inputTokenPrice: number; // Per 1M tokens
   outputTokenPrice: number; // Per 1M tokens
+  cacheInputTokenPrice?: number; // Per 1M tokens for cached inputs
+  cacheOutputTokenPrice?: number; // Per 1M tokens for cached outputs
   currency: string;
 }
 
@@ -35,9 +37,6 @@ export class Model {
     }
     if (contextLength <= 0) {
       throw new Error('Context length must be positive')
-    }
-    if (contextLength > 2000000) {
-      throw new Error('Context length cannot exceed 2M tokens')
     }
     if (displayName && displayName.length > 150) {
       throw new Error('Display name cannot exceed 150 characters')
@@ -109,10 +108,12 @@ export class Model {
     return this.contextLength >= requiredLength
   }
 
-  estimateCost(inputTokens: number, outputTokens: number): number {
+  estimateCost(inputTokens: number, outputTokens: number, cacheInputTokens: number = 0, cacheOutputTokens: number = 0): number {
     const inputCost = (inputTokens / 1_000_000) * this.pricing.inputTokenPrice
     const outputCost = (outputTokens / 1_000_000) * this.pricing.outputTokenPrice
-    return inputCost + outputCost
+    const cacheInputCost = (cacheInputTokens / 1_000_000) * (this.pricing.cacheInputTokenPrice || this.pricing.inputTokenPrice)
+    const cacheOutputCost = (cacheOutputTokens / 1_000_000) * (this.pricing.cacheOutputTokenPrice || this.pricing.outputTokenPrice)
+    return inputCost + outputCost + cacheInputCost + cacheOutputCost
   }
 
   isMoreExpensiveThan(other: Model): boolean {
@@ -122,7 +123,9 @@ export class Model {
   }
 
   isFree(): boolean {
-    return this.pricing.inputTokenPrice === 0 && this.pricing.outputTokenPrice === 0
+    return this.pricing.inputTokenPrice === 0 && this.pricing.outputTokenPrice === 0 &&
+           (this.pricing.cacheInputTokenPrice === undefined || this.pricing.cacheInputTokenPrice === 0) &&
+           (this.pricing.cacheOutputTokenPrice === undefined || this.pricing.cacheOutputTokenPrice === 0)
   }
 
   getProviderName(): string {
@@ -167,6 +170,8 @@ export class Model {
       this.contextLength === other.contextLength &&
       this.pricing.inputTokenPrice === other.pricing.inputTokenPrice &&
       this.pricing.outputTokenPrice === other.pricing.outputTokenPrice &&
+      this.pricing.cacheInputTokenPrice === other.pricing.cacheInputTokenPrice &&
+      this.pricing.cacheOutputTokenPrice === other.pricing.cacheOutputTokenPrice &&
       this.pricing.currency === other.pricing.currency &&
       this._isSelected === other._isSelected &&
       this._isAvailable === other._isAvailable &&

@@ -91,12 +91,12 @@ export class ChatSession {
   generateAutoTitle(): string {
     const firstUserMessage = this.getFirstUserMessage()
     if (!firstUserMessage) {
-      return `New Chat - ${this.createdAt.toLocaleDateString()}`
+      return 'New Chat'
     }
 
     const content = firstUserMessage.getContentText()
     const truncatedContent = content.length > 50 ? content.substring(0, 50) + '...' : content
-    return truncatedContent.trim() || `Chat - ${this.createdAt.toLocaleDateString()}`
+    return truncatedContent.trim() || 'New Chat'
   }
 
   shouldAutoGenerateTitle(): boolean {
@@ -159,17 +159,6 @@ export class ChatSession {
     )
   }
 
-  static createWithAutoTitle(modelId: string, folderId?: string): ChatSession {
-    const now = new Date()
-    return new ChatSession(
-      crypto.randomUUID(),
-      `New Chat - ${now.toLocaleDateString()}`,
-      modelId,
-      now,
-      now,
-      folderId
-    )
-  }
 
   static fromDatabase(dbData: any): ChatSession {
     return new ChatSession(
