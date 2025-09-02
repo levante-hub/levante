@@ -391,9 +391,10 @@ export const useChatStore = create<ChatStore>()(
           
           let fullResponse = '';
           
-          // 4. Stream the response
-          await window.levante.streamChat(
-            { messages: apiMessages, model, webSearch },
+          // 4. Stream the response using hexagonal architecture
+          await window.levante.chat.streamMessage(
+            message.text,
+            { sessionId: session.id, model, webSearch, messages: apiMessages },
             (chunk) => {
               if (chunk.delta) {
                 fullResponse += chunk.delta;
@@ -414,7 +415,7 @@ export const useChatStore = create<ChatStore>()(
                     ...state.streamingMessage,
                     parts: [
                       ...(state.streamingMessage.parts || []),
-                      ...chunk.sources!.map(source => ({
+                      ...chunk.sources!.map((source: any) => ({
                         type: 'source-url' as const,
                         url: source.url
                       }))

@@ -1,5 +1,4 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { UIMessage } from 'ai'
 import { UIPreferences, PreferenceKey } from '../types/preferences'
 import { 
   CreateChatSessionInput, 
@@ -13,19 +12,6 @@ import {
   Message
 } from '../types/database'
 
-export interface ChatRequest {
-  messages: UIMessage[];
-  model: string;
-  webSearch: boolean;
-}
-
-export interface ChatStreamChunk {
-  delta?: string;
-  done?: boolean;
-  error?: string;
-  sources?: Array<{ url: string; title?: string }>;
-  reasoning?: string;
-}
 
 // Define the API interface for type safety
 export interface LevanteAPI {
@@ -33,9 +19,13 @@ export interface LevanteAPI {
   getVersion: () => Promise<string>
   getPlatform: () => Promise<string>
   
-  // Chat functionality
-  sendMessage: (request: ChatRequest) => Promise<{ success: boolean; response: string; sources?: any[]; reasoning?: string }>
-  streamChat: (request: ChatRequest, onChunk: (chunk: ChatStreamChunk) => void) => Promise<string>
+  // Chat functionality (hexagonal architecture)
+  chat: {
+    sendMessage: (message: string, options?: any) => Promise<{ success: boolean; data?: any; error?: string }>
+    streamMessage: (message: string, options: any, onChunk: (chunk: any) => void) => Promise<string>
+    createConversation: (title?: string, modelId?: string) => Promise<{ success: boolean; data?: any; error?: string }>
+    loadConversation: (sessionId: string, options?: any) => Promise<{ success: boolean; data?: any; error?: string }>
+  }
   
   // Model functionality  
   models: {
@@ -98,44 +88,52 @@ const api: LevanteAPI = {
   getVersion: () => ipcRenderer.invoke('levante/app/version'),
   getPlatform: () => ipcRenderer.invoke('levante/app/platform'),
   
-  sendMessage: (request: ChatRequest) => 
-    ipcRenderer.invoke('levante/chat/send', request),
-  
-  streamChat: async (request: ChatRequest, onChunk: (chunk: ChatStreamChunk) => void) => {
-    // CRITICAL FIX: Clean up any existing listeners first
-    const existingListeners = ipcRenderer.eventNames().filter(name => 
-      typeof name === 'string' && name.startsWith('levante/chat/stream/')
-    )
-    existingListeners.forEach(listenerName => {
-      if (typeof listenerName === 'string') {
-        ipcRenderer.removeAllListeners(listenerName)
-      }
-    })
+  // Chat API - using hexagonal architecture
+  chat: {
+    sendMessage: (message: string, options?: any) => 
+      ipcRenderer.invoke('levante/hexagonal/chat/send', message, options),
     
-    const { streamId } = await ipcRenderer.invoke('levante/chat/stream', request)
-    
-    return new Promise<string>((resolve, reject) => {
-      let fullResponse = ''
-      
-      const handleChunk = (_event: any, chunk: ChatStreamChunk) => {
-        if (chunk.delta) {
-          fullResponse += chunk.delta
+    streamMessage: async (message: string, options: any, onChunk: (chunk: any) => void) => {
+      const existingListeners = ipcRenderer.eventNames().filter(name => 
+        typeof name === 'string' && name.startsWith('levante/hexagonal/chat/stream/')
+      )
+      existingListeners.forEach(listenerName => {
+        if (typeof listenerName === 'string') {
+          ipcRenderer.removeAllListeners(listenerName)
         }
+      })
+      
+      const { streamId } = await ipcRenderer.invoke('levante/hexagonal/chat/stream', message, options)
+      
+      return new Promise<string>((resolve, reject) => {
+        let fullResponse = ''
         
-        onChunk(chunk)
-        
-        if (chunk.done) {
-          ipcRenderer.removeAllListeners(`levante/chat/stream/${streamId}`)
-          if (chunk.error) {
-            reject(new Error(chunk.error))
-          } else {
-            resolve(fullResponse)
+        const handleChunk = (_event: any, chunk: any) => {
+          if (chunk.delta) {
+            fullResponse += chunk.delta
+          }
+          
+          onChunk(chunk)
+          
+          if (chunk.done) {
+            ipcRenderer.removeAllListeners(`levante/hexagonal/chat/stream/${streamId}`)
+            if (chunk.error) {
+              reject(new Error(chunk.error))
+            } else {
+              resolve(fullResponse)
+            }
           }
         }
-      }
+        
+        ipcRenderer.on(`levante/hexagonal/chat/stream/${streamId}`, handleChunk)
+      })
+    },
+    
+    createConversation: (title?: string, modelId?: string) => 
+      ipcRenderer.invoke('levante/hexagonal/conversation/create', title, modelId),
       
-      ipcRenderer.on(`levante/chat/stream/${streamId}`, handleChunk)
-    })
+    loadConversation: (sessionId: string, options?: any) => 
+      ipcRenderer.invoke('levante/hexagonal/conversation/load', sessionId, options)
   },
 
   // Model API
@@ -224,7 +222,8 @@ const api: LevanteAPI = {
     ipcRenderer.invoke('levante/mcp/list-servers'),
     
   invokeMCPTool: (serverId: string, toolId: string, params: any) => 
-    ipcRenderer.invoke('levante/mcp/invoke-tool', { serverId, toolId, params })
+    ipcRenderer.invoke('levante/mcp/invoke-tool', { serverId, toolId, params }),
+
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

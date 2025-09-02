@@ -1,11 +1,12 @@
 import { app, BrowserWindow, ipcMain, shell } from "electron";
 import { join } from "path";
 import { config } from "dotenv";
-import { AIService, ChatRequest } from "./services/aiService";
 import { databaseService } from "./services/databaseService";
 import { setupDatabaseHandlers } from "./ipc/databaseHandlers";
 import { setupPreferencesHandlers } from "./ipc/preferencesHandlers";
 import { setupModelHandlers } from "./ipc/modelHandlers";
+import { setupHexagonalChatHandlers } from "./ipc/hexagonalChatHandlers";
+import { setupDependencies } from "../infrastructure/di/setup";
 import { preferencesService } from "./services/preferencesService";
 
 // Load environment variables from .env.local and .env files
@@ -93,10 +94,27 @@ app.whenReady().then(async () => {
     // Could show error dialog or continue with degraded functionality
   }
 
-  // Setup IPC handlers
+  // Setup hexagonal architecture
+  try {
+    await setupDependencies();
+    console.log('Hexagonal dependencies configured successfully');
+  } catch (error) {
+    console.error('Failed to setup hexagonal dependencies:', error);
+    // Continue with degraded functionality
+  }
+
+  // Setup IPC handlers (existing + hexagonal)
   setupDatabaseHandlers();
   setupPreferencesHandlers();
   setupModelHandlers();
+  
+  try {
+    await setupHexagonalChatHandlers();
+    console.log('Hexagonal chat handlers registered successfully');
+  } catch (error) {
+    console.error('Failed to setup hexagonal handlers:', error);
+    // Continue with existing handlers only
+  }
 
   createWindow();
 
@@ -128,56 +146,4 @@ ipcMain.handle("levante/app/platform", () => {
   return process.platform;
 });
 
-// Initialize AI service
-const aiService = new AIService();
 
-// Streaming chat handler
-ipcMain.handle("levante/chat/stream", async (event, request: ChatRequest) => {
-  console.log("Received chat stream request:", request);
-  const streamId = `stream_${Date.now()}_${Math.random()
-    .toString(36)
-    .substring(2, 11)}`;
-
-  // Start streaming immediately - listeners should be ready (Expo pattern)
-  setTimeout(async () => {
-    try {
-      console.log("Starting AI stream...");
-      for await (const chunk of aiService.streamChat(request)) {
-        // Send chunk immediately without buffering (pattern from Expo)
-        event.sender.send(`levante/chat/stream/${streamId}`, chunk);
-        // Small yield to prevent blocking the event loop
-        await new Promise((resolve) => setImmediate(resolve));
-
-        // Log when stream completes
-        if (chunk.done) {
-          console.log("AI stream completed successfully");
-        }
-      }
-    } catch (error) {
-      console.error("AI Stream error:", error);
-      event.sender.send(`levante/chat/stream/${streamId}`, {
-        error: error instanceof Error ? error.message : "Stream error",
-        done: true,
-      });
-    }
-  }, 10); // Reduced delay following Expo patterns
-
-  console.log("Returning streamId:", streamId);
-  return { streamId };
-});
-
-// Non-streaming chat handler (for compatibility)
-ipcMain.handle("levante/chat/send", async (event, request: ChatRequest) => {
-  try {
-    const result = await aiService.sendSingleMessage(request);
-    return {
-      success: true,
-      ...result,
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
-    };
-  }
-});
