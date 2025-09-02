@@ -1,7 +1,6 @@
 import { Container } from './Container';
 import { ChatSessionRepositoryImpl } from '../adapters/secondary/ChatSessionRepositoryImpl';
 import { MessageRepositoryImpl } from '../adapters/secondary/MessageRepositoryImpl';
-import { OpenRouterAdapterImpl } from '../adapters/secondary/OpenRouterAdapterImpl';
 import { CreateConversationUseCase } from '../../domain/use-cases/CreateConversationUseCase';
 import { SendMessageUseCase } from '../../domain/use-cases/SendMessageUseCase';
 import { LoadConversationUseCase } from '../../domain/use-cases/LoadConversationUseCase';
@@ -35,9 +34,6 @@ export async function setupDependencies(): Promise<void> {
     new MessageRepositoryImpl()
   );
 
-  container.register('OpenRouterAdapter', () =>
-    new OpenRouterAdapterImpl(ai)
-  );
 
   // Use Cases
   container.register('CreateConversationUseCase', () =>
@@ -45,11 +41,7 @@ export async function setupDependencies(): Promise<void> {
   );
 
   container.register('SendMessageUseCase', () =>
-    new SendMessageUseCase(
-      container.resolve('MessageRepository'),
-      container.resolve('ChatSessionRepository'),
-      container.resolve('OpenRouterAdapter')
-    )
+    new SendMessageUseCase(ai)
   );
 
   container.register('LoadConversationUseCase', () =>

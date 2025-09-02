@@ -18,7 +18,8 @@ export class ChatConversationUseCase implements ChatConversationPort {
   ) {}
 
   async sendMessage(message: string, options?: ChatOptions & { sessionId?: string }): Promise<ChatResponse> {
-    return this.sendMessageUC.execute(message, options);
+    // Simple implementation for now - not used in current flow
+    throw new Error('sendMessage not implemented - use streamMessage instead');
   }
 
   streamMessage(message: string, options?: ChatOptions & { sessionId?: string }): AsyncGenerator<ChatStreamChunk> {

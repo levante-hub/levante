@@ -1,8 +1,8 @@
 import { ChatSession } from '../entities/ChatSession';
-import { ChatSessionRepository } from '../ports/secondary/ChatSessionRepository';
+import { ChatSessionRepositorySimple } from '../ports/secondary/ChatSessionRepositorySimple';
 
 export class CreateConversationUseCase {
-  constructor(private sessionRepo: ChatSessionRepository) {}
+  constructor(private sessionRepo: ChatSessionRepositorySimple) {}
 
   async execute(title?: string, modelId?: string): Promise<ChatSession> {
     const effectiveTitle = title || `New Chat - ${new Date().toLocaleDateString()}`;

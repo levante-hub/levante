@@ -1,11 +1,11 @@
 import { ConversationData } from '../ports/primary/ChatConversationPort';
-import { ChatSessionRepository } from '../ports/secondary/ChatSessionRepository';
-import { MessageRepository } from '../ports/secondary/MessageRepository';
+import { ChatSessionRepositorySimple } from '../ports/secondary/ChatSessionRepositorySimple';
+import { MessageRepositorySimple } from '../ports/secondary/MessageRepositorySimple';
 
 export class LoadConversationUseCase {
   constructor(
-    private sessionRepo: ChatSessionRepository,
-    private messageRepo: MessageRepository
+    private sessionRepo: ChatSessionRepositorySimple,
+    private messageRepo: MessageRepositorySimple
   ) {}
 
   async execute(sessionId: string, options?: { messageLimit?: number; messageOffset?: number }): Promise<ConversationData> {
@@ -19,11 +19,13 @@ export class LoadConversationUseCase {
       offset: options?.messageOffset || 0
     });
 
+    const messages = messageResult.success ? messageResult.data : [];
+
     return {
       session: sessionResult.data,
-      messages: messageResult.data?.items || [],
-      hasMoreMessages: messageResult.data?.hasMore || false,
-      totalMessages: messageResult.data?.total || 0
+      messages,
+      hasMoreMessages: messages.length === (options?.messageLimit || 50),
+      totalMessages: messages.length
     };
   }
 }
