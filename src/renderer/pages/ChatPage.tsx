@@ -30,6 +30,8 @@ import {
 import { Loader } from '@/components/ai-elements/loader';
 import { modelService } from '@/services/modelService';
 import type { Model } from '../../types/models';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface ChatPageProps {
   sidebarContent?: React.ReactNode;
@@ -135,7 +137,9 @@ const ChatPage = () => {
                         case 'text':
                           return (
                             <div key={`${message.id}-${i}`} className="prose prose-sm max-w-none">
-                              {part.text}
+                              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                {part.text}
+                              </ReactMarkdown>
                             </div>
                           );
                         case 'reasoning':
