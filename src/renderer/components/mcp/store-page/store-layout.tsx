@@ -8,6 +8,9 @@ import { Plus, Settings, Loader2, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { IntegrationCard } from './integration-card';
 import { AddNewModal } from './add-new-modal';
+import { ServerConfigModal } from '../config/server-config-modal';
+import { ImportExport } from '../config/import-export';
+import { NetworkStatus } from '../connection/connection-status';
 
 export function StoreLayout() {
   const { 
@@ -24,6 +27,7 @@ export function StoreLayout() {
   } = useMCPStore();
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [configServerId, setConfigServerId] = useState<string | null>(null);
 
   useEffect(() => {
     // Load initial data
@@ -54,8 +58,7 @@ export function StoreLayout() {
   };
 
   const handleConfigureServer = (serverId: string) => {
-    console.log('Configure server:', serverId);
-    // This will be implemented in Phase 4
+    setConfigServerId(serverId);
   };
 
   if (error) {
@@ -72,10 +75,22 @@ export function StoreLayout() {
   return (
     <div className="container mx-auto p-6">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-2">MCP Store</h1>
-        <p className="text-muted-foreground">
-          Manage your Model Context Protocol integrations to extend AI capabilities
-        </p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">MCP Store</h1>
+            <p className="text-muted-foreground">
+              Manage your Model Context Protocol integrations to extend AI capabilities
+            </p>
+          </div>
+          <div className="flex items-center gap-4">
+            <NetworkStatus 
+              connectedCount={Object.values(connectionStatus).filter(s => s === 'connected').length}
+              totalCount={activeServers.length}
+              size="md"
+            />
+            <ImportExport />
+          </div>
+        </div>
       </div>
 
       {isLoading && (
@@ -163,6 +178,13 @@ export function StoreLayout() {
       <AddNewModal 
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
+      />
+
+      {/* Server Configuration Modal */}
+      <ServerConfigModal 
+        serverId={configServerId}
+        isOpen={!!configServerId}
+        onClose={() => setConfigServerId(null)}
       />
     </div>
   );

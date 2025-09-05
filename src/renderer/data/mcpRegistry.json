@@ -19,7 +19,8 @@
             "type": "text",
             "required": true,
             "description": "Path to the MCP server executable",
-            "placeholder": "npx @modelcontextprotocol/server-filesystem"
+            "placeholder": "npx @modelcontextprotocol/server-filesystem",
+            "defaultValue": "npx @modelcontextprotocol/server-filesystem"
           },
           {
             "key": "rootPath",
@@ -63,7 +64,8 @@
             "type": "text",
             "required": true,
             "description": "Path to the MCP server executable",
-            "placeholder": "npx @modelcontextprotocol/server-brave-search"
+            "placeholder": "npx @modelcontextprotocol/server-brave-search",
+            "defaultValue": "npx @modelcontextprotocol/server-brave-search"
           },
           {
             "key": "apiKey",
@@ -129,7 +131,8 @@
             "type": "text",
             "required": true,
             "description": "Path to the MCP server executable",
-            "placeholder": "npx @modelcontextprotocol/server-sqlite"
+            "placeholder": "npx @modelcontextprotocol/server-sqlite",
+            "defaultValue": "npx @modelcontextprotocol/server-sqlite"
           },
           {
             "key": "dbPath",
@@ -142,6 +145,147 @@
         ],
         "defaults": {
           "command": "npx @modelcontextprotocol/server-sqlite"
+        }
+      }
+    },
+    {
+      "id": "postgresql",
+      "name": "PostgreSQL Database",
+      "description": "Connect and query PostgreSQL databases",
+      "category": "database",
+      "icon": "database",
+      "transport": {
+        "type": "stdio",
+        "autoDetect": false
+      },
+      "configuration": {
+        "fields": [
+          {
+            "key": "command",
+            "label": "MCP Server Command",
+            "type": "text",
+            "required": true,
+            "description": "Path to the MCP server executable",
+            "placeholder": "npx @modelcontextprotocol/server-postgres",
+            "defaultValue": "npx @modelcontextprotocol/server-postgres"
+          },
+          {
+            "key": "connectionString",
+            "label": "Connection String",
+            "type": "password",
+            "required": true,
+            "description": "PostgreSQL connection string",
+            "placeholder": "postgresql://user:password@localhost:5432/dbname"
+          }
+        ],
+        "defaults": {
+          "command": "npx @modelcontextprotocol/server-postgres"
+        }
+      }
+    },
+    {
+      "id": "slack",
+      "name": "Slack Integration",
+      "description": "Send messages and interact with Slack workspaces",
+      "category": "communication",
+      "icon": "message-square",
+      "transport": {
+        "type": "stdio",
+        "autoDetect": false
+      },
+      "configuration": {
+        "fields": [
+          {
+            "key": "command",
+            "label": "MCP Server Command",
+            "type": "text",
+            "required": true,
+            "description": "Path to the MCP server executable",
+            "placeholder": "npx @modelcontextprotocol/server-slack",
+            "defaultValue": "npx @modelcontextprotocol/server-slack"
+          },
+          {
+            "key": "slackBotToken",
+            "label": "Slack Bot Token",
+            "type": "password",
+            "required": true,
+            "description": "Slack Bot User OAuth Token"
+          }
+        ],
+        "defaults": {
+          "command": "npx @modelcontextprotocol/server-slack"
+        }
+      }
+    },
+    {
+      "id": "puppeteer",
+      "name": "Web Automation",
+      "description": "Automate web browsers with Puppeteer",
+      "category": "automation",
+      "icon": "globe",
+      "transport": {
+        "type": "stdio",
+        "autoDetect": false
+      },
+      "configuration": {
+        "fields": [
+          {
+            "key": "command",
+            "label": "MCP Server Command",
+            "type": "text",
+            "required": true,
+            "description": "Path to the MCP server executable",
+            "placeholder": "npx @modelcontextprotocol/server-puppeteer",
+            "defaultValue": "npx @modelcontextprotocol/server-puppeteer"
+          },
+          {
+            "key": "headless",
+            "label": "Headless Mode",
+            "type": "select",
+            "required": true,
+            "options": ["true", "false"],
+            "description": "Run browser in headless mode",
+            "defaultValue": "true"
+          }
+        ],
+        "defaults": {
+          "command": "npx @modelcontextprotocol/server-puppeteer",
+          "headless": "true"
+        }
+      }
+    },
+    {
+      "id": "google-drive",
+      "name": "Google Drive",
+      "description": "Access and manage Google Drive files",
+      "category": "cloud",
+      "icon": "cloud",
+      "transport": {
+        "type": "stdio",
+        "autoDetect": false
+      },
+      "configuration": {
+        "fields": [
+          {
+            "key": "command",
+            "label": "MCP Server Command",
+            "type": "text",
+            "required": true,
+            "description": "Path to the MCP server executable",
+            "placeholder": "npx @modelcontextprotocol/server-gdrive",
+            "defaultValue": "npx @modelcontextprotocol/server-gdrive"
+          },
+          {
+            "key": "credentials",
+            "label": "Service Account Credentials",
+            "type": "text",
+            "required": true,
+            "description": "Path to Google Cloud service account JSON file",
+            "placeholder": "/path/to/credentials.json"
+          }
+        ],
+        "defaults": {
+          "command": "npx @modelcontextprotocol/server-gdrive"
         }
       }
     }

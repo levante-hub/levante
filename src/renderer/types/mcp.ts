@@ -17,7 +17,7 @@ export interface MCPRegistryEntry {
 export interface MCPConfigField {
   key: string;
   label: string;
-  type: 'text' | 'password' | 'select' | 'number' | 'boolean';
+  type: 'text' | 'password' | 'select' | 'number' | 'boolean' | 'textarea';
   required: boolean;
   description: string;
   placeholder?: string;

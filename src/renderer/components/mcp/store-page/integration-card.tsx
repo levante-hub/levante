@@ -8,13 +8,13 @@ import {
   FolderOpen, 
   Search, 
   Github, 
-  Database, 
-  Loader2,
-  CheckCircle,
-  XCircle,
-  AlertCircle
+  Database,
+  MessageSquare,
+  Globe,
+  Cloud
 } from 'lucide-react';
 import { MCPRegistryEntry, MCPServerConfig, MCPConnectionStatus } from '@/types/mcp';
+import { ConnectionStatus } from '../connection/connection-status';
 
 interface IntegrationCardProps {
   entry?: MCPRegistryEntry;
@@ -30,33 +30,9 @@ const iconMap = {
   search: Search,
   github: Github,
   database: Database,
-};
-
-const statusConfig = {
-  connected: { 
-    color: 'text-green-500', 
-    icon: CheckCircle, 
-    label: 'Connected',
-    badgeVariant: 'default' as const
-  },
-  connecting: { 
-    color: 'text-yellow-500', 
-    icon: Loader2, 
-    label: 'Connecting...',
-    badgeVariant: 'secondary' as const
-  },
-  disconnected: { 
-    color: 'text-gray-500', 
-    icon: XCircle, 
-    label: 'Disconnected',
-    badgeVariant: 'outline' as const
-  },
-  error: { 
-    color: 'text-red-500', 
-    icon: AlertCircle, 
-    label: 'Error',
-    badgeVariant: 'destructive' as const
-  }
+  'message-square': MessageSquare,
+  globe: Globe,
+  cloud: Cloud,
 };
 
 export function IntegrationCard({ 
@@ -73,8 +49,6 @@ export function IntegrationCard({
   const iconName = entry?.icon || 'folder';
   
   const IconComponent = iconMap[iconName as keyof typeof iconMap] || FolderOpen;
-  const statusInfo = statusConfig[status];
-  const StatusIcon = statusInfo.icon;
 
   return (
     <Card className="relative overflow-hidden">
@@ -104,18 +78,14 @@ export function IntegrationCard({
         
         {/* Status indicator */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <StatusIcon 
-              className={`w-4 h-4 ${statusInfo.color} ${
-                status === 'connecting' ? 'animate-spin' : ''
-              }`}
-            />
-            <span className="text-sm text-muted-foreground">
-              {statusInfo.label}
-            </span>
-          </div>
+          <ConnectionStatus 
+            serverId={server?.id || entry?.id || 'unknown'}
+            status={status}
+            size="sm"
+            variant="indicator"
+          />
           
-          <Badge variant={statusInfo.badgeVariant}>
+          <Badge variant={isActive ? 'default' : 'outline'}>
             {isActive ? 'Configured' : 'Available'}
           </Badge>
         </div>
@@ -139,10 +109,13 @@ export function IntegrationCard({
       {/* Connection status overlay for connecting state */}
       {status === 'connecting' && (
         <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center">
-          <div className="flex flex-col items-center gap-2">
-            <Loader2 className="w-6 h-6 animate-spin" />
-            <span className="text-sm text-muted-foreground">Connecting...</span>
-          </div>
+          <ConnectionStatus 
+            serverId={server?.id || entry?.id || 'unknown'}
+            status="connecting"
+            size="lg"
+            variant="full"
+            showLabel={true}
+          />
         </div>
       )}
     </Card>
