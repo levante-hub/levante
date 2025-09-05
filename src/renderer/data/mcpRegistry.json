@@ -1,0 +1,149 @@
+{
+  "version": "1.0.0",
+  "entries": [
+    {
+      "id": "filesystem-local",
+      "name": "Local File System",
+      "description": "Read and write local files and directories",
+      "category": "system",
+      "icon": "folder",
+      "transport": {
+        "type": "stdio",
+        "autoDetect": false
+      },
+      "configuration": {
+        "fields": [
+          {
+            "key": "command",
+            "label": "MCP Server Command",
+            "type": "text",
+            "required": true,
+            "description": "Path to the MCP server executable",
+            "placeholder": "npx @modelcontextprotocol/server-filesystem"
+          },
+          {
+            "key": "rootPath",
+            "label": "Root Directory",
+            "type": "text",
+            "required": true,
+            "description": "Base directory for file operations",
+            "placeholder": "/Users/yourusername/Documents"
+          },
+          {
+            "key": "readOnly",
+            "label": "Read Only Mode",
+            "type": "select",
+            "required": true,
+            "options": ["true", "false"],
+            "description": "Restrict to read-only operations",
+            "defaultValue": "true"
+          }
+        ],
+        "defaults": {
+          "command": "npx @modelcontextprotocol/server-filesystem",
+          "readOnly": "true"
+        }
+      }
+    },
+    {
+      "id": "brave-search",
+      "name": "Brave Search",
+      "description": "Search the web using Brave Search API",
+      "category": "search",
+      "icon": "search",
+      "transport": {
+        "type": "stdio",
+        "autoDetect": false
+      },
+      "configuration": {
+        "fields": [
+          {
+            "key": "command",
+            "label": "MCP Server Command",
+            "type": "text",
+            "required": true,
+            "description": "Path to the MCP server executable",
+            "placeholder": "npx @modelcontextprotocol/server-brave-search"
+          },
+          {
+            "key": "apiKey",
+            "label": "Brave Search API Key",
+            "type": "password",
+            "required": true,
+            "description": "API key for Brave Search service"
+          }
+        ],
+        "defaults": {
+          "command": "npx @modelcontextprotocol/server-brave-search"
+        }
+      }
+    },
+    {
+      "id": "github",
+      "name": "GitHub",
+      "description": "Interact with GitHub repositories and issues",
+      "category": "development",
+      "icon": "github",
+      "transport": {
+        "type": "stdio",
+        "autoDetect": false
+      },
+      "configuration": {
+        "fields": [
+          {
+            "key": "command",
+            "label": "MCP Server Command",
+            "type": "text",
+            "required": true,
+            "description": "Path to the MCP server executable",
+            "placeholder": "npx @modelcontextprotocol/server-github"
+          },
+          {
+            "key": "githubPersonalAccessToken",
+            "label": "GitHub Personal Access Token",
+            "type": "password",
+            "required": true,
+            "description": "Personal access token for GitHub API"
+          }
+        ],
+        "defaults": {
+          "command": "npx @modelcontextprotocol/server-github"
+        }
+      }
+    },
+    {
+      "id": "sqlite",
+      "name": "SQLite Database",
+      "description": "Query and manage SQLite databases",
+      "category": "database",
+      "icon": "database",
+      "transport": {
+        "type": "stdio",
+        "autoDetect": false
+      },
+      "configuration": {
+        "fields": [
+          {
+            "key": "command",
+            "label": "MCP Server Command",
+            "type": "text",
+            "required": true,
+            "description": "Path to the MCP server executable",
+            "placeholder": "npx @modelcontextprotocol/server-sqlite"
+          },
+          {
+            "key": "dbPath",
+            "label": "Database Path",
+            "type": "text",
+            "required": true,
+            "description": "Path to the SQLite database file",
+            "placeholder": "/path/to/your/database.db"
+          }
+        ],
+        "defaults": {
+          "command": "npx @modelcontextprotocol/server-sqlite"
+        }
+      }
+    }
+  ]
+}

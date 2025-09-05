@@ -6,6 +6,7 @@ import { databaseService } from "./services/databaseService";
 import { setupDatabaseHandlers } from "./ipc/databaseHandlers";
 import { setupPreferencesHandlers } from "./ipc/preferencesHandlers";
 import { setupModelHandlers } from "./ipc/modelHandlers";
+import { registerMCPHandlers } from "./ipc/mcpHandlers";
 import { preferencesService } from "./services/preferencesService";
 
 // Load environment variables from .env.local and .env files
@@ -97,6 +98,7 @@ app.whenReady().then(async () => {
   setupDatabaseHandlers();
   setupPreferencesHandlers();
   setupModelHandlers();
+  registerMCPHandlers();
 
   createWindow();
 

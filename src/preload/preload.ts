@@ -27,6 +27,46 @@ export interface ChatStreamChunk {
   reasoning?: string;
 }
 
+// MCP Types for preload
+export interface MCPServerConfig {
+  id: string;
+  name?: string;
+  command?: string;
+  args?: string[];
+  env?: Record<string, string>;
+  baseUrl?: string;
+  headers?: Record<string, string>;
+  transport: 'stdio' | 'http' | 'sse';
+}
+
+export interface MCPConfiguration {
+  mcpServers: Record<string, Omit<MCPServerConfig, 'id'>>;
+}
+
+export interface MCPTool {
+  name: string;
+  description: string;
+  inputSchema?: {
+    type: string;
+    properties?: Record<string, any>;
+    required?: string[];
+  };
+}
+
+export interface MCPToolCall {
+  name: string;
+  arguments: Record<string, any>;
+}
+
+export interface MCPToolResult {
+  content: Array<{
+    type: string;
+    text?: string;
+    data?: any;
+  }>;
+  isError?: boolean;
+}
+
 // Define the API interface for type safety
 export interface LevanteAPI {
   // App information
@@ -86,9 +126,25 @@ export interface LevanteAPI {
   getSettings: () => Promise<Record<string, any>>
   updateSettings: (settings: Record<string, any>) => Promise<boolean>
   
-  // MCP functionality (placeholder for future implementation)
-  listMCPServers: () => Promise<any[]>
-  invokeMCPTool: (serverId: string, toolId: string, params: any) => Promise<any>
+  // MCP functionality
+  mcp: {
+    connectServer: (config: MCPServerConfig) => Promise<{ success: boolean; error?: string }>
+    disconnectServer: (serverId: string) => Promise<{ success: boolean; error?: string }>
+    listTools: (serverId: string) => Promise<{ success: boolean; data?: MCPTool[]; error?: string }>
+    callTool: (serverId: string, toolCall: MCPToolCall) => Promise<{ success: boolean; data?: MCPToolResult; error?: string }>
+    connectionStatus: (serverId?: string) => Promise<{ success: boolean; data?: Record<string, 'connected' | 'disconnected'>; error?: string }>
+    loadConfiguration: () => Promise<{ success: boolean; data?: MCPConfiguration; error?: string }>
+    saveConfiguration: (config: MCPConfiguration) => Promise<{ success: boolean; error?: string }>
+    addServer: (config: MCPServerConfig) => Promise<{ success: boolean; error?: string }>
+    removeServer: (serverId: string) => Promise<{ success: boolean; error?: string }>
+    updateServer: (serverId: string, config: Partial<Omit<MCPServerConfig, 'id'>>) => Promise<{ success: boolean; error?: string }>
+    getServer: (serverId: string) => Promise<{ success: boolean; data?: MCPServerConfig | null; error?: string }>
+    listServers: () => Promise<{ success: boolean; data?: MCPServerConfig[]; error?: string }>
+    testConnection: (config: MCPServerConfig) => Promise<{ success: boolean; error?: string }>
+    importConfiguration: (config: MCPConfiguration) => Promise<{ success: boolean; error?: string }>
+    exportConfiguration: () => Promise<{ success: boolean; data?: MCPConfiguration; error?: string }>
+    getConfigPath: () => Promise<{ success: boolean; data?: string; error?: string }>
+  }
   
 }
 
@@ -220,11 +276,56 @@ const api: LevanteAPI = {
   updateSettings: (settings: Record<string, any>) => 
     ipcRenderer.invoke('levante/settings/update', settings),
     
-  listMCPServers: () => 
-    ipcRenderer.invoke('levante/mcp/list-servers'),
+  // MCP API
+  mcp: {
+    connectServer: (config: MCPServerConfig) => 
+      ipcRenderer.invoke('levante/mcp/connect-server', config),
     
-  invokeMCPTool: (serverId: string, toolId: string, params: any) => 
-    ipcRenderer.invoke('levante/mcp/invoke-tool', { serverId, toolId, params })
+    disconnectServer: (serverId: string) => 
+      ipcRenderer.invoke('levante/mcp/disconnect-server', serverId),
+    
+    listTools: (serverId: string) => 
+      ipcRenderer.invoke('levante/mcp/list-tools', serverId),
+    
+    callTool: (serverId: string, toolCall: MCPToolCall) => 
+      ipcRenderer.invoke('levante/mcp/call-tool', serverId, toolCall),
+    
+    connectionStatus: (serverId?: string) => 
+      ipcRenderer.invoke('levante/mcp/connection-status', serverId),
+    
+    loadConfiguration: () => 
+      ipcRenderer.invoke('levante/mcp/load-configuration'),
+    
+    saveConfiguration: (config: MCPConfiguration) => 
+      ipcRenderer.invoke('levante/mcp/save-configuration', config),
+    
+    addServer: (config: MCPServerConfig) => 
+      ipcRenderer.invoke('levante/mcp/add-server', config),
+    
+    removeServer: (serverId: string) => 
+      ipcRenderer.invoke('levante/mcp/remove-server', serverId),
+    
+    updateServer: (serverId: string, config: Partial<Omit<MCPServerConfig, 'id'>>) => 
+      ipcRenderer.invoke('levante/mcp/update-server', serverId, config),
+    
+    getServer: (serverId: string) => 
+      ipcRenderer.invoke('levante/mcp/get-server', serverId),
+    
+    listServers: () => 
+      ipcRenderer.invoke('levante/mcp/list-servers'),
+    
+    testConnection: (config: MCPServerConfig) => 
+      ipcRenderer.invoke('levante/mcp/test-connection', config),
+    
+    importConfiguration: (config: MCPConfiguration) => 
+      ipcRenderer.invoke('levante/mcp/import-configuration', config),
+    
+    exportConfiguration: () => 
+      ipcRenderer.invoke('levante/mcp/export-configuration'),
+    
+    getConfigPath: () => 
+      ipcRenderer.invoke('levante/mcp/get-config-path')
+  }
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to
