@@ -55,10 +55,9 @@ async function loadMCPRegistry(): Promise<MCPRegistry> {
     registryCache = JSON.parse(registryContent);
     return registryCache!;
   } catch (error) {
-    console.warn(
-      "[MCP] Failed to load MCP registry, using fallback data:",
-      error
-    );
+    getLogger().mcp.warn("Failed to load MCP registry, using fallback data", { 
+      error: error instanceof Error ? error.message : error 
+    });
     // Fallback registry
     return {
       version: "1.0.0",
@@ -178,7 +177,7 @@ export class MCPService {
     try {
       // Check Node.js
       await execAsync("node --version");
-      console.log("[MCP] Node.js is available");
+      this.logger.mcp.debug("Node.js is available");
     } catch {
       issues.push("Node.js is not installed or not in PATH");
       recommendations.push("Install Node.js from https://nodejs.org/");
@@ -187,7 +186,7 @@ export class MCPService {
     try {
       // Check npm
       await execAsync("npm --version");
-      console.log("[MCP] npm is available");
+      this.logger.mcp.debug("npm is available");
     } catch {
       issues.push("npm is not installed or not in PATH");
       recommendations.push(
@@ -198,7 +197,7 @@ export class MCPService {
     try {
       // Check npx
       await execAsync("npx --version");
-      console.log("[MCP] npx is available");
+      this.logger.mcp.debug("npx is available");
     } catch {
       issues.push("npx is not installed or not in PATH");
       recommendations.push(
@@ -238,7 +237,7 @@ export class MCPService {
       if (nodePath) {
         const nodeDir = path.dirname(nodePath);
         paths.push(nodeDir);
-        console.log(`[MCP] Found Node.js at: ${nodeDir}`);
+        this.logger.mcp.debug("Found Node.js path", { nodeDir });
       }
     } catch {
       // Node not found in PATH
@@ -313,11 +312,11 @@ export class MCPService {
             config.command,
             config.args || []
           );
-          console.log(
-            `[MCP] Resolved command: ${resolved.command} ${resolved.args.join(
-              " "
-            )}`
-          );
+          this.logger.mcp.debug("Resolved command", { 
+            command: resolved.command, 
+            args: resolved.args,
+            fullCommand: `${resolved.command} ${resolved.args.join(" ")}`
+          });
 
           // Detect Node.js paths and set up environment
           const detectedPaths = await this.detectNodePaths();
@@ -334,7 +333,7 @@ export class MCPService {
             PATH: finalPath,
           };
 
-          // console.log(`[MCP] Using PATH: ${finalPath}`);
+          // Already logged PATH info in debug mode
 
           transport = new StdioClientTransport({
             command: resolved.command,
@@ -355,16 +354,16 @@ export class MCPService {
       }
 
       // Connect to the server with detailed error handling
-      console.log(`[MCP] Attempting to connect to server: ${config.id}`);
+      this.logger.mcp.info("Attempting to connect to server", { serverId: config.id });
 
       try {
         await client.connect(transport);
-        console.log(`[MCP] Successfully connected to server: ${config.id}`);
+        this.logger.mcp.info("Successfully connected to server", { serverId: config.id });
       } catch (connectionError) {
-        console.error(
-          `[MCP] Connection failed for server ${config.id}:`,
-          connectionError
-        );
+        this.logger.mcp.error("Connection failed for server", { 
+          serverId: config.id,
+          error: connectionError instanceof Error ? connectionError.message : connectionError
+        });
 
         // Provide more specific error messages
         if (connectionError instanceof Error && resolved) {
@@ -437,10 +436,13 @@ export class MCPService {
       // Store the client
       this.clients.set(config.id, client);
 
-      console.log(`Successfully connected to MCP server: ${config.id}`);
+      this.logger.mcp.info("Successfully connected to MCP server", { serverId: config.id });
       return client;
     } catch (error) {
-      console.error(`Failed to connect to MCP server ${config.id}:`, error);
+      this.logger.mcp.error("Failed to connect to MCP server", { 
+        serverId: config.id,
+        error: error instanceof Error ? error.message : error 
+      });
       throw error;
     }
   }
@@ -461,7 +463,10 @@ export class MCPService {
         inputSchema: tool.inputSchema,
       }));
     } catch (error) {
-      console.error(`Failed to list tools from server ${serverId}:`, error);
+      this.logger.mcp.error("Failed to list tools from server", { 
+        serverId,
+        error: error instanceof Error ? error.message : error 
+      });
       throw error;
     }
   }
@@ -485,10 +490,11 @@ export class MCPService {
         isError: Boolean(response.isError),
       };
     } catch (error) {
-      console.error(
-        `Failed to call tool ${toolCall.name} on server ${serverId}:`,
-        error
-      );
+      this.logger.mcp.error("Failed to call tool on server", { 
+        serverId,
+        toolName: toolCall.name,
+        error: error instanceof Error ? error.message : error 
+      });
       throw error;
     }
   }
@@ -499,9 +505,12 @@ export class MCPService {
       try {
         await client.close();
         this.clients.delete(serverId);
-        console.log(`Successfully disconnected from MCP server: ${serverId}`);
+        this.logger.mcp.info("Successfully disconnected from MCP server", { serverId });
       } catch (error) {
-        console.error(`Error disconnecting from server ${serverId}:`, error);
+        this.logger.mcp.error("Error disconnecting from server", { 
+          serverId,
+          error: error instanceof Error ? error.message : error 
+        });
         // Still remove from clients map even if disconnect failed
         this.clients.delete(serverId);
       }
@@ -543,7 +552,7 @@ export class MCPService {
   // Reconnect method for health checks (Phase 5)
   async reconnectServer(serverId: string): Promise<void> {
     // Implementation will depend on stored config
-    console.log(`Reconnecting to server ${serverId}...`);
+    this.logger.mcp.info("Reconnecting to server", { serverId });
     // This will be implemented in Phase 5 with config persistence
   }
 

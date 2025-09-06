@@ -1,7 +1,9 @@
 import { AIService } from './aiService';
 import { UIMessage } from 'ai';
+import { getLogger } from './logging';
 
 export class TitleGenerationService {
+  private logger = getLogger();
   private aiService: AIService;
   
   constructor() {
@@ -9,7 +11,10 @@ export class TitleGenerationService {
   }
 
   async generateTitle(firstUserMessage: string): Promise<string> {
-    console.log('[TitleGenerationService] Generating title for message:', firstUserMessage.substring(0, 100) + '...');
+    this.logger.aiSdk.debug("Generating title for message", { 
+      messagePreview: firstUserMessage.substring(0, 100) + '...',
+      messageLength: firstUserMessage.length 
+    });
     
     try {
       // Create a focused prompt for title generation
@@ -69,11 +74,14 @@ Examples:
         title = this.generateFallbackTitle(firstUserMessage);
       }
 
-      console.log('[TitleGenerationService] Generated title:', title);
+      this.logger.aiSdk.debug("Generated title", { title, originalLength: firstUserMessage.length });
       return title;
       
     } catch (error) {
-      console.error('[TitleGenerationService] Error generating title:', error);
+      this.logger.aiSdk.error("Error generating title", { 
+        error: error instanceof Error ? error.message : error,
+        messageLength: firstUserMessage.length 
+      });
       return this.generateFallbackTitle(firstUserMessage);
     }
   }

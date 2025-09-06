@@ -44,6 +44,7 @@ export class Logger implements LoggerService {
   public readonly database: CategoryLogger;
   public readonly ipc: CategoryLogger;
   public readonly preferences: CategoryLogger;
+  public readonly models: CategoryLogger;
   public readonly core: CategoryLogger;
 
   constructor() {
@@ -56,6 +57,7 @@ export class Logger implements LoggerService {
     this.database = new CategoryLoggerImpl('database', this);
     this.ipc = new CategoryLoggerImpl('ipc', this);
     this.preferences = new CategoryLoggerImpl('preferences', this);
+    this.models = new CategoryLoggerImpl('models', this);
     this.core = new CategoryLoggerImpl('core', this);
   }
 

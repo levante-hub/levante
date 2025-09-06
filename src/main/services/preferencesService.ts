@@ -1,7 +1,9 @@
 import { BrowserWindow } from 'electron';
 import { UIPreferences, PreferenceKey, DEFAULT_PREFERENCES, PreferenceChangeEvent } from '../../types/preferences';
+import { getLogger } from './logging';
 
 export class PreferencesService {
+  private logger = getLogger();
   private store: any;
   private initialized = false;
 
@@ -106,9 +108,11 @@ export class PreferencesService {
     });
 
     this.initialized = true;
-    console.log('[PreferencesService] Initialized with store path:', this.store.path);
+    this.logger.preferences.info("PreferencesService initialized", { storePath: this.store.path });
     } catch (error) {
-      console.error('[PreferencesService] Failed to initialize:', error);
+      this.logger.preferences.error("Failed to initialize PreferencesService", { 
+        error: error instanceof Error ? error.message : error 
+      });
       throw error;
     }
   }
@@ -122,7 +126,7 @@ export class PreferencesService {
   get<K extends PreferenceKey>(key: K): UIPreferences[K] {
     this.ensureInitialized();
     const value = this.store.get(key);
-    console.log(`[PreferencesService] Retrieved preference: ${key} =`, value);
+    this.logger.preferences.debug("Retrieved preference", { key, value });
     return value;
   }
 
@@ -130,7 +134,8 @@ export class PreferencesService {
     this.ensureInitialized();
     const previousValue = this.store.get(key);
     
-    console.log(`[PreferencesService] Setting preference: ${key}`, {
+    this.logger.preferences.debug("Setting preference", {
+      key,
       previousValue,
       newValue: value
     });
@@ -145,14 +150,19 @@ export class PreferencesService {
     };
 
     const windows = BrowserWindow.getAllWindows();
-    console.log(`[PreferencesService] Broadcasting preference change to ${windows.length} windows`);
+    this.logger.preferences.debug("Broadcasting preference change", { 
+      key, 
+      windowCount: windows.length 
+    });
     
     windows.forEach(window => {
       if (window && !window.isDestroyed()) {
         try {
           window.webContents.send('levante/preferences/changed', changeEvent);
         } catch (error) {
-          console.error('[PreferencesService] Failed to broadcast to window:', error);
+          this.logger.preferences.error("Failed to broadcast to window", { 
+            error: error instanceof Error ? error.message : error 
+          });
         }
       }
     });
@@ -161,13 +171,13 @@ export class PreferencesService {
   getAll(): UIPreferences {
     this.ensureInitialized();
     const preferences = this.store.store;
-    console.log('[PreferencesService] Retrieved all preferences');
+    this.logger.preferences.debug("Retrieved all preferences", { count: Object.keys(preferences).length });
     return preferences;
   }
 
   reset(): void {
     this.ensureInitialized();
-    console.log('[PreferencesService] Resetting all preferences to defaults');
+    this.logger.preferences.info("Resetting all preferences to defaults");
     this.store.clear();
     
     // Broadcast reset event
@@ -177,7 +187,9 @@ export class PreferencesService {
         try {
           window.webContents.send('levante/preferences/reset', DEFAULT_PREFERENCES);
         } catch (error) {
-          console.error('[PreferencesService] Failed to broadcast reset to window:', error);
+          this.logger.preferences.error("Failed to broadcast reset to window", { 
+            error: error instanceof Error ? error.message : error 
+          });
         }
       }
     });
@@ -190,21 +202,24 @@ export class PreferencesService {
 
   delete(key: PreferenceKey): void {
     this.ensureInitialized();
-    console.log(`[PreferencesService] Deleting preference: ${key}`);
+    this.logger.preferences.debug("Deleting preference", { key });
     this.store.delete(key);
   }
 
   // Export preferences to JSON
   export(): UIPreferences {
     this.ensureInitialized();
-    console.log('[PreferencesService] Exporting preferences');
+    this.logger.preferences.debug("Exporting preferences");
     return this.store.store;
   }
 
   // Import preferences from JSON
   import(preferences: Partial<UIPreferences>): void {
     this.ensureInitialized();
-    console.log('[PreferencesService] Importing preferences', Object.keys(preferences));
+    this.logger.preferences.debug("Importing preferences", { 
+      keys: Object.keys(preferences),
+      count: Object.keys(preferences).length 
+    });
     
     // Validate and merge with existing preferences
     Object.entries(preferences).forEach(([key, value]) => {

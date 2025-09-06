@@ -1,6 +1,8 @@
 import type { MCPServerHealth, MCPHealthReport } from '../types/mcp.js';
+import { getLogger } from './logging';
 
 export class MCPHealthService {
+  private logger = getLogger();
   private healthData: Map<string, MCPServerHealth> = new Map();
   private readonly UNHEALTHY_THRESHOLD = 5; // Consecutive errors to mark as unhealthy
   private readonly HEALTH_CHECK_INTERVAL = 30000; // 30 seconds
@@ -31,7 +33,7 @@ export class MCPHealthService {
     // Update status based on recent success
     if (health.status === 'unhealthy' && health.consecutiveErrors === 0) {
       health.status = 'healthy';
-      console.log(`[MCPHealth] Server '${serverId}' marked as healthy after successful call`);
+      this.logger.mcp.info("Server marked as healthy after successful call", { serverId, toolName });
     }
   }
 
@@ -57,11 +59,15 @@ export class MCPHealthService {
     if (health.consecutiveErrors >= this.UNHEALTHY_THRESHOLD) {
       if (health.status !== 'unhealthy') {
         health.status = 'unhealthy';
-        console.warn(`[MCPHealth] Server '${serverId}' marked as unhealthy after ${health.consecutiveErrors} consecutive errors`);
+        this.logger.mcp.warn("Server marked as unhealthy", { 
+          serverId, 
+          consecutiveErrors: health.consecutiveErrors,
+          threshold: this.UNHEALTHY_THRESHOLD
+        });
       }
     }
     
-    console.error(`[MCPHealth] Error recorded for server '${serverId}', tool '${toolName}': ${error}`);
+    this.logger.mcp.error("Error recorded for server tool", { serverId, toolName, error });
   }
 
   /**
@@ -120,7 +126,7 @@ export class MCPHealthService {
    */
   resetServerHealth(serverId: string): void {
     this.healthData.delete(serverId);
-    console.log(`[MCPHealth] Health data reset for server '${serverId}'`);
+    this.logger.mcp.info("Health data reset for server", { serverId });
   }
 
   /**
@@ -161,7 +167,10 @@ export class MCPHealthService {
         health.consecutiveErrors = 0;
         if (health.status === 'unhealthy' && health.successCount > 0) {
           health.status = 'healthy';
-          console.log(`[MCPHealth] Server '${serverId}' status reset to healthy due to age of last error`);
+          this.logger.mcp.info("Server status reset to healthy due to age of last error", { 
+            serverId,
+            successCount: health.successCount 
+          });
         }
       }
     }

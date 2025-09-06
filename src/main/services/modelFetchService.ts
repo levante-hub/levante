@@ -1,3 +1,5 @@
+import { getLogger } from './logging';
+
 interface ModelResponse {
   object: string;
   data: Array<{
@@ -7,6 +9,8 @@ interface ModelResponse {
     owned_by: string;
   }>;
 }
+
+const logger = getLogger();
 
 export class ModelFetchService {
   // Fetch OpenRouter models
@@ -32,7 +36,10 @@ export class ModelFetchService {
       const data = await response.json();
       return data.data || [];
     } catch (error) {
-      console.error('Failed to fetch OpenRouter models:', error);
+      logger.models.error("Failed to fetch OpenRouter models", { 
+        error: error instanceof Error ? error.message : error,
+        hasApiKey: !!apiKey 
+      });
       throw error;
     }
   }
@@ -59,7 +66,11 @@ export class ModelFetchService {
       const data: ModelResponse = await response.json();
       return data.data || [];
     } catch (error) {
-      console.error('Failed to fetch Gateway models:', error);
+      logger.models.error("Failed to fetch Gateway models", { 
+        error: error instanceof Error ? error.message : error,
+        baseUrl,
+        modelsEndpoint: baseUrl.includes('/v1/ai') ? baseUrl.replace('/v1/ai', '/v1') : baseUrl
+      });
       throw error;
     }
   }
@@ -76,7 +87,10 @@ export class ModelFetchService {
       const data = await response.json();
       return data.models || [];
     } catch (error) {
-      console.error('Failed to fetch local models:', error);
+      logger.models.error("Failed to fetch local models", { 
+        error: error instanceof Error ? error.message : error,
+        endpoint 
+      });
       throw error;
     }
   }

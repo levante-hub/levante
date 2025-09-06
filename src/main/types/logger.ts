@@ -1,6 +1,6 @@
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
-export type LogCategory = 'ai-sdk' | 'mcp' | 'database' | 'ipc' | 'preferences' | 'core';
+export type LogCategory = 'ai-sdk' | 'mcp' | 'database' | 'ipc' | 'preferences' | 'models' | 'core';
 
 export interface LogContext {
   [key: string]: any;
@@ -44,6 +44,7 @@ export interface LoggerService {
   database: CategoryLogger;
   ipc: CategoryLogger;
   preferences: CategoryLogger;
+  models: CategoryLogger;
   core: CategoryLogger;
   
   log(category: LogCategory, level: LogLevel, message: string, context?: LogContext): void;

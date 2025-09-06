@@ -26,6 +26,7 @@ export class LoggerConfigService {
         'database': this.parseBoolean(env.DEBUG_DATABASE, false),
         'ipc': this.parseBoolean(env.DEBUG_IPC, false),
         'preferences': this.parseBoolean(env.DEBUG_PREFERENCES, false),
+        'models': this.parseBoolean(env.DEBUG_MODELS, true),
         'core': this.parseBoolean(env.DEBUG_CORE, true),
       },
       output: {

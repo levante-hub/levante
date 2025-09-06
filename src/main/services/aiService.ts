@@ -439,7 +439,7 @@ export class AIService {
           }
           return;
         } catch (retryError) {
-          console.error("Retry without tools also failed:", retryError);
+          this.logger.aiSdk.error("Retry without tools also failed", { error: retryError });
           yield {
             error: "Failed to process request both with and without tools",
             done: true,
@@ -489,12 +489,12 @@ export class AIService {
         reasoning: undefined, // Reasoning would come from the model response if supported
       };
     } catch (error) {
-      console.error("AI Service Error:", error);
+      this.logger.aiSdk.error("AI Service Error", { error });
       
       // Handle specific case where model doesn't support tool use
       if (error instanceof Error && 
           error.message.includes("No endpoints found that support tool use")) {
-        console.warn(`[AI-Single] Model '${model}' does not support tool execution. Retrying without tools...`);
+        this.logger.aiSdk.warn(`Model '${model}' does not support tool execution. Retrying without tools...`);
         
         // Retry the same request without MCP tools
         try {
@@ -507,7 +507,7 @@ export class AIService {
             reasoning: retryResult.reasoning
           };
         } catch (retryError) {
-          console.error("Retry without tools also failed:", retryError);
+          this.logger.aiSdk.error("Retry without tools also failed", { error: retryError });
           throw new Error("Failed to process request both with and without tools");
         }
       }
@@ -541,55 +541,54 @@ export class AIService {
           // Convert MCP tools to AI SDK format
           for (const mcpTool of serverTools) {
             if (!mcpTool.name || mcpTool.name.trim() === "") {
-              console.error(
-                `[AI-SDK] Invalid tool name from server ${serverId}:`,
-                mcpTool
-              );
+              this.logger.aiSdk.error("Invalid tool name from server", { 
+                serverId, 
+                tool: mcpTool 
+              });
               continue;
             }
 
             const toolId = `${serverId}_${mcpTool.name}`;
-            console.log(
-              `[AI-SDK] Creating tool: ${toolId} from ${mcpTool.name}`
-            );
+            this.logger.aiSdk.debug("Creating tool", { toolId, originalName: mcpTool.name });
             
             // Additional validation before creating tool
             if (!toolId || toolId.includes('undefined') || toolId.includes('null')) {
-              console.error(`[AI-SDK] Invalid toolId detected: "${toolId}" for tool:`, mcpTool);
+              this.logger.aiSdk.error("Invalid toolId detected", { toolId, tool: mcpTool });
               continue;
             }
             
             const aiTool = this.createAISDKTool(serverId, mcpTool);
             if (!aiTool) {
-              console.error(`[AI-SDK] Failed to create AI SDK tool for ${toolId}`);
+              this.logger.aiSdk.error("Failed to create AI SDK tool", { toolId });
               continue;
             }
             
             allTools[toolId] = aiTool;
-            console.log(`[AI-SDK] Successfully registered tool: ${toolId}`);
+            this.logger.aiSdk.debug("Successfully registered tool", { toolId });
           }
 
-          console.log(
-            `Loaded ${serverTools.length} tools from MCP server: ${serverId}`
-          );
+          this.logger.aiSdk.info("Loaded tools from MCP server", { 
+            toolCount: serverTools.length, 
+            serverId 
+          });
         } catch (error) {
-          console.error(`Error loading tools from server ${serverId}:`, error);
+          this.logger.aiSdk.error("Error loading tools from server", { serverId, error });
         }
       }
 
-      console.log(`Total MCP tools available: ${Object.keys(allTools).length}`);
-      console.log(`Tool names registered:`, Object.keys(allTools));
+      this.logger.aiSdk.info("MCP tools summary", { 
+        totalCount: Object.keys(allTools).length,
+        toolNames: Object.keys(allTools)
+      });
       return allTools;
     } catch (error) {
-      console.error("Error loading MCP tools:", error);
+      this.logger.aiSdk.error("Error loading MCP tools", { error });
       return {};
     }
   }
 
   private createAISDKTool(serverId: string, mcpTool: Tool) {
-    console.log(
-      `[AI-SDK] Creating AI SDK tool for: ${serverId}:${mcpTool.name}`
-    );
+    this.logger.aiSdk.debug("Creating AI SDK tool", { serverId, toolName: mcpTool.name });
 
     // Validate tool name
     if (!mcpTool.name || mcpTool.name.trim() === "") {
@@ -647,7 +646,7 @@ export class AIService {
         inputSchema = z.object(schemaObj);
       }
     } catch (error) {
-      console.warn(`Failed to parse schema for tool ${mcpTool.name}:`, error);
+      this.logger.aiSdk.warn("Failed to parse schema for tool", { toolName: mcpTool.name, error });
     }
 
     const aiTool = tool({
@@ -655,20 +654,18 @@ export class AIService {
       inputSchema: inputSchema,
       execute: async (args: any) => {
         try {
-          console.log(
-            `[AI-SDK] Executing MCP tool: ${serverId}:${mcpTool.name}`,
-            args
-          );
+          this.logger.aiSdk.debug("Executing MCP tool", { 
+            serverId, 
+            toolName: mcpTool.name, 
+            args 
+          });
 
           const result = await mcpService.callTool(serverId, {
             name: mcpTool.name,
             arguments: args,
           });
 
-          console.log(
-            `[AI-SDK] Raw MCP result:`,
-            JSON.stringify(result, null, 2)
-          );
+          this.logger.aiSdk.debug("Raw MCP result", { result });
 
           // Convert MCP result to string format for AI SDK
           if (result.content && Array.isArray(result.content)) {
@@ -684,7 +681,7 @@ export class AIService {
               })
               .join("\n");
 
-            console.log(`[AI-SDK] Converted result text:`, resultText);
+            this.logger.aiSdk.debug("Converted result text", { resultText });
 
             // Record successful tool call
             mcpHealthService.recordSuccess(serverId, mcpTool.name);
@@ -695,7 +692,7 @@ export class AIService {
 
           // For non-content results, return JSON string
           const jsonResult = JSON.stringify(result);
-          console.log(`[AI-SDK] Returning JSON result:`, jsonResult);
+          this.logger.aiSdk.debug("Returning JSON result", { jsonResult });
 
           // Record successful tool call
           mcpHealthService.recordSuccess(serverId, mcpTool.name);
@@ -704,10 +701,11 @@ export class AIService {
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : "Tool execution failed";
           
-          console.error(
-            `Error executing MCP tool ${serverId}:${mcpTool.name}:`,
-            error
-          );
+          this.logger.aiSdk.error("Error executing MCP tool", { 
+            serverId, 
+            toolName: mcpTool.name, 
+            error 
+          });
 
           // Record failed tool call
           mcpHealthService.recordError(serverId, mcpTool.name, errorMessage);
@@ -719,9 +717,7 @@ export class AIService {
       },
     });
 
-    console.log(
-      `[AI-SDK] Successfully created AI SDK tool for: ${serverId}:${mcpTool.name}`
-    );
+    this.logger.aiSdk.debug("Successfully created AI SDK tool", { serverId, toolName: mcpTool.name });
     return aiTool;
   }
 
@@ -739,7 +735,7 @@ export class AIService {
         maxStepsLimit = aiConfig.maxSteps || 20;
       }
     } catch (error) {
-      console.warn('[AI-Stream] Could not load steps configuration, using defaults:', error);
+      this.logger.aiSdk.warn("Could not load steps configuration, using defaults", { error });
     }
     
     // Additional steps based on available tools
@@ -749,7 +745,12 @@ export class AIService {
     // Apply configured limits
     const calculatedSteps = Math.min(Math.max(baseSteps + additionalSteps, baseSteps), maxStepsLimit);
     
-    console.log(`[AI-Stream] Calculated max steps: ${calculatedSteps} (base: ${baseSteps}, max limit: ${maxStepsLimit}, tools: ${toolCount})`);
+    this.logger.aiSdk.debug("Calculated max steps", { 
+      calculatedSteps, 
+      baseSteps, 
+      maxStepsLimit, 
+      toolCount 
+    });
     
     return calculatedSteps;
   }

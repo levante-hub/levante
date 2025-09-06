@@ -2,8 +2,10 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
 import type { MCPConfiguration, MCPServerConfig } from '../types/mcp.js';
+import { getLogger } from './logging';
 
 export class MCPConfigurationManager {
+  private logger = getLogger();
   private configPath: string;
 
   constructor() {
@@ -31,7 +33,7 @@ export class MCPConfigurationManager {
       
       // Validate configuration structure
       if (!config.mcpServers || typeof config.mcpServers !== 'object') {
-        console.warn('Invalid MCP configuration format, using empty config');
+        this.logger.mcp.warn("Invalid MCP configuration format, using empty config", { configPath: this.configPath });
         return { mcpServers: {} };
       }
       
@@ -44,7 +46,10 @@ export class MCPConfigurationManager {
         return emptyConfig;
       }
       
-      console.error('Failed to load MCP configuration:', error);
+      this.logger.mcp.error("Failed to load MCP configuration", { 
+        error: error instanceof Error ? error.message : error,
+        configPath: this.configPath 
+      });
       // Return empty config on any other error
       return { mcpServers: {} };
     }
@@ -57,9 +62,12 @@ export class MCPConfigurationManager {
         JSON.stringify(config, null, 2), 
         'utf-8'
       );
-      console.log('MCP configuration saved successfully');
+      this.logger.mcp.info("MCP configuration saved successfully", { configPath: this.configPath });
     } catch (error) {
-      console.error('Failed to save MCP configuration:', error);
+      this.logger.mcp.error("Failed to save MCP configuration", { 
+        error: error instanceof Error ? error.message : error,
+        configPath: this.configPath 
+      });
       throw error;
     }
   }
