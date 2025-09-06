@@ -119,9 +119,9 @@ app.on("window-all-closed", async () => {
   // Close database connection before quitting
   try {
     await databaseService.close();
-    console.log('Database connection closed');
+    logger.core.info('Database connection closed');
   } catch (error) {
-    console.error('Error closing database:', error);
+    logger.core.error('Error closing database', { error: error instanceof Error ? error.message : error });
   }
   
   if (process.platform !== "darwin") app.quit();
@@ -144,10 +144,15 @@ const activeStreams = new Map<string, { cancel: () => void }>();
 
 // Streaming chat handler
 ipcMain.handle("levante/chat/stream", async (event, request: ChatRequest) => {
-  console.log("Received chat stream request:", request);
   const streamId = `stream_${Date.now()}_${Math.random()
     .toString(36)
     .substring(2, 11)}`;
+  
+  logger.aiSdk.debug("Received chat stream request", { 
+    requestId: streamId, 
+    model: request.model,
+    messagesCount: request.messages.length 
+  });
   
   // Track cancellation state
   let isCancelled = false;
@@ -156,18 +161,18 @@ ipcMain.handle("levante/chat/stream", async (event, request: ChatRequest) => {
   activeStreams.set(streamId, {
     cancel: () => {
       isCancelled = true;
-      console.log(`Stream ${streamId} cancelled`);
+      logger.aiSdk.info("Stream cancelled", { streamId });
     }
   });
 
   // Start streaming immediately - listeners should be ready (Expo pattern)
   setTimeout(async () => {
     try {
-      console.log("Starting AI stream...");
+      logger.aiSdk.debug("Starting AI stream", { streamId });
       for await (const chunk of aiService.streamChat(request)) {
         // Check if stream was cancelled
         if (isCancelled) {
-          console.log("Stream cancelled, stopping generation");
+          logger.aiSdk.info("Stream cancelled, stopping generation", { streamId });
           event.sender.send(`levante/chat/stream/${streamId}`, {
             error: "Stream cancelled by user",
             done: true,
@@ -182,12 +187,15 @@ ipcMain.handle("levante/chat/stream", async (event, request: ChatRequest) => {
 
         // Log when stream completes
         if (chunk.done) {
-          console.log("AI stream completed successfully");
+          logger.aiSdk.info("AI stream completed successfully", { streamId });
           break;
         }
       }
     } catch (error) {
-      console.error("AI Stream error:", error);
+      logger.aiSdk.error("AI Stream error", { 
+        streamId,
+        error: error instanceof Error ? error.message : error 
+      });
       event.sender.send(`levante/chat/stream/${streamId}`, {
         error: error instanceof Error ? error.message : "Stream error",
         done: true,
@@ -198,27 +206,30 @@ ipcMain.handle("levante/chat/stream", async (event, request: ChatRequest) => {
     }
   }, 10); // Reduced delay following Expo patterns
 
-  console.log("Returning streamId:", streamId);
+  logger.aiSdk.debug("Returning streamId", { streamId });
   return { streamId };
 });
 
 // Stop streaming handler
 ipcMain.handle("levante/chat/stop-stream", async (event, streamId: string) => {
-  console.log("Received stop stream request for:", streamId);
+  logger.aiSdk.debug("Received stop stream request", { streamId });
   
   try {
     const streamControl = activeStreams.get(streamId);
     if (streamControl) {
       streamControl.cancel();
       activeStreams.delete(streamId);
-      console.log(`Stream ${streamId} stopped successfully`);
+      logger.aiSdk.info("Stream stopped successfully", { streamId });
       return { success: true };
     } else {
-      console.log(`Stream ${streamId} not found or already completed`);
+      logger.aiSdk.warn("Stream not found or already completed", { streamId });
       return { success: false, error: "Stream not found or already completed" };
     }
   } catch (error) {
-    console.error("Error stopping stream:", error);
+    logger.aiSdk.error("Error stopping stream", { 
+      streamId,
+      error: error instanceof Error ? error.message : error 
+    });
     return { 
       success: false, 
       error: error instanceof Error ? error.message : "Unknown error" 

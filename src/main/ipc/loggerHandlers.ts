@@ -19,7 +19,7 @@ export function setupLoggerHandlers(): void {
       logger.log(category, level, message, context);
       return { success: true };
     } catch (error) {
-      console.error('Logger IPC handler error:', error);
+      logger.core.error('Logger IPC handler error', { error: error instanceof Error ? error.message : error });
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error' 
@@ -35,7 +35,7 @@ export function setupLoggerHandlers(): void {
         data: logger.isEnabled(category, level) 
       };
     } catch (error) {
-      console.error('Logger isEnabled IPC handler error:', error);
+      logger.core.error('Logger isEnabled IPC handler error', { category, level, error: error instanceof Error ? error.message : error });
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error' 
@@ -49,7 +49,7 @@ export function setupLoggerHandlers(): void {
       logger.configure(config);
       return { success: true };
     } catch (error) {
-      console.error('Logger configure IPC handler error:', error);
+      logger.core.error('Logger configure IPC handler error', { error: error instanceof Error ? error.message : error });
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error' 

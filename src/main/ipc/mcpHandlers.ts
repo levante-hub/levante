@@ -2,11 +2,13 @@ import { ipcMain } from 'electron';
 import { MCPService } from '../services/mcpService.js';
 import { MCPConfigurationManager } from '../services/mcpConfigManager.js';
 import { mcpHealthService } from '../services/mcpHealthService.js';
+import { getLogger } from '../services/logging';
 import type { MCPServerConfig, ToolCall } from '../types/mcp.js';
 
 // Create singleton instances
 const mcpService = new MCPService();
 const configManager = new MCPConfigurationManager();
+const logger = getLogger();
 
 export function registerMCPHandlers() {
   // Connect to MCP server
@@ -87,7 +89,7 @@ export function registerMCPHandlers() {
   // Refresh configuration and reconnect servers
   ipcMain.handle('levante/mcp/refresh-configuration', async () => {
     try {
-      console.log('[MCP] Refreshing MCP configuration and reconnecting servers...');
+      logger.mcp.info('Refreshing MCP configuration and reconnecting servers');
       
       // Disconnect all current servers
       await mcpService.disconnectAll();
@@ -105,17 +107,17 @@ export function registerMCPHandlers() {
             ...serverConfig
           });
           results[serverId] = { success: true };
-          console.log(`[MCP] Successfully reconnected server: ${serverId}`);
+          logger.mcp.info('Successfully reconnected MCP server', { serverId });
         } catch (error: any) {
           results[serverId] = { success: false, error: error.message };
-          console.error(`[MCP] Failed to reconnect server ${serverId}:`, error.message);
+          logger.mcp.error('Failed to reconnect MCP server', { serverId, error: error.message });
         }
       }
       
-      console.log('[MCP] Configuration refresh completed');
+      logger.mcp.info('MCP configuration refresh completed');
       return { success: true, data: { serverResults: results, config } };
     } catch (error: any) {
-      console.error('[MCP] Configuration refresh failed:', error);
+      logger.mcp.error('MCP configuration refresh failed', { error: error instanceof Error ? error.message : error });
       return { success: false, error: error.message };
     }
   });
@@ -272,7 +274,7 @@ export function registerMCPHandlers() {
           await configManager.removeServer(serverId);
           await mcpService.disconnectServer(serverId);
           cleaned++;
-          console.log(`[MCP] Cleaned up deprecated server: ${serverId}`);
+          logger.mcp.info('Cleaned up deprecated MCP server', { serverId });
         }
       }
       
@@ -319,7 +321,7 @@ export function registerMCPHandlers() {
     }
   });
 
-  console.log('MCP IPC handlers registered successfully');
+  logger.mcp.info('MCP IPC handlers registered successfully');
 }
 
 // Export the service instances for use in other parts of the main process

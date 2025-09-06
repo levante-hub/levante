@@ -9,6 +9,9 @@ import {
   GetMessagesQuery,
   GetChatSessionsQuery,
 } from "../../types/database";
+import { getLogger } from '../services/logging';
+
+const logger = getLogger();
 
 export function setupDatabaseHandlers() {
   // Database health check
@@ -110,5 +113,5 @@ export function setupDatabaseHandlers() {
     }
   });
 
-  console.log("Database IPC handlers registered");
+  logger.ipc.info('Database IPC handlers registered');
 }
