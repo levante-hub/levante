@@ -81,6 +81,27 @@ export interface MCPToolResult {
   isError?: boolean;
 }
 
+export interface MCPServerHealth {
+  serverId: string;
+  status: 'healthy' | 'unhealthy' | 'unknown';
+  lastError?: string;
+  errorCount: number;
+  successCount: number;
+  consecutiveErrors: number;
+  lastSuccess?: number;
+  lastErrorTime?: number;
+  tools: Record<string, {
+    errorCount: number;
+    successCount: number;
+    lastError?: string;
+  }>;
+}
+
+export interface MCPHealthReport {
+  servers: Record<string, MCPServerHealth>;
+  lastUpdated: number;
+}
+
 // Define the API interface for type safety
 export interface LevanteAPI {
   // App information
@@ -164,6 +185,10 @@ export interface LevanteAPI {
     getRegistry: () => Promise<{ success: boolean; data?: any; error?: string }>
     validatePackage: (packageName: string) => Promise<{ success: boolean; data?: { valid: boolean; status: string; message: string; alternative?: string }; error?: string }>
     cleanupDeprecated: () => Promise<{ success: boolean; data?: { cleanedCount: number }; error?: string }>
+    healthReport: () => Promise<{ success: boolean; data?: MCPHealthReport; error?: string }>
+    unhealthyServers: () => Promise<{ success: boolean; data?: string[]; error?: string }>
+    serverHealth: (serverId: string) => Promise<{ success: boolean; data?: MCPServerHealth; error?: string }>
+    resetServerHealth: (serverId: string) => Promise<{ success: boolean; error?: string }>
   }
   
 }
@@ -389,7 +414,19 @@ const api: LevanteAPI = {
       ipcRenderer.invoke('levante/mcp/validate-package', packageName),
     
     cleanupDeprecated: () => 
-      ipcRenderer.invoke('levante/mcp/cleanup-deprecated')
+      ipcRenderer.invoke('levante/mcp/cleanup-deprecated'),
+    
+    healthReport: () => 
+      ipcRenderer.invoke('levante/mcp/health-report'),
+    
+    unhealthyServers: () => 
+      ipcRenderer.invoke('levante/mcp/unhealthy-servers'),
+    
+    serverHealth: (serverId: string) => 
+      ipcRenderer.invoke('levante/mcp/server-health', serverId),
+    
+    resetServerHealth: (serverId: string) => 
+      ipcRenderer.invoke('levante/mcp/reset-server-health', serverId)
   }
 }
 

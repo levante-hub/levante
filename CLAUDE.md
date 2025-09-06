@@ -169,3 +169,4 @@ Common variables:
 - **TypeScript**: Strict mode with separate configs for main and preload processes
 - **Assets**: Icons and resources in `resources/` directory
 - **Output**: Built files in `out/` directory for development, `dist-electron/` for distribution
+- no realices comprobaciones con pnpm dev, se realizaran manualmente

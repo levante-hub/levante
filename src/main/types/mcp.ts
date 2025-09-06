@@ -54,3 +54,24 @@ export interface MCPMetricsReport {
     time: number;
   }>;
 }
+
+export interface MCPServerHealth {
+  serverId: string;
+  status: 'healthy' | 'unhealthy' | 'unknown';
+  lastError?: string;
+  errorCount: number;
+  successCount: number;
+  consecutiveErrors: number;
+  lastSuccess?: number;
+  lastErrorTime?: number;
+  tools: Record<string, {
+    errorCount: number;
+    successCount: number;
+    lastError?: string;
+  }>;
+}
+
+export interface MCPHealthReport {
+  servers: Record<string, MCPServerHealth>;
+  lastUpdated: number;
+}

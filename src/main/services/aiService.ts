@@ -14,6 +14,7 @@ import { tool } from "ai";
 import { z } from "zod";
 import type { ProviderConfig } from "../../types/models";
 import { mcpService, configManager } from "../ipc/mcpHandlers";
+import { mcpHealthService } from "./mcpHealthService.js";
 import type { Tool, ToolCall, ToolResult } from "../types/mcp";
 
 export interface ChatRequest {
@@ -251,6 +252,30 @@ export class AIService {
         if (sampleToolKey) {
           console.log(`[AI-Stream] Sample tool structure for '${sampleToolKey}':`, (tools as any)[sampleToolKey]);
         }
+
+        // Debug: Log all tool keys being passed to AI SDK
+        console.log('[AI-Stream] All tool keys being passed to AI SDK:', Object.keys(tools));
+        
+        // Debug: Verify no empty keys exist
+        const emptyKeys = Object.keys(tools).filter(key => !key || key.trim() === '');
+        if (emptyKeys.length > 0) {
+          console.error('[AI-Stream] CRITICAL: Empty tool keys detected!', emptyKeys);
+          // Remove empty keys
+          emptyKeys.forEach(key => delete (tools as any)[key]);
+        }
+
+        // Additional validation: ensure all tools are valid objects
+        const invalidToolObjects = Object.entries(tools).filter(([key, tool]) => {
+          return !tool || typeof tool !== 'object' || typeof (tool as any).execute !== 'function';
+        });
+
+        if (invalidToolObjects.length > 0) {
+          console.error('[AI-Stream] CRITICAL: Invalid tool objects detected!', invalidToolObjects.map(([key]) => key));
+          // Remove invalid tools
+          invalidToolObjects.forEach(([key]) => delete (tools as any)[key]);
+        }
+
+        console.log('[AI-Stream] Final tool validation passed. Tools ready for AI SDK:', Object.keys(tools));
       }
 
       const result = streamText({
@@ -262,7 +287,7 @@ export class AIService {
           enableMCP,
           Object.keys(tools).length
         ),
-        stopWhen: stepCountIs(5), // Allow multi-step tool calls
+        stopWhen: stepCountIs(await this.calculateMaxSteps(Object.keys(tools).length)), // Dynamic step count based on available tools
       });
 
       // Use full stream to handle tool calls
@@ -278,16 +303,28 @@ export class AIService {
             break;
 
           case "tool-call":
-            console.log(`[AI-Stream] Tool call:`, chunk);
+            console.log(`[AI-Stream] Tool call chunk received:`, {
+              type: chunk.type,
+              toolCallId: chunk.toolCallId,
+              toolName: chunk.toolName,
+              toolNameType: typeof chunk.toolName,
+              toolNameLength: chunk.toolName?.length,
+              hasArguments: !!(chunk as any).arguments
+            });
             
             // Debug: Check if tool name is empty
             if (!chunk.toolName || chunk.toolName.trim() === '') {
               console.error('[AI-Stream] ERROR: Tool call with empty name detected!', {
                 toolCallId: chunk.toolCallId,
                 toolName: chunk.toolName,
+                toolNameString: JSON.stringify(chunk.toolName),
                 arguments: (chunk as any).arguments,
-                availableTools: Object.keys(tools)
+                availableTools: Object.keys(tools),
+                fullChunk: JSON.stringify(chunk, null, 2)
               });
+              
+              // Don't yield this problematic tool call
+              continue;
             }
             
             yield {
@@ -415,7 +452,7 @@ export class AIService {
           enableMCP,
           Object.keys(tools).length
         ),
-        stopWhen: stepCountIs(5), // Allow multi-step tool calls
+        stopWhen: stepCountIs(await this.calculateMaxSteps(Object.keys(tools).length)), // Dynamic step count based on available tools
       });
 
       return {
@@ -487,7 +524,21 @@ export class AIService {
             console.log(
               `[AI-SDK] Creating tool: ${toolId} from ${mcpTool.name}`
             );
-            allTools[toolId] = this.createAISDKTool(serverId, mcpTool);
+            
+            // Additional validation before creating tool
+            if (!toolId || toolId.includes('undefined') || toolId.includes('null')) {
+              console.error(`[AI-SDK] Invalid toolId detected: "${toolId}" for tool:`, mcpTool);
+              continue;
+            }
+            
+            const aiTool = this.createAISDKTool(serverId, mcpTool);
+            if (!aiTool) {
+              console.error(`[AI-SDK] Failed to create AI SDK tool for ${toolId}`);
+              continue;
+            }
+            
+            allTools[toolId] = aiTool;
+            console.log(`[AI-SDK] Successfully registered tool: ${toolId}`);
           }
 
           console.log(
@@ -607,6 +658,9 @@ export class AIService {
 
             console.log(`[AI-SDK] Converted result text:`, resultText);
 
+            // Record successful tool call
+            mcpHealthService.recordSuccess(serverId, mcpTool.name);
+
             // AI SDK expects the raw result, not wrapped in an object
             return resultText;
           }
@@ -614,18 +668,25 @@ export class AIService {
           // For non-content results, return JSON string
           const jsonResult = JSON.stringify(result);
           console.log(`[AI-SDK] Returning JSON result:`, jsonResult);
+
+          // Record successful tool call
+          mcpHealthService.recordSuccess(serverId, mcpTool.name);
+
           return jsonResult;
         } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : "Tool execution failed";
+          
           console.error(
             `Error executing MCP tool ${serverId}:${mcpTool.name}:`,
             error
           );
 
+          // Record failed tool call
+          mcpHealthService.recordError(serverId, mcpTool.name, errorMessage);
+
           // For tool execution errors, we should throw to let the AI SDK handle it
           // This will trigger the 'tool-error' event in the stream
-          throw new Error(
-            error instanceof Error ? error.message : "Tool execution failed"
-          );
+          throw new Error(errorMessage);
         }
       },
     });
@@ -634,6 +695,35 @@ export class AIService {
       `[AI-SDK] Successfully created AI SDK tool for: ${serverId}:${mcpTool.name}`
     );
     return aiTool;
+  }
+
+  private async calculateMaxSteps(toolCount: number): Promise<number> {
+    // Get configuration from preferences
+    let baseSteps = 5;
+    let maxStepsLimit = 20;
+    
+    try {
+      const { preferencesService } = await import('../services/preferencesService');
+      const aiConfig = preferencesService.get('ai');
+      
+      if (aiConfig) {
+        baseSteps = aiConfig.baseSteps || 5;
+        maxStepsLimit = aiConfig.maxSteps || 20;
+      }
+    } catch (error) {
+      console.warn('[AI-Stream] Could not load steps configuration, using defaults:', error);
+    }
+    
+    // Additional steps based on available tools
+    // For every 5 tools, add 2 more steps to allow for more complex operations
+    const additionalSteps = Math.floor(toolCount / 5) * 2;
+    
+    // Apply configured limits
+    const calculatedSteps = Math.min(Math.max(baseSteps + additionalSteps, baseSteps), maxStepsLimit);
+    
+    console.log(`[AI-Stream] Calculated max steps: ${calculatedSteps} (base: ${baseSteps}, max limit: ${maxStepsLimit}, tools: ${toolCount})`);
+    
+    return calculatedSteps;
   }
 
   private getSystemPrompt(

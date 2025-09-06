@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron';
 import { MCPService } from '../services/mcpService.js';
 import { MCPConfigurationManager } from '../services/mcpConfigManager.js';
+import { mcpHealthService } from '../services/mcpHealthService.js';
 import type { MCPServerConfig, ToolCall } from '../types/mcp.js';
 
 // Create singleton instances
@@ -276,6 +277,43 @@ export function registerMCPHandlers() {
       }
       
       return { success: true, data: { cleanedCount: cleaned } };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Health monitoring handlers
+  ipcMain.handle('levante/mcp/health-report', async () => {
+    try {
+      const healthReport = mcpHealthService.getHealthReport();
+      return { success: true, data: healthReport };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('levante/mcp/unhealthy-servers', async () => {
+    try {
+      const unhealthyServers = mcpHealthService.getUnhealthyServers();
+      return { success: true, data: unhealthyServers };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('levante/mcp/server-health', async (_, serverId: string) => {
+    try {
+      const health = mcpHealthService.getServerHealth(serverId);
+      return { success: true, data: health };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('levante/mcp/reset-server-health', async (_, serverId: string) => {
+    try {
+      mcpHealthService.resetServerHealth(serverId);
+      return { success: true };
     } catch (error: any) {
       return { success: false, error: error.message };
     }
