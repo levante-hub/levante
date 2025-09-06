@@ -2,8 +2,10 @@ import { createClient, Client, InValue } from '@libsql/client';
 import { app } from 'electron';
 import path from 'path';
 import fs from 'fs/promises';
+import { getLogger } from './logging';
 
 export class DatabaseService {
+  private logger = getLogger();
   private client: Client | null = null;
   private dbPath: string;
 
@@ -29,12 +31,15 @@ export class DatabaseService {
         url: `file:${this.dbPath}`
       });
 
-      console.log(`Database initialized at: ${this.dbPath}`);
+      this.logger.database.info("Database initialized", { dbPath: this.dbPath });
       
       // Run migrations on initialization
       await this.runMigrations();
     } catch (error) {
-      console.error('Failed to initialize database:', error);
+      this.logger.database.error("Failed to initialize database", { 
+        error: error instanceof Error ? error.message : error,
+        dbPath: this.dbPath 
+      });
       throw error;
     }
   }

@@ -7,11 +7,16 @@ import { setupDatabaseHandlers } from "./ipc/databaseHandlers";
 import { setupPreferencesHandlers } from "./ipc/preferencesHandlers";
 import { setupModelHandlers } from "./ipc/modelHandlers";
 import { registerMCPHandlers } from "./ipc/mcpHandlers";
+import { setupLoggerHandlers } from "./ipc/loggerHandlers";
 import { preferencesService } from "./services/preferencesService";
+import { getLogger } from "./services/logging";
 
 // Load environment variables from .env.local and .env files
 config({ path: join(__dirname, "../../.env.local") });
 config({ path: join(__dirname, "../../.env") });
+
+// Initialize logger after environment variables are loaded
+const logger = getLogger();
 
 // Keep a global reference of the window object
 let mainWindow: BrowserWindow | null = null;
@@ -79,18 +84,18 @@ app.whenReady().then(async () => {
   // Initialize database
   try {
     await databaseService.initialize();
-    console.log('Database initialized successfully');
+    logger.core.info('Database initialized successfully');
   } catch (error) {
-    console.error('Failed to initialize database:', error);
+    logger.core.error('Failed to initialize database', { error: error instanceof Error ? error.message : error });
     // Could show error dialog or continue with degraded functionality
   }
 
   // Initialize preferences service
   try {
     await preferencesService.initialize();
-    console.log('Preferences service initialized successfully');
+    logger.core.info('Preferences service initialized successfully');
   } catch (error) {
-    console.error('Failed to initialize preferences service:', error);
+    logger.core.error('Failed to initialize preferences service', { error: error instanceof Error ? error.message : error });
     // Could show error dialog or continue with degraded functionality
   }
 
@@ -98,6 +103,7 @@ app.whenReady().then(async () => {
   setupDatabaseHandlers();
   setupPreferencesHandlers();
   setupModelHandlers();
+  setupLoggerHandlers();
   registerMCPHandlers();
 
   createWindow();

@@ -16,6 +16,7 @@ import type { ProviderConfig } from "../../types/models";
 import { mcpService, configManager } from "../ipc/mcpHandlers";
 import { mcpHealthService } from "./mcpHealthService.js";
 import type { Tool, ToolCall, ToolResult } from "../types/mcp";
+import { getLogger } from "./logging";
 
 export interface ChatRequest {
   messages: UIMessage[];
@@ -46,6 +47,8 @@ export interface ChatStreamChunk {
 }
 
 export class AIService {
+  private logger = getLogger();
+
   private async getModelProvider(modelId: string) {
     try {
       // Get providers configuration from preferences via IPC
@@ -57,13 +60,13 @@ export class AIService {
         providers =
           (preferencesService.get("providers") as ProviderConfig[]) || [];
       } catch (error) {
-        console.warn("No providers found in preferences, using empty array");
+        this.logger.aiSdk.warn("No providers found in preferences, using empty array");
         providers = [];
       }
 
       // If no providers configured, use fallback
       if (providers.length === 0) {
-        console.log("No providers configured, using fallback provider");
+        this.logger.aiSdk.info("No providers configured, using fallback provider");
         return this.getFallbackProvider(modelId);
       }
 
@@ -75,9 +78,9 @@ export class AIService {
       );
 
       if (!providerWithModel) {
-        console.log(
-          `Model ${modelId} not found in configured providers, using fallback`
-        );
+        this.logger.aiSdk.info("Model not found in configured providers, using fallback", { 
+          modelId 
+        });
         return this.getFallbackProvider(modelId);
       }
 
@@ -139,7 +142,10 @@ export class AIService {
           throw new Error(`Unknown provider type: ${providerWithModel.type}`);
       }
     } catch (error) {
-      console.error("Error getting model provider configuration:", error);
+      this.logger.aiSdk.error("Error getting model provider configuration", { 
+        error: error instanceof Error ? error.message : error,
+        modelId 
+      });
       // Fallback to old behavior
       return this.getFallbackProvider(modelId);
     }
@@ -233,10 +239,10 @@ export class AIService {
       let tools = {};
       if (enableMCP) {
         tools = await this.getMCPTools();
-        console.log(
-          `[AI-Stream] Passing tools to streamText:`,
-          Object.keys(tools)
-        );
+        this.logger.aiSdk.debug("Passing tools to streamText", {
+          toolCount: Object.keys(tools).length,
+          toolNames: Object.keys(tools)
+        });
         
         // Debug: Check for any empty or invalid tool names
         const invalidTools = Object.entries(tools).filter(([key, value]) => {
@@ -244,22 +250,27 @@ export class AIService {
         });
         
         if (invalidTools.length > 0) {
-          console.error('[AI-Stream] Found invalid tools:', invalidTools);
+          this.logger.aiSdk.error("Found invalid tools", { invalidTools });
         }
         
         // Debug: Log a sample tool to see its structure
         const sampleToolKey = Object.keys(tools)[0];
         if (sampleToolKey) {
-          console.log(`[AI-Stream] Sample tool structure for '${sampleToolKey}':`, (tools as any)[sampleToolKey]);
+          this.logger.aiSdk.debug("Sample tool structure", {
+            toolName: sampleToolKey,
+            toolStructure: (tools as any)[sampleToolKey]
+          });
         }
 
         // Debug: Log all tool keys being passed to AI SDK
-        console.log('[AI-Stream] All tool keys being passed to AI SDK:', Object.keys(tools));
+        this.logger.aiSdk.debug("All tool keys being passed to AI SDK", {
+          toolKeys: Object.keys(tools)
+        });
         
         // Debug: Verify no empty keys exist
         const emptyKeys = Object.keys(tools).filter(key => !key || key.trim() === '');
         if (emptyKeys.length > 0) {
-          console.error('[AI-Stream] CRITICAL: Empty tool keys detected!', emptyKeys);
+          this.logger.aiSdk.error("CRITICAL: Empty tool keys detected", { emptyKeys });
           // Remove empty keys
           emptyKeys.forEach(key => delete (tools as any)[key]);
         }
@@ -270,12 +281,17 @@ export class AIService {
         });
 
         if (invalidToolObjects.length > 0) {
-          console.error('[AI-Stream] CRITICAL: Invalid tool objects detected!', invalidToolObjects.map(([key]) => key));
+          this.logger.aiSdk.error("CRITICAL: Invalid tool objects detected", {
+            invalidToolNames: invalidToolObjects.map(([key]) => key)
+          });
           // Remove invalid tools
           invalidToolObjects.forEach(([key]) => delete (tools as any)[key]);
         }
 
-        console.log('[AI-Stream] Final tool validation passed. Tools ready for AI SDK:', Object.keys(tools));
+        this.logger.aiSdk.debug("Final tool validation passed. Tools ready for AI SDK", {
+          finalToolCount: Object.keys(tools).length,
+          finalToolNames: Object.keys(tools)
+        });
       }
 
       const result = streamText({
@@ -294,7 +310,10 @@ export class AIService {
       for await (const chunk of result.fullStream) {
         //Log all chunks
         if (chunk.type !== "text-delta") {
-          console.log(`[AI-Stream] Chunk type: ${chunk.type}`, chunk);
+          this.logger.aiSdk.debug("AI Stream chunk received", { 
+            type: chunk.type, 
+            chunk 
+          });
         }
 
         switch (chunk.type) {
@@ -303,7 +322,7 @@ export class AIService {
             break;
 
           case "tool-call":
-            console.log(`[AI-Stream] Tool call chunk received:`, {
+            this.logger.aiSdk.debug("Tool call chunk received", {
               type: chunk.type,
               toolCallId: chunk.toolCallId,
               toolName: chunk.toolName,
@@ -314,7 +333,7 @@ export class AIService {
             
             // Debug: Check if tool name is empty
             if (!chunk.toolName || chunk.toolName.trim() === '') {
-              console.error('[AI-Stream] ERROR: Tool call with empty name detected!', {
+              this.logger.aiSdk.error("ERROR: Tool call with empty name detected!", {
                 toolCallId: chunk.toolCallId,
                 toolName: chunk.toolName,
                 toolNameString: JSON.stringify(chunk.toolName),
@@ -339,13 +358,17 @@ export class AIService {
             break;
 
           case "tool-result":
-            console.log(`[AI-Stream] Tool result RAW chunk:`, JSON.stringify(chunk, null, 2));
-            console.log(`[AI-Stream] Tool result chunk.output:`, (chunk as any).output);
-            console.log(`[AI-Stream] Tool result chunk keys:`, Object.keys(chunk));
+            this.logger.aiSdk.debug("Tool result RAW chunk", { 
+              chunk: JSON.stringify(chunk, null, 2) 
+            });
+            this.logger.aiSdk.debug("Tool result details", {
+              output: (chunk as any).output,
+              chunkKeys: Object.keys(chunk)
+            });
             
             // Use 'output' property as per AI SDK documentation
             const toolResult = (chunk as any).output || {};
-            console.log(`[AI-Stream] Final tool result being yielded:`, toolResult);
+            this.logger.aiSdk.debug("Final tool result being yielded", { toolResult });
             
             yield {
               toolResult: {
@@ -358,7 +381,7 @@ export class AIService {
             break;
 
           case "tool-error":
-            console.error('[AI-Stream] Tool execution error:', {
+            this.logger.aiSdk.error("Tool execution error", {
               toolCallId: chunk.toolCallId,
               toolName: (chunk as any).toolName,
               error: (chunk as any).error,
@@ -391,12 +414,17 @@ export class AIService {
 
       yield { done: true };
     } catch (error) {
-      console.error("AI Service Error:", error);
+      this.logger.aiSdk.error("AI Service Error", { 
+        error: error instanceof Error ? error.message : error,
+        model,
+        enableMCP,
+        messageCount: messages.length
+      });
       
       // Handle specific case where model doesn't support tool use
       if (error instanceof Error && 
           error.message.includes("No endpoints found that support tool use")) {
-        console.warn(`[AI-Stream] Model '${model}' does not support tool execution. Retrying without tools...`);
+        this.logger.aiSdk.warn("Model does not support tool execution. Retrying without tools", { model });
         
         // Inform user and retry without tools
         yield { 

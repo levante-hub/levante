@@ -12,6 +12,7 @@ import {
   ChatSession,
   Message
 } from '../types/database'
+import type { LogCategory, LogLevel, LogContext } from '../main/types/logger'
 
 export interface ChatRequest {
   messages: UIMessage[];
@@ -190,7 +191,13 @@ export interface LevanteAPI {
     serverHealth: (serverId: string) => Promise<{ success: boolean; data?: MCPServerHealth; error?: string }>
     resetServerHealth: (serverId: string) => Promise<{ success: boolean; error?: string }>
   }
-  
+
+  // Logger functionality
+  logger: {
+    log: (category: LogCategory, level: LogLevel, message: string, context?: LogContext) => Promise<{ success: boolean; error?: string }>
+    isEnabled: (category: LogCategory, level: LogLevel) => Promise<{ success: boolean; data?: boolean; error?: string }>
+    configure: (config: any) => Promise<{ success: boolean; error?: string }>
+  }
 }
 
 // Expose protected methods that allow the renderer process to use
@@ -427,6 +434,18 @@ const api: LevanteAPI = {
     
     resetServerHealth: (serverId: string) => 
       ipcRenderer.invoke('levante/mcp/reset-server-health', serverId)
+  },
+
+  // Logger API
+  logger: {
+    log: (category: LogCategory, level: LogLevel, message: string, context?: LogContext) =>
+      ipcRenderer.invoke('levante/logger/log', { category, level, message, context }),
+    
+    isEnabled: (category: LogCategory, level: LogLevel) =>
+      ipcRenderer.invoke('levante/logger/isEnabled', category, level),
+    
+    configure: (config: any) =>
+      ipcRenderer.invoke('levante/logger/configure', config)
   }
 }
 

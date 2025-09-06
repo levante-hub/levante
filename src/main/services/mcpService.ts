@@ -11,6 +11,7 @@ import { promisify } from "util";
 import { exec } from "child_process";
 import path from "path";
 import fs from "fs/promises";
+import { getLogger } from "./logging";
 
 const execAsync = promisify(exec);
 
@@ -100,6 +101,7 @@ async function loadMCPRegistry(): Promise<MCPRegistry> {
 }
 
 export class MCPService {
+  private logger = getLogger();
   private clients: Map<string, Client> = new Map();
 
   /**
@@ -121,16 +123,14 @@ export class MCPService {
         const npxPath = stdout.trim();
 
         if (npxPath) {
-          console.log(`[MCP] Found npx at: ${npxPath}`);
+          this.logger.mcp.debug("Found npx at path", { npxPath });
           return {
             command: npxPath,
             args: [packageName, ...args],
           };
         }
       } catch {
-        console.warn(
-          "[MCP] npx not found in system PATH, trying fallback locations"
-        );
+        this.logger.mcp.warn("npx not found in system PATH, trying fallback locations");
       }
 
       // Try common npx locations as fallback
@@ -143,7 +143,7 @@ export class MCPService {
       for (const tryPath of fallbackPaths) {
         try {
           await execAsync(`ls ${tryPath}`);
-          console.log(`[MCP] Found npx at fallback location: ${tryPath}`);
+          this.logger.mcp.debug("Found npx at fallback location", { tryPath });
           return {
             command: tryPath,
             args: [packageName, ...args],
@@ -154,9 +154,7 @@ export class MCPService {
       }
 
       // If we can't find npx anywhere, offer helpful error message
-      console.error(
-        "[MCP] npx not found. Please ensure Node.js and npm are properly installed."
-      );
+      this.logger.mcp.error("npx not found. Please ensure Node.js and npm are properly installed");
       throw new Error(
         `npx command not found. Please install Node.js and npm, then try again. Package: ${packageName}`
       );
