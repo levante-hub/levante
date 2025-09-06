@@ -124,3 +124,10 @@ export function getLogger(): Logger {
   }
   return loggerInstance;
 }
+
+// Initialize logger with environment variables
+export function initializeLogger(): void {
+  const logger = getLogger();
+  // Force the config service to reload from environment
+  (logger as any).configService.initializeFromEnvironment();
+}

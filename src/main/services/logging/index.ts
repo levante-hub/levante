@@ -1,4 +1,4 @@
-export { Logger, createLogger, getLogger } from './logger';
+export { Logger, createLogger, getLogger, initializeLogger } from './logger';
 export { LoggerConfigService } from './config';
 export { ConsoleTransport, FileTransport } from './transports';
 export type {

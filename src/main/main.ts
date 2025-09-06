@@ -9,7 +9,7 @@ import { setupModelHandlers } from "./ipc/modelHandlers";
 import { registerMCPHandlers } from "./ipc/mcpHandlers";
 import { setupLoggerHandlers } from "./ipc/loggerHandlers";
 import { preferencesService } from "./services/preferencesService";
-import { getLogger } from "./services/logging";
+import { getLogger, initializeLogger } from "./services/logging";
 
 // Load environment variables from .env.local and .env files
 config({ path: join(__dirname, "../../.env.local") });
@@ -17,6 +17,8 @@ config({ path: join(__dirname, "../../.env") });
 
 // Initialize logger after environment variables are loaded
 const logger = getLogger();
+// Explicitly initialize logger with environment variables
+initializeLogger();
 
 // Keep a global reference of the window object
 let mainWindow: BrowserWindow | null = null;
