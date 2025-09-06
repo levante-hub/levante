@@ -25,6 +25,9 @@ import {
 import { useMCPStore } from '@/stores/mcpStore';
 import { DynamicConfigForm } from './dynamic-config-form';
 import { MCPServerConfig, MCPConfigField } from '@/types/mcp';
+import { getRendererLogger } from '@/services/logger';
+
+const logger = getRendererLogger();
 
 interface ServerConfigModalProps {
   serverId: string | null;
@@ -228,7 +231,7 @@ export function ServerConfigModal({ serverId, isOpen, onClose }: ServerConfigMod
 
       onClose();
     } catch (error) {
-      console.error('Failed to save server config:', error);
+      logger.mcp.error('Failed to save server config', { serverId, error: error instanceof Error ? error.message : error });
     } finally {
       setIsSaving(false);
     }

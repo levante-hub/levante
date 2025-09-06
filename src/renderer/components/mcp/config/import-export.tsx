@@ -20,6 +20,9 @@ import {
 } from 'lucide-react';
 import { useMCPStore } from '@/stores/mcpStore';
 import { toast } from 'sonner';
+import { getRendererLogger } from '@/services/logger';
+
+const logger = getRendererLogger();
 
 interface ImportExportProps {
   variant?: 'buttons' | 'dropdown';
@@ -60,7 +63,7 @@ export function ImportExport({ variant = 'buttons' }: ImportExportProps) {
       
       toast.success('Configuration exported successfully!');
     } catch (error) {
-      console.error('Export failed:', error);
+      logger.mcp.error('MCP configuration export failed', { error: error instanceof Error ? error.message : error });
       toast.error('Failed to export configuration');
     } finally {
       setIsExporting(false);
@@ -100,7 +103,7 @@ export function ImportExport({ variant = 'buttons' }: ImportExportProps) {
       toast.success('Configuration imported successfully!');
       handleCloseImportDialog();
     } catch (error) {
-      console.error('Import failed:', error);
+      logger.mcp.error('MCP configuration import failed', { serverCount: getImportServerCount(), error: error instanceof Error ? error.message : error });
       toast.error('Failed to import configuration');
     } finally {
       setIsImporting(false);

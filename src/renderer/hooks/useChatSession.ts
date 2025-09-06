@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ChatSession, Message, CreateChatSessionInput, CreateMessageInput } from '../../types/database';
+import { getRendererLogger } from '@/services/logger';
+
+const logger = getRendererLogger();
 
 export interface UseChatSessionResult {
   // Session management
@@ -104,7 +107,7 @@ export function useChatSession(initialSessionId?: string): UseChatSessionResult 
         setMessagesOffset(0);
         setHasMoreMessages(false);
         
-        console.log('[useChatSession] Session created:', newSession.id);
+        logger.database.info('Chat session created', { sessionId: newSession.id, title: newSession.title });
         return newSession;
       } else {
         setError(result.error || 'Failed to create session');
@@ -133,7 +136,7 @@ export function useChatSession(initialSessionId?: string): UseChatSessionResult 
         // Load messages for this session
         await loadMessages(sessionId, 0);
         
-        console.log('[useChatSession] Session loaded:', sessionId);
+        logger.database.info('Chat session loaded', { sessionId, messagesCount: messages.length });
       } else {
         setError(sessionResult.error || 'Session not found');
       }
@@ -158,7 +161,7 @@ export function useChatSession(initialSessionId?: string): UseChatSessionResult 
           setMessages([]);
         }
         
-        console.log('[useChatSession] Session deleted:', sessionId);
+        logger.database.info('Chat session deleted', { sessionId });
         return true;
       } else {
         setError(result.error || 'Failed to delete session');
@@ -183,7 +186,7 @@ export function useChatSession(initialSessionId?: string): UseChatSessionResult 
           setCurrentSession(result.data);
         }
         
-        console.log('[useChatSession] Session title updated:', sessionId);
+        logger.database.info('Chat session title updated', { sessionId, newTitle: title });
         return true;
       } else {
         setError(result.error || 'Failed to update session');
@@ -230,7 +233,7 @@ export function useChatSession(initialSessionId?: string): UseChatSessionResult 
           generateAndUpdateTitle(content, currentSession.id);
         }
         
-        console.log('[useChatSession] Message added:', newMessage.id);
+        logger.database.info('Message added to session', { messageId: newMessage.id, sessionId: currentSession.id, role, contentLength: content.length });
         return newMessage;
       } else {
         setError(result.error || 'Failed to add message');
@@ -245,7 +248,7 @@ export function useChatSession(initialSessionId?: string): UseChatSessionResult 
   // Generate title automatically for first user message
   const generateAndUpdateTitle = useCallback(async (firstMessage: string, sessionId: string) => {
     try {
-      console.log('[useChatSession] Generating title for session:', sessionId);
+      logger.database.debug('Generating title for session', { sessionId, firstMessageLength: firstMessage.length });
       
       const titleResult = await window.levante.db.generateTitle(firstMessage);
       
@@ -256,11 +259,11 @@ export function useChatSession(initialSessionId?: string): UseChatSessionResult 
         const success = await updateSessionTitle(sessionId, newTitle);
         
         if (success) {
-          console.log('[useChatSession] Title generated and updated:', newTitle);
+          logger.database.info('Title generated and updated for session', { sessionId, newTitle });
         }
       }
     } catch (error) {
-      console.error('[useChatSession] Failed to generate title:', error);
+      logger.database.error('Failed to generate title for session', { sessionId, error: error instanceof Error ? error.message : error });
     }
   }, [updateSessionTitle]);
 

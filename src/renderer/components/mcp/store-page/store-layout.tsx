@@ -11,6 +11,9 @@ import { AddNewModal } from './add-new-modal';
 import { ServerConfigModal } from '../config/server-config-modal';
 import { ImportExport } from '../config/import-export';
 import { NetworkStatus } from '../connection/connection-status';
+import { getRendererLogger } from '@/services/logger';
+
+const logger = getRendererLogger();
 
 export function StoreLayout() {
   const { 
@@ -52,7 +55,7 @@ export function StoreLayout() {
       const registryEntry = registry.entries.find(entry => entry.id === serverId);
       if (registryEntry) {
         // This would trigger server configuration
-        console.log('Need to configure server:', registryEntry);
+        logger.mcp.debug('Server needs configuration', { serverId, registryEntry: registryEntry.name });
       }
     }
   };

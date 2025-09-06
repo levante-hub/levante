@@ -4,6 +4,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RefreshCw, CheckCircle, XCircle, Settings, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { getRendererLogger } from '@/services/logger';
+
+const logger = getRendererLogger();
 
 const SettingsPage = () => {
   const [mcpStatus, setMcpStatus] = useState<{
@@ -34,7 +37,7 @@ const SettingsPage = () => {
     setMcpStatus({ loading: true });
     
     try {
-      console.log('[Settings] Refreshing MCP configuration...');
+      logger.mcp.info('Refreshing MCP configuration from Settings page');
       const result = await window.levante.mcp.refreshConfiguration();
       
       if (result.success) {
@@ -52,7 +55,7 @@ const SettingsPage = () => {
         });
       }
     } catch (error) {
-      console.error('[Settings] MCP refresh error:', error);
+      logger.mcp.error('MCP refresh error in Settings page', { error: error instanceof Error ? error.message : error });
       setMcpStatus({
         loading: false,
         success: false,
@@ -79,7 +82,7 @@ const SettingsPage = () => {
         maxSteps: aiConfig?.data?.maxSteps || 20
       }));
     } catch (error) {
-      console.error('[Settings] Error loading steps config:', error);
+      logger.preferences.error('Error loading AI steps configuration', { error: error instanceof Error ? error.message : error });
     }
   };
 
@@ -99,7 +102,7 @@ const SettingsPage = () => {
         setMaxStepsConfig(prev => ({ ...prev, saved: false }));
       }, 3000);
     } catch (error) {
-      console.error('[Settings] Error saving steps config:', error);
+      logger.preferences.error('Error saving AI steps configuration', { baseSteps: maxStepsConfig.baseSteps, maxSteps: maxStepsConfig.maxSteps, error: error instanceof Error ? error.message : error });
       setMaxStepsConfig(prev => ({ ...prev, saving: false }));
     }
   };
@@ -127,7 +130,7 @@ const SettingsPage = () => {
         setHealthData(prev => ({ ...prev, loading: false }));
       }
     } catch (error) {
-      console.error('[Settings] Error loading health data:', error);
+      logger.mcp.error('Error loading MCP health data in Settings', { error: error instanceof Error ? error.message : error });
       setHealthData(prev => ({ ...prev, loading: false }));
     }
   };

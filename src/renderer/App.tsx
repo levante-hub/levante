@@ -22,7 +22,9 @@ function App() {
       logger.core.info('Renderer services initialized successfully');
     };
     
-    initializeServices().catch(console.error);
+    initializeServices().catch(error => {
+      logger.core.error('Failed to initialize renderer services', { error: error instanceof Error ? error.message : error });
+    });
   }, []);
   
   // Chat management for sidebar - using Zustand selectors

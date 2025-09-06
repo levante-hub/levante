@@ -6,6 +6,7 @@ export interface RendererLoggerService {
   database: CategoryLogger;
   ipc: CategoryLogger;
   preferences: CategoryLogger;
+  models: CategoryLogger;
   core: CategoryLogger;
   
   log(category: LogCategory, level: LogLevel, message: string, context?: LogContext): void;
@@ -43,6 +44,7 @@ export class RendererLogger implements RendererLoggerService {
   public readonly database: CategoryLogger;
   public readonly ipc: CategoryLogger;
   public readonly preferences: CategoryLogger;
+  public readonly models: CategoryLogger;
   public readonly core: CategoryLogger;
 
   constructor() {
@@ -52,6 +54,7 @@ export class RendererLogger implements RendererLoggerService {
     this.database = new RendererCategoryLogger('database', this);
     this.ipc = new RendererCategoryLogger('ipc', this);
     this.preferences = new RendererCategoryLogger('preferences', this);
+    this.models = new RendererCategoryLogger('models', this);
     this.core = new RendererCategoryLogger('core', this);
   }
 

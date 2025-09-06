@@ -456,6 +456,7 @@ if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('levante', api)
   } catch (error) {
+    // Error in preload - cannot use centralized logger here, fallback to console
     console.error('Failed to expose API:', error)
   }
 } else {

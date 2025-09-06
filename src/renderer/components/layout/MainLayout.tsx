@@ -13,6 +13,9 @@ import {
   SidebarTrigger
 } from '@/components/ui/sidebar'
 import { MessageSquare, Settings, User, Bot, Store } from 'lucide-react'
+import { getRendererLogger } from '@/services/logger'
+
+const logger = getRendererLogger();
 
 interface MainLayoutProps {
   children: React.ReactNode
@@ -34,7 +37,7 @@ export function MainLayout({ children, title = 'Chat', currentPage = 'chat', onP
         setVersion(appVersion)
         setPlatform(appPlatform)
       } catch (error) {
-        console.error('Failed to load app info:', error)
+        logger.core.error('Failed to load app info in MainLayout', { error: error instanceof Error ? error.message : error })
       }
     }
 

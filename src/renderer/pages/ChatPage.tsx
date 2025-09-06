@@ -31,6 +31,9 @@ import { Loader } from '@/components/ai-elements/loader';
 import { ToolCall } from '@/components/ai-elements/tool-call';
 import { modelService } from '@/services/modelService';
 import type { Model } from '../../types/models';
+import { getRendererLogger } from '@/services/logger';
+
+const logger = getRendererLogger();
 
 interface ChatPageProps {
   sidebarContent?: React.ReactNode;
@@ -100,7 +103,7 @@ const ChatPage = () => {
         setModel(models[0].id);
       }
     } catch (error) {
-      console.error('Failed to load models:', error);
+      logger.core.error('Failed to load models in ChatPage', { error: error instanceof Error ? error.message : error });
     } finally {
       setModelsLoading(false);
     }
