@@ -11,12 +11,14 @@ import {
   DatabaseResult,
   PaginatedResult
 } from '../../types/database';
+import { getLogger } from './logging';
 
 export class ChatService {
+  private logger = getLogger();
   
   // Chat Sessions
   async createSession(input: CreateChatSessionInput): Promise<DatabaseResult<ChatSession>> {
-    console.log('[ChatService] Creating new chat session', { input });
+    this.logger.database.debug('Creating new chat session', { input });
     
     try {
       const id = this.generateId();
