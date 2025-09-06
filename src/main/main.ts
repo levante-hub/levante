@@ -133,18 +133,42 @@ ipcMain.handle("levante/app/platform", () => {
 // Initialize AI service
 const aiService = new AIService();
 
+// Track active streams for cancellation
+const activeStreams = new Map<string, { cancel: () => void }>();
+
 // Streaming chat handler
 ipcMain.handle("levante/chat/stream", async (event, request: ChatRequest) => {
   console.log("Received chat stream request:", request);
   const streamId = `stream_${Date.now()}_${Math.random()
     .toString(36)
     .substring(2, 11)}`;
+  
+  // Track cancellation state
+  let isCancelled = false;
+  
+  // Store cancellation function
+  activeStreams.set(streamId, {
+    cancel: () => {
+      isCancelled = true;
+      console.log(`Stream ${streamId} cancelled`);
+    }
+  });
 
   // Start streaming immediately - listeners should be ready (Expo pattern)
   setTimeout(async () => {
     try {
       console.log("Starting AI stream...");
       for await (const chunk of aiService.streamChat(request)) {
+        // Check if stream was cancelled
+        if (isCancelled) {
+          console.log("Stream cancelled, stopping generation");
+          event.sender.send(`levante/chat/stream/${streamId}`, {
+            error: "Stream cancelled by user",
+            done: true,
+          });
+          break;
+        }
+        
         // Send chunk immediately without buffering (pattern from Expo)
         event.sender.send(`levante/chat/stream/${streamId}`, chunk);
         // Small yield to prevent blocking the event loop
@@ -153,6 +177,7 @@ ipcMain.handle("levante/chat/stream", async (event, request: ChatRequest) => {
         // Log when stream completes
         if (chunk.done) {
           console.log("AI stream completed successfully");
+          break;
         }
       }
     } catch (error) {
@@ -161,11 +186,38 @@ ipcMain.handle("levante/chat/stream", async (event, request: ChatRequest) => {
         error: error instanceof Error ? error.message : "Stream error",
         done: true,
       });
+    } finally {
+      // Clean up active stream tracking
+      activeStreams.delete(streamId);
     }
   }, 10); // Reduced delay following Expo patterns
 
   console.log("Returning streamId:", streamId);
   return { streamId };
+});
+
+// Stop streaming handler
+ipcMain.handle("levante/chat/stop-stream", async (event, streamId: string) => {
+  console.log("Received stop stream request for:", streamId);
+  
+  try {
+    const streamControl = activeStreams.get(streamId);
+    if (streamControl) {
+      streamControl.cancel();
+      activeStreams.delete(streamId);
+      console.log(`Stream ${streamId} stopped successfully`);
+      return { success: true };
+    } else {
+      console.log(`Stream ${streamId} not found or already completed`);
+      return { success: false, error: "Stream not found or already completed" };
+    }
+  } catch (error) {
+    console.error("Error stopping stream:", error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : "Unknown error" 
+    };
+  }
 });
 
 // Non-streaming chat handler (for compatibility)

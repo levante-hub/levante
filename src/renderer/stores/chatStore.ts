@@ -49,7 +49,9 @@ interface ChatStore {
   deleteSession: (sessionId: string) => Promise<boolean>;
   updateSessionTitle: (sessionId: string, title: string) => Promise<boolean>;
   addMessage: (content: string, role: 'user' | 'assistant' | 'system') => Promise<Message | null>;
-  sendMessage: (message: { text: string }, options?: { body?: { model?: string; webSearch?: boolean } }) => Promise<void>;
+  addMessageWithTools: (content: string, role: 'user' | 'assistant' | 'system', toolCallsData?: any[] | null) => Promise<Message | null>;
+  sendMessage: (message: { text: string }, options?: { body?: { model?: string; webSearch?: boolean; enableMCP?: boolean } }) => Promise<void>;
+  stopStreaming: () => Promise<void>;
   loadMoreMessages: () => Promise<void>;
   
   // UI actions
@@ -58,11 +60,60 @@ interface ChatStore {
 
 // Helper to convert DB Message to ElectronMessage
 function convertToElectronMessage(dbMessage: Message): ElectronMessage {
+  const parts: Array<{
+    type: 'text' | 'source-url' | 'reasoning' | 'tool-call'
+    text?: string
+    url?: string
+    toolCall?: {
+      id: string
+      name: string
+      arguments: Record<string, any>
+      result?: {
+        success: boolean
+        content?: string
+        error?: string
+      }
+      status: 'pending' | 'running' | 'success' | 'error'
+      serverId?: string
+      timestamp?: number
+    }
+  }> = [];
+  
+  // Add text content
+  if (dbMessage.content) {
+    parts.push({ type: 'text', text: dbMessage.content });
+  }
+  
+  // Process tool calls from database
+  if (dbMessage.tool_calls) {
+    try {
+      const toolCalls = JSON.parse(dbMessage.tool_calls);
+      if (Array.isArray(toolCalls)) {
+        toolCalls.forEach((toolCall) => {
+          parts.push({
+            type: 'tool-call',
+            toolCall: {
+              id: toolCall.id,
+              name: toolCall.name,
+              arguments: toolCall.arguments || {},
+              result: toolCall.result,
+              status: toolCall.status || 'success',
+              serverId: toolCall.serverId,
+              timestamp: toolCall.timestamp
+            }
+          });
+        });
+      }
+    } catch (error) {
+      console.error('[convertToElectronMessage] Failed to parse tool_calls JSON:', error);
+    }
+  }
+
   return {
     id: dbMessage.id,
     role: dbMessage.role,
     content: dbMessage.content,
-    parts: [{ type: 'text', text: dbMessage.content }]
+    parts
   };
 }
 
@@ -343,9 +394,43 @@ export const useChatStore = create<ChatStore>()(
         }
       },
 
+      addMessageWithTools: async (content: string, role: 'user' | 'assistant' | 'system', toolCallsData?: any[] | null) => {
+        const { currentSession } = get();
+        if (!currentSession) {
+          set({ error: 'No active session' });
+          return null;
+        }
 
-      sendMessage: async (message: { text: string }, options?) => {
-        const { model = 'openai/gpt-4o', webSearch = false } = options?.body || {};
+        try {
+          set({ error: null });
+          
+          const input: CreateMessageInput = {
+            session_id: currentSession.id,
+            role,
+            content,
+            tool_calls: toolCallsData
+          };
+          
+          const result = await window.levante.db.messages.create(input);
+          
+          if (result.success && result.data) {
+            const newMessage = result.data;
+            get().addDbMessage(newMessage);
+            
+            console.log('[ChatStore] Message with tools added:', newMessage.id, toolCallsData ? 'with tool calls' : 'without tool calls');
+            return newMessage;
+          } else {
+            set({ error: result.error || 'Failed to add message with tools' });
+            return null;
+          }
+        } catch (err) {
+          set({ error: err instanceof Error ? err.message : 'Unknown error' });
+          return null;
+        }
+      },
+
+      sendMessage: async (message: { text: string }, options?: { body?: { model?: string; webSearch?: boolean; enableMCP?: boolean } }) => {
+        const { model = 'openai/gpt-4o', webSearch = false, enableMCP = false } = options?.body || {};
         
         // Ensure we have a session
         let session = get().currentSession;
@@ -378,6 +463,9 @@ export const useChatStore = create<ChatStore>()(
             parts: []
           };
           
+          // Track active tool calls
+          const activeToolCalls = new Map<string, any>();
+          
           set({ streamingMessage: streamingAssistantMessage, status: 'streaming' });
           
           // 3. Prepare API messages
@@ -393,7 +481,7 @@ export const useChatStore = create<ChatStore>()(
           
           // 4. Stream the response
           await window.levante.streamChat(
-            { messages: apiMessages, model, webSearch },
+            { messages: apiMessages, model, webSearch, enableMCP },
             (chunk) => {
               if (chunk.delta) {
                 fullResponse += chunk.delta;
@@ -437,10 +525,67 @@ export const useChatStore = create<ChatStore>()(
                 get().updateDisplayMessages();
               }
               
+              if (chunk.toolCall) {
+                // Add or update tool call
+                activeToolCalls.set(chunk.toolCall.id, chunk.toolCall);
+                
+                set((state) => ({
+                  streamingMessage: state.streamingMessage ? {
+                    ...state.streamingMessage,
+                    parts: [
+                      ...(state.streamingMessage.parts?.filter(p => 
+                        !(p.type === 'tool-call' && p.toolCall?.id === chunk.toolCall!.id)
+                      ) || []),
+                      { 
+                        type: 'tool-call', 
+                        toolCall: chunk.toolCall! 
+                      }
+                    ]
+                  } : null
+                }));
+                get().updateDisplayMessages();
+              }
+              
+              if (chunk.toolResult) {
+                // Update tool call with result
+                const toolCall = activeToolCalls.get(chunk.toolResult.id);
+                if (toolCall) {
+                  const isSuccess = chunk.toolResult.status === 'success';
+                  toolCall.result = {
+                    success: isSuccess,
+                    content: isSuccess 
+                      ? (typeof chunk.toolResult.result === 'string' 
+                          ? chunk.toolResult.result 
+                          : JSON.stringify(chunk.toolResult.result))
+                      : undefined,
+                    error: !isSuccess 
+                      ? (chunk.toolResult.result?.error || 'Tool execution failed')
+                      : undefined
+                  };
+                  toolCall.status = chunk.toolResult.status;
+                  
+                  set((state) => ({
+                    streamingMessage: state.streamingMessage ? {
+                      ...state.streamingMessage,
+                      parts: state.streamingMessage.parts?.map(p => 
+                        p.type === 'tool-call' && p.toolCall?.id === chunk.toolResult!.id
+                          ? { ...p, toolCall }
+                          : p
+                      ) || []
+                    } : null
+                  }));
+                  get().updateDisplayMessages();
+                }
+              }
+              
               if (chunk.done) {
                 // Save assistant message when streaming is complete
                 if (fullResponse) {
-                  get().addMessage(fullResponse, 'assistant').then((savedMessage) => {
+                  // Collect all tool calls with their results
+                  const toolCallsArray = Array.from(activeToolCalls.values());
+                  
+                  // Use the more detailed addMessageWithTools function
+                  get().addMessageWithTools(fullResponse, 'assistant', toolCallsArray.length > 0 ? toolCallsArray : null).then((savedMessage) => {
                     if (savedMessage) {
                       // Successfully saved - clear streaming message and set ready
                       set({ streamingMessage: null, status: 'ready' });
@@ -503,6 +648,34 @@ export const useChatStore = create<ChatStore>()(
           set({ error: err instanceof Error ? err.message : 'Unknown error' });
         } finally {
           set({ loading: false });
+        }
+      },
+
+      stopStreaming: async () => {
+        console.log('[ChatStore] Stopping current stream');
+        
+        try {
+          const result = await window.levante.stopStreaming();
+          
+          if (result.success) {
+            console.log('[ChatStore] Stream stopped successfully');
+            set({ 
+              status: 'ready',
+              streamingMessage: null
+            });
+            get().updateDisplayMessages();
+          } else {
+            console.error('[ChatStore] Failed to stop stream:', result.error);
+            set({ error: result.error || 'Failed to stop stream' });
+          }
+        } catch (error) {
+          console.error('[ChatStore] Error stopping stream:', error);
+          set({ 
+            status: 'ready',
+            streamingMessage: null,
+            error: error instanceof Error ? error.message : 'Unknown error stopping stream'
+          });
+          get().updateDisplayMessages();
         }
       },
 

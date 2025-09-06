@@ -83,6 +83,42 @@ export function registerMCPHandlers() {
     }
   });
 
+  // Refresh configuration and reconnect servers
+  ipcMain.handle('levante/mcp/refresh-configuration', async () => {
+    try {
+      console.log('[MCP] Refreshing MCP configuration and reconnecting servers...');
+      
+      // Disconnect all current servers
+      await mcpService.disconnectAll();
+      
+      // Reload configuration from disk
+      const config = await configManager.loadConfiguration();
+      
+      // Reconnect all servers
+      const results: Record<string, { success: boolean; error?: string }> = {};
+      
+      for (const [serverId, serverConfig] of Object.entries(config.mcpServers)) {
+        try {
+          await mcpService.connectServer({
+            id: serverId,
+            ...serverConfig
+          });
+          results[serverId] = { success: true };
+          console.log(`[MCP] Successfully reconnected server: ${serverId}`);
+        } catch (error: any) {
+          results[serverId] = { success: false, error: error.message };
+          console.error(`[MCP] Failed to reconnect server ${serverId}:`, error.message);
+        }
+      }
+      
+      console.log('[MCP] Configuration refresh completed');
+      return { success: true, data: { serverResults: results, config } };
+    } catch (error: any) {
+      console.error('[MCP] Configuration refresh failed:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
   ipcMain.handle('levante/mcp/save-configuration', async (_, config) => {
     try {
       await configManager.saveConfiguration(config);
@@ -183,6 +219,63 @@ export function registerMCPHandlers() {
     try {
       const path = configManager.getConfigPath();
       return { success: true, data: path };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Diagnose system for MCP compatibility
+  ipcMain.handle('levante/mcp/diagnose-system', async () => {
+    try {
+      const diagnosis = await mcpService.diagnoseSystem();
+      return { success: true, data: diagnosis };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Get MCP registry information
+  ipcMain.handle('levante/mcp/get-registry', async () => {
+    try {
+      const registry = await mcpService.getRegistry();
+      return { success: true, data: registry };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Validate MCP package
+  ipcMain.handle('levante/mcp/validate-package', async (_, packageName: string) => {
+    try {
+      const validation = await mcpService.validatePackage(packageName);
+      return { success: true, data: validation };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Clean up deprecated servers from configuration
+  ipcMain.handle('levante/mcp/cleanup-deprecated', async () => {
+    try {
+      const registry = await mcpService.getRegistry();
+      const config = await configManager.loadConfiguration();
+      
+      let cleaned = 0;
+      const deprecatedPackages = registry.deprecated.map(entry => entry.npmPackage);
+      
+      // Remove deprecated servers from configuration
+      for (const [serverId, serverConfig] of Object.entries(config.mcpServers)) {
+        if (serverConfig.command && deprecatedPackages.some(pkg => 
+          serverConfig.command?.includes(pkg.replace('@modelcontextprotocol/', ''))
+        )) {
+          await configManager.removeServer(serverId);
+          await mcpService.disconnectServer(serverId);
+          cleaned++;
+          console.log(`[MCP] Cleaned up deprecated server: ${serverId}`);
+        }
+      }
+      
+      return { success: true, data: { cleanedCount: cleaned } };
     } catch (error: any) {
       return { success: false, error: error.message };
     }

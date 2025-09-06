@@ -17,6 +17,7 @@ export interface ChatRequest {
   messages: UIMessage[];
   model: string;
   webSearch: boolean;
+  enableMCP?: boolean;
 }
 
 export interface ChatStreamChunk {
@@ -25,6 +26,19 @@ export interface ChatStreamChunk {
   error?: string;
   sources?: Array<{ url: string; title?: string }>;
   reasoning?: string;
+  toolCall?: {
+    id: string;
+    name: string;
+    arguments: Record<string, any>;
+    status: 'running' | 'success' | 'error';
+    timestamp: number;
+  };
+  toolResult?: {
+    id: string;
+    result: any;
+    status: 'success' | 'error';
+    timestamp: number;
+  };
 }
 
 // MCP Types for preload
@@ -76,6 +90,7 @@ export interface LevanteAPI {
   // Chat functionality
   sendMessage: (request: ChatRequest) => Promise<{ success: boolean; response: string; sources?: any[]; reasoning?: string }>
   streamChat: (request: ChatRequest, onChunk: (chunk: ChatStreamChunk) => void) => Promise<string>
+  stopStreaming: (streamId?: string) => Promise<{ success: boolean; error?: string }>
   
   // Model functionality  
   models: {
@@ -134,6 +149,7 @@ export interface LevanteAPI {
     callTool: (serverId: string, toolCall: MCPToolCall) => Promise<{ success: boolean; data?: MCPToolResult; error?: string }>
     connectionStatus: (serverId?: string) => Promise<{ success: boolean; data?: Record<string, 'connected' | 'disconnected'>; error?: string }>
     loadConfiguration: () => Promise<{ success: boolean; data?: MCPConfiguration; error?: string }>
+    refreshConfiguration: () => Promise<{ success: boolean; data?: { serverResults: Record<string, { success: boolean; error?: string }>; config: MCPConfiguration }; error?: string }>
     saveConfiguration: (config: MCPConfiguration) => Promise<{ success: boolean; error?: string }>
     addServer: (config: MCPServerConfig) => Promise<{ success: boolean; error?: string }>
     removeServer: (serverId: string) => Promise<{ success: boolean; error?: string }>
@@ -144,6 +160,10 @@ export interface LevanteAPI {
     importConfiguration: (config: MCPConfiguration) => Promise<{ success: boolean; error?: string }>
     exportConfiguration: () => Promise<{ success: boolean; data?: MCPConfiguration; error?: string }>
     getConfigPath: () => Promise<{ success: boolean; data?: string; error?: string }>
+    diagnoseSystem: () => Promise<{ success: boolean; data?: { success: boolean; issues: string[]; recommendations: string[] }; error?: string }>
+    getRegistry: () => Promise<{ success: boolean; data?: any; error?: string }>
+    validatePackage: (packageName: string) => Promise<{ success: boolean; data?: { valid: boolean; status: string; message: string; alternative?: string }; error?: string }>
+    cleanupDeprecated: () => Promise<{ success: boolean; data?: { cleanedCount: number }; error?: string }>
   }
   
 }
@@ -170,6 +190,9 @@ const api: LevanteAPI = {
     
     const { streamId } = await ipcRenderer.invoke('levante/chat/stream', request)
     
+    // Store streamId for potential cancellation
+    ;(globalThis as any)._currentStreamId = streamId
+    
     return new Promise<string>((resolve, reject) => {
       let fullResponse = ''
       
@@ -182,6 +205,8 @@ const api: LevanteAPI = {
         
         if (chunk.done) {
           ipcRenderer.removeAllListeners(`levante/chat/stream/${streamId}`)
+          // Clear current stream ID
+          delete (globalThis as any)._currentStreamId
           if (chunk.error) {
             reject(new Error(chunk.error))
           } else {
@@ -192,6 +217,31 @@ const api: LevanteAPI = {
       
       ipcRenderer.on(`levante/chat/stream/${streamId}`, handleChunk)
     })
+  },
+
+  stopStreaming: async (streamId?: string) => {
+    const targetStreamId = streamId || (globalThis as any)._currentStreamId
+    if (!targetStreamId) {
+      return { success: false, error: 'No active stream to stop' }
+    }
+    
+    try {
+      // Clean up listeners
+      ipcRenderer.removeAllListeners(`levante/chat/stream/${targetStreamId}`)
+      
+      // Notify main process to stop streaming
+      const result = await ipcRenderer.invoke('levante/chat/stop-stream', targetStreamId)
+      
+      // Clear current stream ID
+      delete (globalThis as any)._currentStreamId
+      
+      return result
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      }
+    }
   },
 
   // Model API
@@ -296,6 +346,9 @@ const api: LevanteAPI = {
     loadConfiguration: () => 
       ipcRenderer.invoke('levante/mcp/load-configuration'),
     
+    refreshConfiguration: () => 
+      ipcRenderer.invoke('levante/mcp/refresh-configuration'),
+    
     saveConfiguration: (config: MCPConfiguration) => 
       ipcRenderer.invoke('levante/mcp/save-configuration', config),
     
@@ -324,7 +377,19 @@ const api: LevanteAPI = {
       ipcRenderer.invoke('levante/mcp/export-configuration'),
     
     getConfigPath: () => 
-      ipcRenderer.invoke('levante/mcp/get-config-path')
+      ipcRenderer.invoke('levante/mcp/get-config-path'),
+    
+    diagnoseSystem: () => 
+      ipcRenderer.invoke('levante/mcp/diagnose-system'),
+    
+    getRegistry: () => 
+      ipcRenderer.invoke('levante/mcp/get-registry'),
+    
+    validatePackage: (packageName: string) => 
+      ipcRenderer.invoke('levante/mcp/validate-package', packageName),
+    
+    cleanupDeprecated: () => 
+      ipcRenderer.invoke('levante/mcp/cleanup-deprecated')
   }
 }
 

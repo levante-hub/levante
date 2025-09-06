@@ -15,7 +15,7 @@ import {
 import { useState, useEffect, useRef } from 'react';
 import { useChatStore } from '@/stores/chatStore';
 import { ChatList } from '@/components/chat/ChatList';
-import { GlobeIcon, Loader2 } from 'lucide-react';
+import { GlobeIcon, Loader2, Wrench } from 'lucide-react';
 import {
   Source,
   Sources,
@@ -28,6 +28,7 @@ import {
   ReasoningTrigger,
 } from '@/components/ai-elements/reasoning';
 import { Loader } from '@/components/ai-elements/loader';
+import { ToolCall } from '@/components/ai-elements/tool-call';
 import { modelService } from '@/services/modelService';
 import type { Model } from '../../types/models';
 
@@ -39,6 +40,7 @@ const ChatPage = () => {
   const [input, setInput] = useState('');
   const [model, setModel] = useState<string>('');
   const [webSearch, setWebSearch] = useState(false);
+  const [enableMCP, setEnableMCP] = useState(false);
   const [availableModels, setAvailableModels] = useState<Model[]>([]);
   const [modelsLoading, setModelsLoading] = useState(true);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -47,9 +49,18 @@ const ChatPage = () => {
   const messages = useChatStore((state) => state.messages);
   const status = useChatStore((state) => state.status);
   const sendMessage = useChatStore((state) => state.sendMessage);
+  const stopStreaming = useChatStore((state) => state.stopStreaming);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // If currently streaming, stop the stream
+    if (status === 'streaming') {
+      stopStreaming();
+      return;
+    }
+    
+    // Otherwise, send a new message
     if (input.trim()) {
       sendMessage(
         { text: input },
@@ -57,6 +68,7 @@ const ChatPage = () => {
           body: {
             model: model,
             webSearch: webSearch,
+            enableMCP: enableMCP,
           },
         },
       );
@@ -151,6 +163,14 @@ const ChatPage = () => {
                               </ReasoningContent>
                             </Reasoning>
                           );
+                        case 'tool-call':
+                          return part.toolCall ? (
+                            <ToolCall
+                              key={`${message.id}-${i}`}
+                              toolCall={part.toolCall}
+                              className="w-full"
+                            />
+                          ) : null;
                         default:
                           return null;
                       }
@@ -178,6 +198,13 @@ const ChatPage = () => {
               >
                 <GlobeIcon size={16} />
                 <span>Search</span>
+              </PromptInputButton>
+              <PromptInputButton
+                variant={enableMCP ? 'default' : 'ghost'}
+                onClick={() => setEnableMCP(!enableMCP)}
+              >
+                <Wrench size={16} />
+                <span>Tools</span>
               </PromptInputButton>
               <PromptInputModelSelect
                 onValueChange={(value) => {
