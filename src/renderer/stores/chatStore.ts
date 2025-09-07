@@ -21,11 +21,15 @@ interface ChatStore {
   messagesOffset: number;
   hasMoreMessages: boolean;
   
+  // Streaming callbacks
+  onStreamFinish?: () => void;
+  
   // Actions
   setStatus: (status: ElectronChatStatus) => void;
   setStreamingMessage: (message: ElectronMessage | null) => void;
   setError: (error: string | null) => void;
   setLoading: (loading: boolean) => void;
+  setOnStreamFinish: (callback?: () => void) => void;
   
   // Session actions
   setSessions: (sessions: ChatSession[]) => void;
@@ -131,6 +135,7 @@ export const useChatStore = create<ChatStore>()(
       dbMessages: [],
       messagesOffset: 0,
       hasMoreMessages: true,
+      onStreamFinish: undefined,
 
       // Basic setters
       setStatus: (status) => set({ status }),
@@ -140,6 +145,7 @@ export const useChatStore = create<ChatStore>()(
       },
       setError: (error) => set({ error }),
       setLoading: (loading) => set({ loading }),
+      setOnStreamFinish: (callback) => set({ onStreamFinish: callback }),
 
       // Session actions
       setSessions: (sessions) => set({ sessions }),
@@ -590,6 +596,12 @@ export const useChatStore = create<ChatStore>()(
                       // Successfully saved - clear streaming message and set ready
                       set({ streamingMessage: null, status: 'ready' });
                       get().updateDisplayMessages();
+                      
+                      // Notify that streaming has finished
+                      const { onStreamFinish } = get();
+                      if (onStreamFinish) {
+                        onStreamFinish();
+                      }
                     } else {
                       // Failed to save - keep streaming message visible and set error status
                       console.error('[ChatStore] Failed to save assistant message to database');
@@ -611,6 +623,12 @@ export const useChatStore = create<ChatStore>()(
                 } else {
                   set({ streamingMessage: null, status: 'ready' });
                   get().updateDisplayMessages();
+                  
+                  // Notify that streaming has finished
+                  const { onStreamFinish } = get();
+                  if (onStreamFinish) {
+                    onStreamFinish();
+                  }
                 }
               }
             }

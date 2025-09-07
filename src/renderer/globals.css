@@ -1,6 +1,9 @@
+@import 'katex/dist/katex.min.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
 
 @layer base {
   :root {
@@ -131,5 +134,20 @@
   .scrollable {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+  }
+
+  /* Mermaid diagram styling */
+  .mermaid-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .mermaid-container svg {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    max-width: 100% !important;
+    min-height: 100px !important;
   }
 }

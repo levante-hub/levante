@@ -784,6 +784,38 @@ Always explain what tools you're using and provide meaningful responses based on
       systemPrompt += " that can answer questions and help with tasks.";
     }
 
+    // Add Mermaid diagram capabilities
+    systemPrompt += `
+
+DIAGRAM CAPABILITIES:
+You can create visual diagrams using Mermaid syntax. When users request diagrams, charts, or visual representations, use Mermaid code blocks. Supported diagram types include:
+
+- **Flowcharts**: For processes, workflows, decision trees
+- **Sequence diagrams**: For interactions between systems/users over time
+- **Class diagrams**: For object-oriented designs and relationships
+- **State diagrams**: For state machines and transitions  
+- **ER diagrams**: For database relationships
+- **Gantt charts**: For project timelines
+- **Pie charts**: For data visualization
+- **Git graphs**: For version control workflows
+
+**Usage**: Wrap Mermaid code in \`\`\`mermaid code blocks. Examples:
+
+\`\`\`mermaid
+graph TD
+    A[Start] --> B{Decision}
+    B -->|Yes| C[Action 1]
+    B -->|No| D[Action 2]
+\`\`\`
+
+\`\`\`mermaid
+sequenceDiagram
+    Alice->>Bob: Hello Bob!
+    Bob-->>Alice: Hello Alice!
+\`\`\`
+
+Always provide diagrams when users request visual representations, flowcharts, process maps, or any kind of diagram. Be proactive in offering diagrams for complex explanations.`;
+
     return systemPrompt;
   }
 }
