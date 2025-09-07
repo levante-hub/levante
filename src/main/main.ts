@@ -8,6 +8,7 @@ import { setupPreferencesHandlers } from "./ipc/preferencesHandlers";
 import { setupModelHandlers } from "./ipc/modelHandlers";
 import { registerMCPHandlers } from "./ipc/mcpHandlers";
 import { setupLoggerHandlers } from "./ipc/loggerHandlers";
+import { registerDebugHandlers } from "./ipc/debugHandlers";
 import { preferencesService } from "./services/preferencesService";
 import { getLogger, initializeLogger } from "./services/logging";
 
@@ -107,6 +108,7 @@ app.whenReady().then(async () => {
   setupModelHandlers();
   setupLoggerHandlers();
   registerMCPHandlers();
+  registerDebugHandlers();
 
   createWindow();
 

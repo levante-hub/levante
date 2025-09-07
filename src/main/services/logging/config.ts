@@ -1,4 +1,4 @@
-import type { LoggerConfig, LogLevel } from '../../types/logger';
+import type { LoggerConfig, LogLevel } from "../../types/logger";
 
 const LOG_LEVELS: Record<LogLevel, number> = {
   debug: 0,
@@ -19,20 +19,20 @@ export class LoggerConfigService {
   private getDefaultConfig(): LoggerConfig {
     return {
       enabled: true,
-      level: 'debug' as LogLevel,
+      level: "debug" as LogLevel,
       categories: {
-        'ai-sdk': false, // Conservative defaults
-        'mcp': false,
-        'database': false,
-        'ipc': false,
-        'preferences': false,
-        'models': false,
-        'core': true,
+        "ai-sdk": false, // Conservative defaults
+        mcp: false,
+        database: false,
+        ipc: false,
+        preferences: false,
+        models: false,
+        core: true,
       },
       output: {
         console: true,
-        file: false,
-        filePath: './logs/levante.log',
+        file: true,
+        filePath: "levante.log", // Will be resolved to ~/levante/levante.log
       },
     };
   }
@@ -49,30 +49,36 @@ export class LoggerConfigService {
 
     return {
       enabled: this.parseBoolean(env.DEBUG_ENABLED, true),
-      level: this.parseLogLevel(env.LOG_LEVEL, 'debug'),
+      level: this.parseLogLevel(env.LOG_LEVEL, "debug"),
       categories: {
-        'ai-sdk': this.parseBoolean(env.DEBUG_AI_SDK, false),
-        'mcp': this.parseBoolean(env.DEBUG_MCP, false),
-        'database': this.parseBoolean(env.DEBUG_DATABASE, false),
-        'ipc': this.parseBoolean(env.DEBUG_IPC, false),
-        'preferences': this.parseBoolean(env.DEBUG_PREFERENCES, false),
-        'models': this.parseBoolean(env.DEBUG_MODELS, true),
-        'core': this.parseBoolean(env.DEBUG_CORE, true),
+        "ai-sdk": this.parseBoolean(env.DEBUG_AI_SDK, false),
+        mcp: this.parseBoolean(env.DEBUG_MCP, false),
+        database: this.parseBoolean(env.DEBUG_DATABASE, false),
+        ipc: this.parseBoolean(env.DEBUG_IPC, false),
+        preferences: this.parseBoolean(env.DEBUG_PREFERENCES, false),
+        models: this.parseBoolean(env.DEBUG_MODELS, true),
+        core: this.parseBoolean(env.DEBUG_CORE, true),
       },
       output: {
         console: true,
-        file: this.parseBoolean(env.LOG_TO_FILE, false),
-        filePath: env.LOG_FILE_PATH || './logs/levante.log',
+        file: this.parseBoolean(env.LOG_TO_FILE, true), // Default to true for testing
+        filePath: env.LOG_FILE_PATH || "./logs/levante.log",
       },
     };
   }
 
-  private parseBoolean(value: string | undefined, defaultValue: boolean): boolean {
+  private parseBoolean(
+    value: string | undefined,
+    defaultValue: boolean
+  ): boolean {
     if (value === undefined) return defaultValue;
-    return value.toLowerCase() === 'true';
+    return value.toLowerCase() === "true";
   }
 
-  private parseLogLevel(value: string | undefined, defaultValue: LogLevel): LogLevel {
+  private parseLogLevel(
+    value: string | undefined,
+    defaultValue: LogLevel
+  ): LogLevel {
     if (!value) return defaultValue;
     const level = value.toLowerCase() as LogLevel;
     return LOG_LEVELS[level] !== undefined ? level : defaultValue;
@@ -94,7 +100,9 @@ export class LoggerConfigService {
     return this.config.enabled;
   }
 
-  public isCategoryEnabled(category: keyof LoggerConfig['categories']): boolean {
+  public isCategoryEnabled(
+    category: keyof LoggerConfig["categories"]
+  ): boolean {
     return this.config.enabled && this.config.categories[category];
   }
 
@@ -102,11 +110,18 @@ export class LoggerConfigService {
     return LOG_LEVELS[level] >= LOG_LEVELS[this.config.level];
   }
 
-  public shouldLog(category: keyof LoggerConfig['categories'], level: LogLevel): boolean {
+  public shouldLog(
+    category: keyof LoggerConfig["categories"],
+    level: LogLevel
+  ): boolean {
     // Ensure config is loaded from environment if available
     if (!this.isInitialized) {
       this.initializeFromEnvironment();
     }
-    return this.isEnabled() && this.isCategoryEnabled(category) && this.isLevelEnabled(level);
+    return (
+      this.isEnabled() &&
+      this.isCategoryEnabled(category) &&
+      this.isLevelEnabled(level)
+    );
   }
 }

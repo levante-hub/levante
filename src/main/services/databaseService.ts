@@ -3,6 +3,7 @@ import { app } from 'electron';
 import path from 'path';
 import fs from 'fs/promises';
 import { getLogger } from './logging';
+import { directoryService } from './directoryService';
 
 export class DatabaseService {
   private logger = getLogger();
@@ -10,21 +11,13 @@ export class DatabaseService {
   private dbPath: string;
 
   constructor() {
-    this.dbPath = this.getDatabasePath();
-  }
-
-  private getDatabasePath(): string {
-    if (process.env.NODE_ENV === 'development') {
-      return path.join(process.cwd(), 'dev-levante.db');
-    }
-    return path.join(app.getPath('userData'), 'levante.db');
+    this.dbPath = directoryService.getDatabasePath();
   }
 
   async initialize(): Promise<void> {
     try {
       // Ensure the directory exists
-      const dbDir = path.dirname(this.dbPath);
-      await fs.mkdir(dbDir, { recursive: true });
+      await directoryService.ensureBaseDir();
 
       // Create the client
       this.client = createClient({

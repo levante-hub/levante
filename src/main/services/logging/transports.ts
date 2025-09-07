@@ -1,4 +1,7 @@
 import type { LogTransport, LogEntry, LogLevel } from '../../types/logger';
+import * as fs from 'fs';
+import * as path from 'path';
+import { directoryService } from '../directoryService';
 
 export class ConsoleTransport implements LogTransport {
   private readonly colors = {
@@ -85,13 +88,72 @@ export class ConsoleTransport implements LogTransport {
 }
 
 export class FileTransport implements LogTransport {
-  constructor(private readonly filePath: string) {}
+  private readonly resolvedFilePath: string;
+
+  constructor(private readonly filePath?: string) {
+    // Use DirectoryService for consistent path management
+    this.resolvedFilePath = filePath 
+      ? this.resolveFilePath(filePath)
+      : directoryService.getLogsPath();
+    
+    this.ensureDirectoryExists();
+  }
+
+  private resolveFilePath(filePath: string): string {
+    // If relative path, use DirectoryService to resolve within ~/levante/
+    if (!path.isAbsolute(filePath)) {
+      return directoryService.getFilePath(filePath);
+    }
+    return filePath;
+  }
+
+  private ensureDirectoryExists(): void {
+    try {
+      // Ensure directory exists synchronously for constructor
+      const directory = path.dirname(this.resolvedFilePath);
+      require('fs').mkdirSync(directory, { recursive: true });
+    } catch (error) {
+      console.error('Failed to create log directory:', error);
+    }
+  }
 
   write(entry: LogEntry): void {
-    // TODO: Implement file logging to this.filePath
-    // For now, fallback to console in development
-    if (process.env.NODE_ENV === 'development') {
-      new ConsoleTransport().write(entry);
+    try {
+      const logLine = this.formatEntry(entry);
+      
+      // Append to file synchronously (for simplicity and reliability)
+      fs.appendFileSync(this.resolvedFilePath, logLine + '\n', 'utf8');
+    } catch (error) {
+      // Fallback to console if file writing fails
+      console.error('Failed to write to log file:', error);
+      // Don't use ConsoleTransport to avoid infinite loops
+      console.log(this.formatEntry(entry));
+    }
+  }
+
+  private formatEntry(entry: LogEntry): string {
+    const timestamp = this.formatTimestamp(entry.timestamp);
+    const category = `[${entry.category.toUpperCase()}]`;
+    const level = `[${entry.level.toUpperCase()}]`;
+    
+    let output = `${timestamp} ${category} ${level} ${entry.message}`;
+    
+    if (entry.context && Object.keys(entry.context).length > 0) {
+      output += ' ' + this.formatContext(entry.context);
+    }
+    
+    return output;
+  }
+
+  private formatTimestamp(timestamp: Date): string {
+    return `[${timestamp.toISOString().replace('T', ' ').slice(0, -5)}]`;
+  }
+
+  private formatContext(context: Record<string, any>): string {
+    try {
+      return JSON.stringify(context);
+    } catch {
+      return '[Context serialization failed]';
     }
   }
 }

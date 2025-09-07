@@ -1,29 +1,24 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import * as os from 'os';
 import type { MCPConfiguration, MCPServerConfig } from '../types/mcp.js';
 import { getLogger } from './logging';
+import { directoryService } from './directoryService';
 
 export class MCPConfigurationManager {
   private logger = getLogger();
   private configPath: string;
 
   constructor() {
-    this.configPath = this.getLevanteConfigPath();
-  }
-
-  private getLevanteConfigPath(): string {
-    const configPath = path.join(os.homedir(), 'levante', 'mcp.json');
-    const configDir = path.dirname(configPath);
+    this.configPath = directoryService.getMcpConfigPath();
     
-    // Create directory if it doesn't exist (synchronously for constructor)
+    // Ensure directory exists (synchronously for constructor)
     try {
-      require('fs').mkdirSync(configDir, { recursive: true });
+      const fs = require('fs');
+      const configDir = path.dirname(this.configPath);
+      fs.mkdirSync(configDir, { recursive: true });
     } catch (error) {
       // Directory might already exist, ignore error
     }
-    
-    return configPath;
   }
 
   async loadConfiguration(): Promise<MCPConfiguration> {

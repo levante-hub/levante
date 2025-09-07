@@ -1,6 +1,7 @@
 import { BrowserWindow } from 'electron';
 import { UIPreferences, PreferenceKey, DEFAULT_PREFERENCES, PreferenceChangeEvent } from '../../types/preferences';
 import { getLogger } from './logging';
+import { directoryService } from './directoryService';
 
 export class PreferencesService {
   private logger = getLogger();
@@ -16,8 +17,13 @@ export class PreferencesService {
 
     try {
       const Store = (await import('electron-store')).default;
+      
+      // Ensure ~/levante directory exists
+      await directoryService.ensureBaseDir();
+      
       this.store = new Store({
       name: 'ui-preferences',
+      cwd: directoryService.getBaseDir(), // Store preferences in ~/levante/ directory
       defaults: DEFAULT_PREFERENCES,
       schema: {
         theme: {
