@@ -3,19 +3,14 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
-  ChevronDown, 
-  ChevronRight, 
   Wrench, 
   CheckCircle2, 
   XCircle, 
   Clock,
-  AlertCircle
+  ExternalLink,
+  Eye
 } from 'lucide-react';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
+import { ToolCallModal } from './tool-call-modal';
 
 export interface ToolCallData {
   id: string;
@@ -69,108 +64,84 @@ const statusConfig = {
 };
 
 export function ToolCall({ toolCall, className }: ToolCallProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const statusInfo = statusConfig[toolCall.status];
   const StatusIcon = statusInfo.icon;
 
-  const formatArguments = (args: Record<string, any>) => {
-    return Object.entries(args).map(([key, value]) => {
-      // Safely format the value for display
-      let displayValue: string;
-      try {
-        if (typeof value === 'string') {
-          displayValue = `"${value}"`;
-        } else if (value === null || value === undefined) {
-          displayValue = String(value);
-        } else {
-          displayValue = JSON.stringify(value, null, 2);
-        }
-      } catch (error) {
-        // Fallback if JSON.stringify fails (e.g., circular references)
-        displayValue = `[${typeof value}]`;
-      }
-      
-      return (
-        <div key={key} className="flex gap-2">
-          <span className="font-medium text-muted-foreground">{key}:</span>
-          <span className="font-mono text-sm whitespace-pre-wrap">
-            {displayValue}
-          </span>
-        </div>
-      );
-    });
-  };
-
-  const formatResult = (result: ToolCallData['result']) => {
-    if (!result) return null;
+  const getResultSummary = () => {
+    if (!toolCall.result) return null;
     
-    if (result.success && result.content) {
-      // Ensure content is always a string for rendering
-      const contentStr = typeof result.content === 'string' 
-        ? result.content 
-        : JSON.stringify(result.content, null, 2);
-        
-      return (
-        <div className="space-y-2">
-          <div className="text-sm font-medium text-green-700 dark:text-green-300">
-            Result:
-          </div>
-          <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-md">
-            <pre className="text-sm whitespace-pre-wrap font-mono text-green-800 dark:text-green-200">
-              {contentStr}
-            </pre>
-          </div>
-        </div>
-      );
+    if (toolCall.result.success && toolCall.result.content) {
+      const contentStr = typeof toolCall.result.content === 'string' 
+        ? toolCall.result.content 
+        : JSON.stringify(toolCall.result.content);
+      
+      // Show first 100 characters as preview
+      const preview = contentStr.length > 100 
+        ? contentStr.substring(0, 100) + '...' 
+        : contentStr;
+      
+      return { type: 'success', preview };
     }
 
-    if (!result.success && result.error) {
-      // Ensure error is always a string for rendering
-      const errorStr = typeof result.error === 'string' 
-        ? result.error 
-        : JSON.stringify(result.error, null, 2);
-        
-      return (
-        <div className="space-y-2">
-          <div className="text-sm font-medium text-red-700 dark:text-red-300 flex items-center gap-1">
-            <AlertCircle className="w-4 h-4" />
-            Error:
-          </div>
-          <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-md">
-            <pre className="text-sm whitespace-pre-wrap font-mono text-red-800 dark:text-red-200">
-              {errorStr}
-            </pre>
-          </div>
-        </div>
-      );
+    if (!toolCall.result.success && toolCall.result.error) {
+      const errorStr = typeof toolCall.result.error === 'string' 
+        ? toolCall.result.error 
+        : JSON.stringify(toolCall.result.error);
+      
+      // Show first 100 characters as preview
+      const preview = errorStr.length > 100 
+        ? errorStr.substring(0, 100) + '...' 
+        : errorStr;
+      
+      return { type: 'error', preview };
     }
 
     return null;
   };
 
+  const getArgumentsSummary = () => {
+    const argCount = Object.keys(toolCall.arguments).length;
+    if (argCount === 0) return null;
+    
+    const firstArg = Object.entries(toolCall.arguments)[0];
+    if (argCount === 1) {
+      let value = firstArg[1];
+      if (typeof value === 'string' && value.length > 50) {
+        value = value.substring(0, 50) + '...';
+      }
+      return `${firstArg[0]}: ${value}`;
+    }
+    
+    return `${argCount} arguments`;
+  };
+
+  const resultSummary = getResultSummary();
+  const argumentsSummary = getArgumentsSummary();
+
   return (
-    <div className={cn("border rounded-lg bg-background", className)}>
-      <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
-        <CollapsibleTrigger asChild>
-          <Button
-            variant="ghost"
-            className="w-full justify-between p-3 h-auto text-left"
-          >
-            <div className="flex items-center gap-3">
-              <Wrench className="w-4 h-4 text-muted-foreground" />
-              <div className="flex flex-col gap-1">
+    <>
+      <div className={cn("border rounded-lg bg-background hover:bg-muted/30 transition-colors cursor-pointer", className)}>
+        <div
+          onClick={() => setIsModalOpen(true)}
+          className="w-full p-3 text-left"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3 flex-1">
+              <Wrench className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+              <div className="flex flex-col gap-1 flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="font-medium">{toolCall.name}</span>
+                  <span className="font-medium truncate">{toolCall.name}</span>
                   {toolCall.serverId && (
-                    <Badge variant="outline" className="text-xs">
+                    <Badge variant="outline" className="text-xs flex-shrink-0">
                       {toolCall.serverId}
                     </Badge>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <StatusIcon 
                     className={cn(
-                      "w-3 h-3", 
+                      "w-3 h-3 flex-shrink-0", 
                       statusInfo.color,
                       toolCall.status === 'running' && "animate-spin"
                     )} 
@@ -184,36 +155,50 @@ export function ToolCall({ toolCall, className }: ToolCallProps) {
                     </span>
                   )}
                 </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {isExpanded ? (
-                <ChevronDown className="w-4 h-4" />
-              ) : (
-                <ChevronRight className="w-4 h-4" />
-              )}
-            </div>
-          </Button>
-        </CollapsibleTrigger>
-        
-        <CollapsibleContent>
-          <div className="px-3 pb-3 space-y-4">
-            {/* Arguments */}
-            {Object.keys(toolCall.arguments).length > 0 && (
-              <div className="space-y-2">
-                <div className="text-sm font-medium text-muted-foreground">Arguments:</div>
-                <div className="bg-muted/50 p-3 rounded-md space-y-1 text-sm">
-                  {formatArguments(toolCall.arguments)}
+                
+                {/* Arguments and Result Summary */}
+                <div className="space-y-1 text-xs">
+                  {argumentsSummary && (
+                    <div className="text-muted-foreground truncate">
+                      Args: {argumentsSummary}
+                    </div>
+                  )}
+                  {resultSummary && (
+                    <div className={cn(
+                      "truncate",
+                      resultSummary.type === 'success' 
+                        ? "text-green-600 dark:text-green-400" 
+                        : "text-red-600 dark:text-red-400"
+                    )}>
+                      {resultSummary.type === 'success' ? 'Result' : 'Error'}: {resultSummary.preview}
+                    </div>
+                  )}
                 </div>
               </div>
-            )}
-
-            {/* Result */}
-            {formatResult(toolCall.result)}
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 hover:bg-muted"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsModalOpen(true);
+                }}
+              >
+                <Eye className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
-        </CollapsibleContent>
-      </Collapsible>
-    </div>
+        </div>
+      </div>
+
+      <ToolCallModal 
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        toolCall={toolCall}
+      />
+    </>
   );
 }
 
