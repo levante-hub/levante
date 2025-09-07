@@ -1,10 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMCPStore } from '@/stores/mcpStore';
 import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
-import { Plus, Settings, Loader2, AlertCircle } from 'lucide-react';
+import { Plus, Loader2, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { IntegrationCard } from './integration-card';
 import { AddNewModal } from './add-new-modal';
@@ -16,9 +14,9 @@ import { getRendererLogger } from '@/services/logger';
 const logger = getRendererLogger();
 
 export function StoreLayout() {
-  const { 
-    registry, 
-    activeServers, 
+  const {
+    registry,
+    activeServers,
     connectionStatus,
     isLoading,
     error,
@@ -36,7 +34,7 @@ export function StoreLayout() {
     // Load initial data
     loadRegistry();
     loadActiveServers();
-    
+
     // Refresh connection status every 30 seconds
     const interval = setInterval(refreshConnectionStatus, 30000);
     return () => clearInterval(interval);
@@ -45,7 +43,7 @@ export function StoreLayout() {
   const handleToggleServer = async (serverId: string) => {
     const server = activeServers.find(s => s.id === serverId);
     const isActive = connectionStatus[serverId] === 'connected';
-    
+
     if (isActive) {
       await disconnectServer(serverId);
     } else if (server) {
@@ -76,7 +74,7 @@ export function StoreLayout() {
   }
 
   return (
-    <div className="container mx-auto p-6">
+    <div className="px-10 py-6">
       <div className="mb-6">
         <div className="flex items-start justify-between">
           <div>
@@ -86,12 +84,12 @@ export function StoreLayout() {
             </p>
           </div>
           <div className="flex items-center gap-4">
-            <NetworkStatus 
+            <NetworkStatus
               connectedCount={Object.values(connectionStatus).filter(s => s === 'connected').length}
               totalCount={activeServers.length}
               size="md"
             />
-            <ImportExport />
+            <ImportExport variant="dropdown" />
           </div>
         </div>
       </div>
@@ -116,7 +114,7 @@ export function StoreLayout() {
             {activeServers.map(server => {
               const registryEntry = registry.entries.find(entry => entry.id === server.id);
               const status = connectionStatus[server.id] || 'disconnected';
-              
+
               return (
                 <IntegrationCard
                   key={server.id}
@@ -144,7 +142,7 @@ export function StoreLayout() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {/* Add New Card */}
           <Card className="p-6 border-dashed border-2 hover:border-primary/50 transition-colors cursor-pointer">
-            <div 
+            <div
               className="flex flex-col items-center justify-center text-center h-full min-h-[200px]"
               onClick={() => setIsAddModalOpen(true)}
             >
@@ -155,13 +153,13 @@ export function StoreLayout() {
               </p>
             </div>
           </Card>
-          
+
           {/* Registry Cards */}
           {registry.entries.map(entry => {
             const server = activeServers.find(s => s.id === entry.id);
             const status = connectionStatus[entry.id] || 'disconnected';
             const isActive = !!server;
-            
+
             return (
               <IntegrationCard
                 key={entry.id}
@@ -178,13 +176,13 @@ export function StoreLayout() {
       </section>
 
       {/* Add New Modal */}
-      <AddNewModal 
+      <AddNewModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
       />
 
       {/* Server Configuration Modal */}
-      <ServerConfigModal 
+      <ServerConfigModal
         serverId={configServerId}
         isOpen={!!configServerId}
         onClose={() => setConfigServerId(null)}

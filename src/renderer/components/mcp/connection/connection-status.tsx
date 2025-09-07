@@ -1,12 +1,12 @@
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
-import { 
-  CheckCircle, 
-  Loader2, 
-  XCircle, 
+import {
+  CheckCircle,
+  Loader2,
+  XCircle,
   AlertCircle,
   Wifi,
-  WifiOff 
+  WifiOff
 } from 'lucide-react';
 import { MCPConnectionStatus } from '@/types/mcp';
 
@@ -20,34 +20,34 @@ interface ConnectionStatusProps {
 }
 
 const statusConfig = {
-  connected: { 
-    color: 'text-green-500', 
+  connected: {
+    color: 'text-green-500',
     bgColor: 'bg-green-100',
-    icon: CheckCircle, 
+    icon: CheckCircle,
     label: 'Connected',
     badgeVariant: 'default' as const,
     dotColor: 'bg-green-500'
   },
-  connecting: { 
-    color: 'text-yellow-500', 
+  connecting: {
+    color: 'text-yellow-500',
     bgColor: 'bg-yellow-100',
-    icon: Loader2, 
+    icon: Loader2,
     label: 'Connecting...',
     badgeVariant: 'secondary' as const,
     dotColor: 'bg-yellow-500'
   },
-  disconnected: { 
-    color: 'text-gray-500', 
+  disconnected: {
+    color: 'text-gray-500',
     bgColor: 'bg-gray-100',
-    icon: XCircle, 
+    icon: XCircle,
     label: 'Disconnected',
     badgeVariant: 'outline' as const,
     dotColor: 'bg-gray-500'
   },
-  error: { 
-    color: 'text-red-500', 
+  error: {
+    color: 'text-red-500',
     bgColor: 'bg-red-100',
-    icon: AlertCircle, 
+    icon: AlertCircle,
     label: 'Error',
     badgeVariant: 'destructive' as const,
     dotColor: 'bg-red-500'
@@ -60,8 +60,8 @@ const sizeConfig = {
   lg: { icon: 'w-5 h-5', dot: 'w-4 h-4', text: 'text-base' }
 };
 
-export function ConnectionStatus({ 
-  serverId, 
+export function ConnectionStatus({
+  serverId,
   status,
   size = 'md',
   showIcon = true,
@@ -76,10 +76,9 @@ export function ConnectionStatus({
     return (
       <Badge variant={config.badgeVariant} className={sizes.text}>
         {showIcon && (
-          <IconComponent 
-            className={`${sizes.icon} mr-1 ${
-              status === 'connecting' ? 'animate-spin' : ''
-            }`}
+          <IconComponent
+            className={`${sizes.icon} mr-1 ${status === 'connecting' ? 'animate-spin' : ''
+              }`}
           />
         )}
         {showLabel && config.label}
@@ -110,10 +109,9 @@ export function ConnectionStatus({
     <div className="flex items-center gap-2">
       {showIcon && (
         <div className={`p-1.5 rounded-full ${config.bgColor}`}>
-          <IconComponent 
-            className={`${sizes.icon} ${config.color} ${
-              status === 'connecting' ? 'animate-spin' : ''
-            }`}
+          <IconComponent
+            className={`${sizes.icon} ${config.color} ${status === 'connecting' ? 'animate-spin' : ''
+              }`}
           />
         </div>
       )}
@@ -154,10 +152,10 @@ export function NetworkStatus({ connectedCount, totalCount, size = 'md' }: Netwo
       </div>
       <div className="flex flex-col">
         <span className={`${sizes.text} font-medium`}>
-          {connectedCount} of {totalCount} connected
+          {connectedCount} of {totalCount}
         </span>
         <span className="text-xs text-muted-foreground">
-          MCP Servers
+          Connected
         </span>
       </div>
     </div>

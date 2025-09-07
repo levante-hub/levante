@@ -232,3 +232,4 @@ LOG_LEVEL=debug
 ```
 
 See [docs/LOGGING.md](docs/LOGGING.md) for complete documentation.
+- No utilices pnpm dev
