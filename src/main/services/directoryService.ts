@@ -55,8 +55,12 @@ export class DirectoryService {
    */
   async ensureBaseDir(): Promise<void> {
     try {
-      await fs.mkdir(this.baseDir, { recursive: true });
-      this.logger.core.debug("Base directory ensured", { baseDir: this.baseDir });
+      // Check if directory already exists before creating
+      const exists = await this.fileExists('');
+      if (!exists) {
+        await fs.mkdir(this.baseDir, { recursive: true });
+        this.logger.core.debug("Base directory created", { baseDir: this.baseDir });
+      }
     } catch (error) {
       this.logger.core.error("Failed to create base directory", { 
         baseDir: this.baseDir,

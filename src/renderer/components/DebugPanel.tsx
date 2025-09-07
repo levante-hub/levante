@@ -51,7 +51,7 @@ export function DebugPanel() {
     setLoading(true);
     setError(null);
     try {
-      const response = await window.electronAPI.invoke('levante/debug/directory-info');
+      const response = await window.levante.debug.directoryInfo();
       if (response.success) {
         setDirectoryInfo(response.data);
       } else {
@@ -68,7 +68,7 @@ export function DebugPanel() {
     setLoading(true);
     setError(null);
     try {
-      const response = await window.electronAPI.invoke('levante/debug/service-health');
+      const response = await window.levante.debug.serviceHealth();
       if (response.success) {
         setServiceHealth(response.data);
       } else {
@@ -85,8 +85,8 @@ export function DebugPanel() {
     setLoading(true);
     setError(null);
     try {
-      const response = await window.electronAPI.invoke('levante/debug/list-files');
-      if (response.success) {
+      const response = await window.levante.debug.listFiles();
+      if (response.success && response.data) {
         setFiles(response.data);
       } else {
         setError(response.error || 'Failed to load file list');

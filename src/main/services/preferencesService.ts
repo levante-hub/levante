@@ -132,7 +132,16 @@ export class PreferencesService {
   get<K extends PreferenceKey>(key: K): UIPreferences[K] {
     this.ensureInitialized();
     const value = this.store.get(key);
-    this.logger.preferences.debug("Retrieved preference", { key, value });
+    
+    // Use models category for provider/model related preferences
+    const isModelRelated = key === 'providers' || key === 'activeProvider';
+    const logger = isModelRelated ? this.logger.models : this.logger.preferences;
+    
+    logger.debug("Retrieved preference", { 
+      key, 
+      value: isModelRelated ? this.summarizeModelData(value) : value 
+    });
+    
     return value;
   }
 
@@ -140,10 +149,14 @@ export class PreferencesService {
     this.ensureInitialized();
     const previousValue = this.store.get(key);
     
-    this.logger.preferences.debug("Setting preference", {
+    // Use models category for provider/model related preferences
+    const isModelRelated = key === 'providers' || key === 'activeProvider';
+    const logger = isModelRelated ? this.logger.models : this.logger.preferences;
+    
+    logger.debug("Setting preference", {
       key,
-      previousValue,
-      newValue: value
+      previousValue: isModelRelated ? this.summarizeModelData(previousValue) : previousValue,
+      newValue: isModelRelated ? this.summarizeModelData(value) : value
     });
     
     this.store.set(key, value);
@@ -156,7 +169,7 @@ export class PreferencesService {
     };
 
     const windows = BrowserWindow.getAllWindows();
-    this.logger.preferences.debug("Broadcasting preference change", { 
+    logger.debug("Broadcasting preference change", { 
       key, 
       windowCount: windows.length 
     });
@@ -245,6 +258,26 @@ export class PreferencesService {
   getStoreSize(): number {
     this.ensureInitialized();
     return this.store.size;
+  }
+
+  // Helper method to summarize model data for logging
+  private summarizeModelData(value: any): any {
+    // If it's providers data, summarize for logging
+    if (Array.isArray(value) && value.length > 0 && value[0]?.models) {
+      return value.map(provider => ({
+        id: provider.id,
+        name: provider.name,
+        type: provider.type,
+        isActive: provider.isActive,
+        modelCount: Array.isArray(provider.models) ? provider.models.length : 0,
+        selectedModels: Array.isArray(provider.models) 
+          ? provider.models.filter((m: any) => m.isSelected).length 
+          : 0
+      }));
+    }
+    
+    // For other model-related data, return as-is (it's probably short)
+    return value;
   }
 }
 

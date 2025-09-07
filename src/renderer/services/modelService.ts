@@ -6,9 +6,15 @@ const logger = getRendererLogger();
 class ModelServiceImpl {
   private providers: ProviderConfig[] = [];
   private activeProviderId: string | null = null;
+  private isInitialized = false;
 
   // Initialize with default providers and load from storage
   async initialize(): Promise<void> {
+    // Prevent double initialization from React StrictMode
+    if (this.isInitialized) {
+      return;
+    }
+
     try {
       // Load providers from electron store
       const providersResult = await window.levante.preferences.get('providers');
@@ -21,9 +27,12 @@ class ModelServiceImpl {
       if (this.providers.length === 0) {
         await this.initializeDefaultProviders();
       }
+
+      this.isInitialized = true;
     } catch (error) {
       logger.models.error('Failed to initialize ModelService', { error: error instanceof Error ? error.message : error });
       await this.initializeDefaultProviders();
+      this.isInitialized = true;
     }
   }
 

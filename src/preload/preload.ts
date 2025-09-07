@@ -198,6 +198,13 @@ export interface LevanteAPI {
     isEnabled: (category: LogCategory, level: LogLevel) => Promise<{ success: boolean; data?: boolean; error?: string }>
     configure: (config: any) => Promise<{ success: boolean; error?: string }>
   }
+
+  // Debug functionality
+  debug: {
+    directoryInfo: () => Promise<{ success: boolean; data?: any; error?: string }>
+    serviceHealth: () => Promise<{ success: boolean; data?: any; error?: string }>
+    listFiles: () => Promise<{ success: boolean; data?: string[]; error?: string }>
+  }
 }
 
 // Expose protected methods that allow the renderer process to use
@@ -446,6 +453,18 @@ const api: LevanteAPI = {
     
     configure: (config: any) =>
       ipcRenderer.invoke('levante/logger/configure', config)
+  },
+
+  // Debug API
+  debug: {
+    directoryInfo: () => 
+      ipcRenderer.invoke('levante/debug/directory-info'),
+    
+    serviceHealth: () => 
+      ipcRenderer.invoke('levante/debug/service-health'),
+    
+    listFiles: () => 
+      ipcRenderer.invoke('levante/debug/list-files')
   }
 }
 
