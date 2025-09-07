@@ -1,5 +1,7 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import type {
   MCPServerConfig,
   Tool,
@@ -281,7 +283,7 @@ export class MCPService {
 
   async connectServer(config: MCPServerConfig): Promise<Client> {
     // Resolve command first so we can use it in error messages
-    let resolved: { command: string; args: string[] };
+    let resolved: { command: string; args: string[] } | undefined;
 
     try {
       // Create client with capabilities
@@ -343,11 +345,40 @@ export class MCPService {
           break;
 
         case "http":
+          if (!config.baseUrl) {
+            throw new Error("Base URL is required for HTTP transport");
+          }
+          
+          this.logger.mcp.debug("Creating HTTP transport", { 
+            serverId: config.id, 
+            baseUrl: config.baseUrl,
+            hasHeaders: !!(config.headers && Object.keys(config.headers).length > 0)
+          });
+          
+          transport = new StreamableHTTPClientTransport(new URL(config.baseUrl), {
+            requestInit: {
+              headers: config.headers || {}
+            }
+          });
+          break;
+
         case "sse":
-          // TODO: Implement HTTP and SSE transports in Phase 2
-          throw new Error(
-            `Transport type ${config.transport} not implemented yet`
-          );
+          if (!config.baseUrl) {
+            throw new Error("Base URL is required for SSE transport");
+          }
+          
+          this.logger.mcp.debug("Creating SSE transport", { 
+            serverId: config.id, 
+            baseUrl: config.baseUrl,
+            hasHeaders: !!(config.headers && Object.keys(config.headers).length > 0)
+          });
+          
+          transport = new SSEClientTransport(new URL(config.baseUrl), {
+            requestInit: {
+              headers: config.headers || {}
+            }
+          });
+          break;
 
         default:
           throw new Error(`Unknown transport type: ${config.transport}`);
@@ -366,7 +397,7 @@ export class MCPService {
         });
 
         // Provide more specific error messages
-        if (connectionError instanceof Error && resolved) {
+        if (connectionError instanceof Error && config.transport === 'stdio' && resolved) {
           const errorMessage = connectionError.message;
 
           if (errorMessage.includes("ENOENT")) {
@@ -426,6 +457,22 @@ export class MCPService {
             }
             throw new Error(
               `MCP server connection failed. The server process may have exited unexpectedly. Please check the server logs for more details.`
+            );
+          }
+        } else if (connectionError instanceof Error && (config.transport === 'http' || config.transport === 'sse')) {
+          // Basic error handling for HTTP/SSE transports
+          const errorMessage = connectionError.message;
+          if (errorMessage.includes("fetch") || errorMessage.includes("network")) {
+            throw new Error(
+              `Network error connecting to ${config.transport.toUpperCase()} server at ${config.baseUrl}. Please check the URL and network connection.`
+            );
+          } else if (errorMessage.includes("401") || errorMessage.includes("403")) {
+            throw new Error(
+              `Authentication failed for ${config.transport.toUpperCase()} server. Please check your API key and permissions.`
+            );
+          } else if (errorMessage.includes("404")) {
+            throw new Error(
+              `${config.transport.toUpperCase()} server not found at ${config.baseUrl}. Please check the URL.`
             );
           }
         }

@@ -17,7 +17,7 @@ import {
   SelectValue 
 } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 import { useMCPStore } from '@/stores/mcpStore';
 import { MCPServerConfig } from '@/types/mcp';
 
@@ -31,6 +31,7 @@ export function AddNewModal({ isOpen, onClose }: AddNewModalProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const [testSuccess, setTestSuccess] = useState(false);
   
   const [config, setConfig] = useState<Partial<MCPServerConfig>>({
     transport: 'stdio',
@@ -50,19 +51,31 @@ export function AddNewModal({ isOpen, onClose }: AddNewModalProps) {
       env: {}
     });
     setError(null);
+    setTestSuccess(false);
     setIsLoading(false);
     setIsTestingConnection(false);
     onClose();
   };
 
   const handleTestConnection = async () => {
-    if (!config.name || !config.command) {
-      setError('Name and command are required');
+    if (!config.name) {
+      setError('Name is required');
+      return;
+    }
+
+    if (config.transport === 'stdio' && !config.command) {
+      setError('Command is required for stdio transport');
+      return;
+    }
+
+    if ((config.transport === 'http' || config.transport === 'sse') && !config.baseUrl) {
+      setError('Server URL is required for HTTP/SSE transport');
       return;
     }
 
     setIsTestingConnection(true);
     setError(null);
+    setTestSuccess(false);
 
     try {
       const testConfig: MCPServerConfig = {
@@ -71,6 +84,8 @@ export function AddNewModal({ isOpen, onClose }: AddNewModalProps) {
         command: config.command,
         args: config.args || [],
         env: config.env || {},
+        baseUrl: config.baseUrl,
+        headers: config.headers,
         transport: config.transport || 'stdio'
       };
 
@@ -78,11 +93,13 @@ export function AddNewModal({ isOpen, onClose }: AddNewModalProps) {
       
       if (success) {
         setError(null);
-        // You could show a success message here
+        setTestSuccess(true);
       } else {
+        setTestSuccess(false);
         setError('Connection test failed. Please check your configuration.');
       }
     } catch (err) {
+      setTestSuccess(false);
       setError('Connection test failed with an error.');
     } finally {
       setIsTestingConnection(false);
@@ -90,8 +107,18 @@ export function AddNewModal({ isOpen, onClose }: AddNewModalProps) {
   };
 
   const handleSave = async () => {
-    if (!config.name || !config.command) {
-      setError('Name and command are required');
+    if (!config.name) {
+      setError('Name is required');
+      return;
+    }
+
+    if (config.transport === 'stdio' && !config.command) {
+      setError('Command is required for stdio transport');
+      return;
+    }
+
+    if ((config.transport === 'http' || config.transport === 'sse') && !config.baseUrl) {
+      setError('Server URL is required for HTTP/SSE transport');
       return;
     }
 
@@ -105,6 +132,8 @@ export function AddNewModal({ isOpen, onClose }: AddNewModalProps) {
         command: config.command,
         args: config.args || [],
         env: config.env || {},
+        baseUrl: config.baseUrl,
+        headers: config.headers,
         transport: config.transport || 'stdio'
       };
 
@@ -139,8 +168,8 @@ export function AddNewModal({ isOpen, onClose }: AddNewModalProps) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="stdio">Local (stdio)</SelectItem>
-                <SelectItem value="http" disabled>HTTP (Coming Soon)</SelectItem>
-                <SelectItem value="sse" disabled>SSE (Coming Soon)</SelectItem>
+                <SelectItem value="http">HTTP</SelectItem>
+                <SelectItem value="sse">SSE (Server-Sent Events)</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -190,15 +219,73 @@ export function AddNewModal({ isOpen, onClose }: AddNewModalProps) {
 
           {/* URL (for http/sse) */}
           {(config.transport === 'http' || config.transport === 'sse') && (
-            <div className="space-y-2">
-              <Label htmlFor="baseUrl">Server URL</Label>
-              <Input
-                id="baseUrl"
-                value={config.baseUrl || ''}
-                onChange={(e) => setConfig(prev => ({ ...prev, baseUrl: e.target.value }))}
-                placeholder="http://localhost:3000"
-              />
-            </div>
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="baseUrl">Server URL</Label>
+                <Input
+                  id="baseUrl"
+                  value={config.baseUrl || ''}
+                  onChange={(e) => setConfig(prev => ({ ...prev, baseUrl: e.target.value }))}
+                  placeholder="http://localhost:3000"
+                />
+              </div>
+
+              {/* API Key (optional) */}
+              <div className="space-y-2">
+                <Label htmlFor="apiKey">API Key (optional)</Label>
+                <Input
+                  id="apiKey"
+                  type="password"
+                  value={config.headers?.['Authorization']?.replace('Bearer ', '') || ''}
+                  onChange={(e) => {
+                    const apiKey = e.target.value;
+                    setConfig(prev => ({
+                      ...prev,
+                      headers: {
+                        ...prev.headers,
+                        ...(apiKey ? { 'Authorization': `Bearer ${apiKey}` } : {})
+                      }
+                    }));
+                  }}
+                  placeholder="your-api-key"
+                />
+              </div>
+
+              {/* Custom Headers (optional) */}
+              <div className="space-y-2">
+                <Label htmlFor="customHeaders">Custom Headers (JSON format, optional)</Label>
+                <Input
+                  id="customHeaders"
+                  value={(() => {
+                    const filteredHeaders = Object.fromEntries(
+                      Object.entries(config.headers || {}).filter(([key]) => key !== 'Authorization')
+                    );
+                    return Object.keys(filteredHeaders).length > 0 ? JSON.stringify(filteredHeaders) : '';
+                  })()}
+                  onChange={(e) => {
+                    try {
+                      const customHeaders = e.target.value ? JSON.parse(e.target.value) : {};
+                      const authHeader = config.headers?.['Authorization'] ? { 'Authorization': config.headers['Authorization'] } : {};
+                      setConfig(prev => ({
+                        ...prev,
+                        headers: { ...authHeader, ...customHeaders }
+                      }));
+                    } catch {
+                      // Invalid JSON, ignore
+                    }
+                  }}
+                  placeholder='{"Content-Type": "application/json"}'
+                />
+              </div>
+            </>
+          )}
+
+          {/* Success Display */}
+          {testSuccess && (
+            <Alert className="border-green-200 bg-green-50 text-green-800">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <AlertDescription>Connection test successful! The server is reachable.</AlertDescription>
+            </Alert>
           )}
 
           {/* Error Display */}
@@ -214,7 +301,9 @@ export function AddNewModal({ isOpen, onClose }: AddNewModalProps) {
           <Button 
             variant="outline" 
             onClick={handleTestConnection}
-            disabled={isLoading || isTestingConnection || !config.name || !config.command}
+            disabled={isLoading || isTestingConnection || !config.name || 
+              (config.transport === 'stdio' && !config.command) ||
+              ((config.transport === 'http' || config.transport === 'sse') && !config.baseUrl)}
           >
             {isTestingConnection ? (
               <>

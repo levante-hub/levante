@@ -178,21 +178,40 @@ export function registerMCPHandlers() {
 
   // Test connection to a server without permanently connecting
   ipcMain.handle('levante/mcp/test-connection', async (_, config: MCPServerConfig) => {
+    const testId = `test-${Date.now()}`;
+    const testConfig = { ...config, id: testId };
+    
     try {
-      const testId = `test-${Date.now()}`;
-      const testConfig = { ...config, id: testId };
+      // Create a timeout promise that rejects after 15 seconds
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error(`Connection test timed out after 15 seconds. This may indicate a transport mismatch (e.g., trying to connect to an HTTP server with SSE transport, or vice versa).`));
+        }, 15000);
+      });
       
-      // Try to connect
-      await mcpService.connectServer(testConfig);
+      // Race the connection test against the timeout
+      const connectionTest = async () => {
+        // Try to connect
+        await mcpService.connectServer(testConfig);
+        
+        // Try to list tools to verify connection works
+        await mcpService.listTools(testId);
+        
+        // Disconnect immediately
+        await mcpService.disconnectServer(testId);
+      };
       
-      // Try to list tools to verify connection works
-      await mcpService.listTools(testId);
-      
-      // Disconnect immediately
-      await mcpService.disconnectServer(testId);
+      await Promise.race([connectionTest(), timeoutPromise]);
       
       return { success: true };
     } catch (error: any) {
+      // Make sure to clean up even if test fails
+      try {
+        await mcpService.disconnectServer(testId);
+      } catch {
+        // Ignore cleanup errors
+      }
+      
       return { success: false, error: error.message };
     }
   });
