@@ -760,7 +760,21 @@ export class AIService {
     enableMCP: boolean,
     toolCount: number
   ): string {
-    let systemPrompt = "You are a helpful assistant";
+    // Add current date information
+    const currentDate = new Date();
+    const dateString = currentDate.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    const timeString = currentDate.toLocaleTimeString('en-US', {
+      hour12: true,
+      hour: 'numeric',
+      minute: '2-digit'
+    });
+
+    let systemPrompt = `You are a helpful assistant. Today's date is ${dateString} and the current time is ${timeString}.`;
 
     if (webSearch) {
       systemPrompt +=
