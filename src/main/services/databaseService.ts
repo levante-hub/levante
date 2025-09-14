@@ -198,7 +198,7 @@ export class DatabaseService {
             created_at INTEGER NOT NULL,
             updated_at INTEGER NOT NULL
           )`,
-          
+
           // Messages
           `CREATE TABLE IF NOT EXISTS messages (
             id TEXT PRIMARY KEY,
@@ -209,7 +209,7 @@ export class DatabaseService {
             created_at INTEGER NOT NULL,
             FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE
           )`,
-          
+
           // AI Providers
           `CREATE TABLE IF NOT EXISTS providers (
             id TEXT PRIMARY KEY,
@@ -219,7 +219,7 @@ export class DatabaseService {
             enabled BOOLEAN DEFAULT true,
             created_at INTEGER NOT NULL
           )`,
-          
+
           // AI Models
           `CREATE TABLE IF NOT EXISTS models (
             id TEXT PRIMARY KEY,
@@ -232,7 +232,7 @@ export class DatabaseService {
             enabled BOOLEAN DEFAULT true,
             FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE CASCADE
           )`,
-          
+
           // MCP Servers
           `CREATE TABLE IF NOT EXISTS mcp_servers (
             id TEXT PRIMARY KEY,
@@ -243,7 +243,7 @@ export class DatabaseService {
             enabled BOOLEAN DEFAULT true,
             created_at INTEGER NOT NULL
           )`,
-          
+
           // MCP Tools
           `CREATE TABLE IF NOT EXISTS mcp_tools (
             id TEXT PRIMARY KEY,
@@ -255,7 +255,7 @@ export class DatabaseService {
             consent_required BOOLEAN DEFAULT true,
             FOREIGN KEY (server_id) REFERENCES mcp_servers(id) ON DELETE CASCADE
           )`,
-          
+
           // Application settings
           `CREATE TABLE IF NOT EXISTS settings (
             key TEXT PRIMARY KEY,
@@ -263,19 +263,49 @@ export class DatabaseService {
             type TEXT DEFAULT 'string',
             updated_at INTEGER NOT NULL
           )`,
-          
+
           // Create indexes
-          `CREATE INDEX IF NOT EXISTS idx_messages_session_created 
+          `CREATE INDEX IF NOT EXISTS idx_messages_session_created
            ON messages(session_id, created_at)`,
-          
-          `CREATE INDEX IF NOT EXISTS idx_messages_content_search 
+
+          `CREATE INDEX IF NOT EXISTS idx_messages_content_search
            ON messages(content)`,
-          
-          `CREATE INDEX IF NOT EXISTS idx_models_provider_enabled 
+
+          `CREATE INDEX IF NOT EXISTS idx_models_provider_enabled
            ON models(provider_id, enabled)`,
-          
-          `CREATE INDEX IF NOT EXISTS idx_chat_sessions_updated 
+
+          `CREATE INDEX IF NOT EXISTS idx_chat_sessions_updated
            ON chat_sessions(updated_at DESC)`
+        ]
+      },
+      {
+        version: 2,
+        name: 'Clean up unused tables',
+        queries: [
+          // Drop unused tables that are not being used by the application
+          // These tables were created initially but the app evolved to use:
+          // - electron-store for preferences (providers, models, settings)
+          // - JSON config files for MCP configuration (mcp_servers, mcp_tools)
+
+          // Disable foreign key constraints temporarily
+          `PRAGMA foreign_keys = OFF`,
+
+          // Drop unused MCP tables
+          `DROP TABLE IF EXISTS mcp_tools`,
+          `DROP TABLE IF EXISTS mcp_servers`,
+
+          // Drop unused AI provider/model tables
+          `DROP TABLE IF EXISTS models`,
+          `DROP TABLE IF EXISTS providers`,
+
+          // Drop unused settings table
+          `DROP TABLE IF EXISTS settings`,
+
+          // Drop related indexes that are no longer needed
+          `DROP INDEX IF EXISTS idx_models_provider_enabled`,
+
+          // Re-enable foreign key constraints
+          `PRAGMA foreign_keys = ON`
         ]
       }
     ];
