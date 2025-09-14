@@ -56,7 +56,7 @@ ModelStore (Zustand) → ModelService → ModelFetchService → IPC → Main Pro
 
 ## Database Schema
 
-SQLite database with migrations in `docs/DB/MIGRATIONS/`:
+SQLite database with migrations in `database/migrations/`:
 - `chat_sessions`: Session management with model tracking
 - `messages`: Message storage with streaming support
 - Schema version tracking for migrations

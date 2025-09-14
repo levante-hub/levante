@@ -1,10 +1,13 @@
 ## Database Migrations — Levante
 
+Located in `/database/migrations/` following Electron app conventions.
+
 ### Strategy
 - `schema_migrations` table for versioning (new system).
 - Numbered files `0001_*.sql` applied in order.
 - Idempotent where possible (`IF NOT EXISTS`).
 - Migrations defined both as files (documentation) and in code (`databaseService.ts`).
+- Database stored in user data directory: `~/levante/levante.db`
 
 ### Application
 On app start, `runMigrations()`:
