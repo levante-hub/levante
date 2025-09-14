@@ -23,7 +23,7 @@ Namespace: `levante/*`
 - `levante/db/searchText` → `{ items: Array<{id, snippet, score}> }`
 
 ### Data Schema
-See `docs/DB/MIGRATIONS/0001_init.sql`. MVP uses `chat_sessions`, `messages`, `settings`.
+See `database/migrations/0001_init.sql`. MVP uses `chat_sessions`, `messages`, `settings`.
 
 ### Frontend (React + TS)
 - React + TypeScript, theming light/dark, accessible defaults.

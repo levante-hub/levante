@@ -79,7 +79,7 @@ Reference for local DB: [Turso — The next evolution of SQLite](https://turso.t
 - Updates: `electron-updater` (stable/beta channels).
 
 ### Data Model (initial)
-- See `docs/DB/MIGRATIONS/0001_init.sql` for schema. MVP will use sessions/messages/settings only; future RAG migrations will be introduced separately.
+- See `database/migrations/0001_init.sql` for schema. MVP will use sessions/messages/settings only; future RAG migrations will be introduced separately.
 
 ### Main Flows
 - Onboarding → first session creation.
