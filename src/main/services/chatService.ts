@@ -11,12 +11,14 @@ import {
   DatabaseResult,
   PaginatedResult
 } from '../../types/database';
+import { getLogger } from './logging';
 
 export class ChatService {
+  private logger = getLogger();
   
   // Chat Sessions
   async createSession(input: CreateChatSessionInput): Promise<DatabaseResult<ChatSession>> {
-    console.log('[ChatService] Creating new chat session', { input });
+    this.logger.database.debug('Creating new chat session', { input });
     
     try {
       const id = this.generateId();
@@ -44,10 +46,13 @@ export class ChatService {
         ]
       );
 
-      console.log('[ChatService] Chat session created successfully', { sessionId: id });
+      this.logger.database.info('Chat session created successfully', { sessionId: id });
       return { data: session, success: true };
     } catch (error) {
-      console.error('[ChatService] Failed to create chat session:', error, { input });
+      this.logger.database.error('Failed to create chat session', { 
+        error: error instanceof Error ? error.message : error, 
+        input 
+      });
       return { 
         data: {} as ChatSession, 
         success: false, 
@@ -79,7 +84,9 @@ export class ChatService {
 
       return { data: session, success: true };
     } catch (error) {
-      console.error('Failed to get chat session:', error);
+      this.logger.database.error('Failed to get chat session', { 
+        error: error instanceof Error ? error.message : error 
+      });
       return { 
         data: null, 
         success: false, 
@@ -89,7 +96,7 @@ export class ChatService {
   }
 
   async getSessions(query: GetChatSessionsQuery = {}): Promise<DatabaseResult<PaginatedResult<ChatSession>>> {
-    console.log('[ChatService] Getting chat sessions', { query });
+    this.logger.database.debug('Getting chat sessions', { query });
     
     try {
       const { folder_id, limit = 50, offset = 0 } = query;
@@ -130,10 +137,13 @@ export class ChatService {
         offset
       };
 
-      console.log('[ChatService] Retrieved chat sessions', { total, returned: sessions.length, limit, offset });
+      this.logger.database.debug('Retrieved chat sessions', { total, returned: sessions.length, limit, offset });
       return { data: paginatedResult, success: true };
     } catch (error) {
-      console.error('[ChatService] Failed to get chat sessions:', error, { query });
+      this.logger.database.error('Failed to get chat sessions', { 
+        error: error instanceof Error ? error.message : error, 
+        query 
+      });
       return { 
         data: { items: [], total: 0, limit: 0, offset: 0 }, 
         success: false, 
@@ -170,7 +180,9 @@ export class ChatService {
 
       return this.getSession(id);
     } catch (error) {
-      console.error('Failed to update chat session:', error);
+      this.logger.database.error('Failed to update chat session', { 
+        error: error instanceof Error ? error.message : error 
+      });
       return { 
         data: null, 
         success: false, 
@@ -188,7 +200,9 @@ export class ChatService {
 
       return { data: true, success: true };
     } catch (error) {
-      console.error('Failed to delete chat session:', error);
+      this.logger.database.error('Failed to delete chat session', { 
+        error: error instanceof Error ? error.message : error 
+      });
       return { 
         data: false, 
         success: false, 
@@ -199,7 +213,7 @@ export class ChatService {
 
   // Messages
   async createMessage(input: CreateMessageInput): Promise<DatabaseResult<Message>> {
-    console.log('[ChatService] Creating new message', { 
+    this.logger.database.debug('Creating new message', { 
       sessionId: input.session_id, 
       role: input.role, 
       contentLength: input.content.length,
@@ -238,10 +252,13 @@ export class ChatService {
         [now as InValue, input.session_id as InValue]
       );
 
-      console.log('[ChatService] Message created successfully', { messageId: id, sessionId: input.session_id });
+      this.logger.database.info('Message created successfully', { messageId: id, sessionId: input.session_id });
       return { data: message, success: true };
     } catch (error) {
-      console.error('[ChatService] Failed to create message:', error, { input: { ...input, content: `${input.content.substring(0, 100)}...` } });
+      this.logger.database.error('Failed to create message', { 
+        error: error instanceof Error ? error.message : error, 
+        input: { ...input, content: `${input.content.substring(0, 100)}...` } 
+      });
       return { 
         data: {} as Message, 
         success: false, 
@@ -285,7 +302,9 @@ export class ChatService {
 
       return { data: paginatedResult, success: true };
     } catch (error) {
-      console.error('Failed to get messages:', error);
+      this.logger.database.error('Failed to get messages', { 
+        error: error instanceof Error ? error.message : error 
+      });
       return { 
         data: { items: [], total: 0, limit: 0, offset: 0 }, 
         success: false, 
@@ -295,7 +314,7 @@ export class ChatService {
   }
 
   async searchMessages(searchQuery: string, sessionId?: string, limit = 50): Promise<DatabaseResult<Message[]>> {
-    console.log('[ChatService] Searching messages', { searchQuery, sessionId, limit });
+    this.logger.database.debug('Searching messages', { searchQuery, sessionId, limit });
     
     try {
       let sql = 'SELECT * FROM messages WHERE content LIKE ?';
@@ -320,10 +339,15 @@ export class ChatService {
         created_at: row[5] as number
       }));
 
-      console.log('[ChatService] Search completed', { found: messages.length, query: searchQuery });
+      this.logger.database.debug('Search completed', { found: messages.length, query: searchQuery });
       return { data: messages, success: true };
     } catch (error) {
-      console.error('[ChatService] Failed to search messages:', error, { searchQuery, sessionId, limit });
+      this.logger.database.error('Failed to search messages', { 
+        error: error instanceof Error ? error.message : error, 
+        searchQuery, 
+        sessionId, 
+        limit 
+      });
       return { 
         data: [], 
         success: false, 

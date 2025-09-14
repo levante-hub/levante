@@ -1,6 +1,9 @@
 import { ipcMain } from 'electron';
 import { preferencesService } from '../services/preferencesService';
 import { PreferenceKey, UIPreferences } from '../../types/preferences';
+import { getLogger } from '../services/logging';
+
+const logger = getLogger();
 
 export function setupPreferencesHandlers() {
   // Get single preference
@@ -13,7 +16,7 @@ export function setupPreferencesHandlers() {
         data: value
       };
     } catch (error) {
-      console.error('[PreferencesHandlers] Failed to get preference:', error);
+      logger.ipc.error('Failed to get preference', { key, error: error instanceof Error ? error.message : error });
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -31,7 +34,7 @@ export function setupPreferencesHandlers() {
         data: value
       };
     } catch (error) {
-      console.error('[PreferencesHandlers] Failed to set preference:', error);
+      logger.ipc.error('Failed to set preference', { key, error: error instanceof Error ? error.message : error });
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -49,7 +52,7 @@ export function setupPreferencesHandlers() {
         data: preferences
       };
     } catch (error) {
-      console.error('[PreferencesHandlers] Failed to get all preferences:', error);
+      logger.ipc.error('Failed to get all preferences', { error: error instanceof Error ? error.message : error });
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -68,7 +71,7 @@ export function setupPreferencesHandlers() {
         data: preferences
       };
     } catch (error) {
-      console.error('[PreferencesHandlers] Failed to reset preferences:', error);
+      logger.ipc.error('Failed to reset preferences', { error: error instanceof Error ? error.message : error });
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -86,7 +89,7 @@ export function setupPreferencesHandlers() {
         data: exists
       };
     } catch (error) {
-      console.error('[PreferencesHandlers] Failed to check preference:', error);
+      logger.ipc.error('Failed to check preference', { key, error: error instanceof Error ? error.message : error });
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -104,7 +107,7 @@ export function setupPreferencesHandlers() {
         data: true
       };
     } catch (error) {
-      console.error('[PreferencesHandlers] Failed to delete preference:', error);
+      logger.ipc.error('Failed to delete preference', { key, error: error instanceof Error ? error.message : error });
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -122,7 +125,7 @@ export function setupPreferencesHandlers() {
         data: preferences
       };
     } catch (error) {
-      console.error('[PreferencesHandlers] Failed to export preferences:', error);
+      logger.ipc.error('Failed to export preferences', { error: error instanceof Error ? error.message : error });
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -141,7 +144,7 @@ export function setupPreferencesHandlers() {
         data: updatedPreferences
       };
     } catch (error) {
-      console.error('[PreferencesHandlers] Failed to import preferences:', error);
+      logger.ipc.error('Failed to import preferences', { preferencesKeys: Object.keys(preferences), error: error instanceof Error ? error.message : error });
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -162,7 +165,7 @@ export function setupPreferencesHandlers() {
         data: info
       };
     } catch (error) {
-      console.error('[PreferencesHandlers] Failed to get store info:', error);
+      logger.ipc.error('Failed to get store info', { error: error instanceof Error ? error.message : error });
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -170,5 +173,5 @@ export function setupPreferencesHandlers() {
     }
   });
 
-  console.log('[PreferencesHandlers] IPC handlers registered');
+  logger.ipc.info('Preferences IPC handlers registered');
 }

@@ -1,4 +1,11 @@
 import { Message, MessageContent } from '@/components/ai-elements/message';
+import { Response } from '@/components/ai-elements/response';
+import { CodeBlock, CodeBlockCopyButton } from '@/components/ai-elements/code-block';
+import {
+  Conversation,
+  ConversationContent,
+  ConversationScrollButton,
+} from '@/components/ai-elements/conversation';
 import {
   PromptInput,
   PromptInputButton,
@@ -12,10 +19,11 @@ import {
   PromptInputToolbar,
   PromptInputTools,
 } from '@/components/ai-elements/prompt-input';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useChatStore } from '@/stores/chatStore';
+import { StreamingProvider, useStreamingContext } from '@/contexts/StreamingContext';
 import { ChatList } from '@/components/chat/ChatList';
-import { GlobeIcon, Loader2 } from 'lucide-react';
+import { GlobeIcon, Loader2, Wrench } from 'lucide-react';
 import {
   Source,
   Sources,
@@ -28,28 +36,42 @@ import {
   ReasoningTrigger,
 } from '@/components/ai-elements/reasoning';
 import { Loader } from '@/components/ai-elements/loader';
+import { ToolCall } from '@/components/ai-elements/tool-call';
 import { modelService } from '@/services/modelService';
 import type { Model } from '../../types/models';
+import { getRendererLogger } from '@/services/logger';
 
-interface ChatPageProps {
-  sidebarContent?: React.ReactNode;
-}
+const logger = getRendererLogger();
 
-const ChatPage = () => {
+
+const ChatPageContent = () => {
   const [input, setInput] = useState('');
   const [model, setModel] = useState<string>('');
   const [webSearch, setWebSearch] = useState(false);
+  const [enableMCP, setEnableMCP] = useState(false);
   const [availableModels, setAvailableModels] = useState<Model[]>([]);
   const [modelsLoading, setModelsLoading] = useState(true);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Using Zustand selectors for optimal performance
   const messages = useChatStore((state) => state.messages);
   const status = useChatStore((state) => state.status);
   const sendMessage = useChatStore((state) => state.sendMessage);
+  const stopStreaming = useChatStore((state) => state.stopStreaming);
+  const setOnStreamFinish = useChatStore((state) => state.setOnStreamFinish);
+
+  // Streaming context
+  const { triggerMermaidProcessing } = useStreamingContext();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // If currently streaming, stop the stream
+    if (status === 'streaming') {
+      stopStreaming();
+      return;
+    }
+    
+    // Otherwise, send a new message
     if (input.trim()) {
       sendMessage(
         { text: input },
@@ -57,6 +79,7 @@ const ChatPage = () => {
           body: {
             model: model,
             webSearch: webSearch,
+            enableMCP: enableMCP,
           },
         },
       );
@@ -64,17 +87,17 @@ const ChatPage = () => {
     }
   };
 
+  // Connect streaming callback
+  useEffect(() => {
+    setOnStreamFinish(triggerMermaidProcessing);
+    return () => setOnStreamFinish(undefined);
+  }, [triggerMermaidProcessing, setOnStreamFinish]);
+
   // Load available models on component mount
   useEffect(() => {
     loadAvailableModels();
   }, []);
 
-  // Auto-scroll to bottom when messages change or status changes
-  useEffect(() => {
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
-    }
-  }, [messages, status]);
 
   const loadAvailableModels = async () => {
     try {
@@ -88,7 +111,7 @@ const ChatPage = () => {
         setModel(models[0].id);
       }
     } catch (error) {
-      console.error('Failed to load models:', error);
+      logger.core.error('Failed to load models in ChatPage', { error: error instanceof Error ? error.message : error });
     } finally {
       setModelsLoading(false);
     }
@@ -96,8 +119,8 @@ const ChatPage = () => {
 
   return (
     <div className="flex flex-col h-full">
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto min-h-0">
-        <div className="max-w-4xl mx-auto px-4 py-4">
+      <Conversation className="flex-1">
+        <ConversationContent className="max-w-4xl mx-auto px-4 py-4">
           {messages.map((message) => {
             return (
               <div key={message.id}>
@@ -134,9 +157,9 @@ const ChatPage = () => {
                       switch (part.type) {
                         case 'text':
                           return (
-                            <div key={`${message.id}-${i}`} className="prose prose-sm max-w-none">
+                            <Response key={`${message.id}-${i}`}>
                               {part.text}
-                            </div>
+                            </Response>
                           );
                         case 'reasoning':
                           return (
@@ -151,6 +174,14 @@ const ChatPage = () => {
                               </ReasoningContent>
                             </Reasoning>
                           );
+                        case 'tool-call':
+                          return part.toolCall ? (
+                            <ToolCall
+                              key={`${message.id}-${i}`}
+                              toolCall={part.toolCall}
+                              className="w-full"
+                            />
+                          ) : null;
                         default:
                           return null;
                       }
@@ -161,8 +192,9 @@ const ChatPage = () => {
             )
           })}
           {status === 'submitted' && <Loader />}
-        </div>
-      </div>
+        </ConversationContent>
+        <ConversationScrollButton />
+      </Conversation>
 
       <div className="bg-background">
         <PromptInput onSubmit={handleSubmit} className="max-w-4xl mx-auto w-full px-4 py-4">
@@ -178,6 +210,13 @@ const ChatPage = () => {
               >
                 <GlobeIcon size={16} />
                 <span>Search</span>
+              </PromptInputButton>
+              <PromptInputButton
+                variant={enableMCP ? 'default' : 'ghost'}
+                onClick={() => setEnableMCP(!enableMCP)}
+              >
+                <Wrench size={16} />
+                <span>Tools</span>
               </PromptInputButton>
               <PromptInputModelSelect
                 onValueChange={(value) => {
@@ -213,6 +252,14 @@ const ChatPage = () => {
         </PromptInput>
       </div>
     </div>
+  );
+};
+
+const ChatPage = () => {
+  return (
+    <StreamingProvider>
+      <ChatPageContent />
+    </StreamingProvider>
   );
 };
 

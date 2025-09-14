@@ -12,11 +12,13 @@ import {
   ChatSession,
   Message
 } from '../types/database'
+import type { LogCategory, LogLevel, LogContext } from '../main/types/logger'
 
 export interface ChatRequest {
   messages: UIMessage[];
   model: string;
   webSearch: boolean;
+  enableMCP?: boolean;
 }
 
 export interface ChatStreamChunk {
@@ -25,6 +27,80 @@ export interface ChatStreamChunk {
   error?: string;
   sources?: Array<{ url: string; title?: string }>;
   reasoning?: string;
+  toolCall?: {
+    id: string;
+    name: string;
+    arguments: Record<string, any>;
+    status: 'running' | 'success' | 'error';
+    timestamp: number;
+  };
+  toolResult?: {
+    id: string;
+    result: any;
+    status: 'success' | 'error';
+    timestamp: number;
+  };
+}
+
+// MCP Types for preload
+export interface MCPServerConfig {
+  id: string;
+  name?: string;
+  command?: string;
+  args?: string[];
+  env?: Record<string, string>;
+  baseUrl?: string;
+  headers?: Record<string, string>;
+  transport: 'stdio' | 'http' | 'sse';
+}
+
+export interface MCPConfiguration {
+  mcpServers: Record<string, Omit<MCPServerConfig, 'id'>>;
+}
+
+export interface MCPTool {
+  name: string;
+  description: string;
+  inputSchema?: {
+    type: string;
+    properties?: Record<string, any>;
+    required?: string[];
+  };
+}
+
+export interface MCPToolCall {
+  name: string;
+  arguments: Record<string, any>;
+}
+
+export interface MCPToolResult {
+  content: Array<{
+    type: string;
+    text?: string;
+    data?: any;
+  }>;
+  isError?: boolean;
+}
+
+export interface MCPServerHealth {
+  serverId: string;
+  status: 'healthy' | 'unhealthy' | 'unknown';
+  lastError?: string;
+  errorCount: number;
+  successCount: number;
+  consecutiveErrors: number;
+  lastSuccess?: number;
+  lastErrorTime?: number;
+  tools: Record<string, {
+    errorCount: number;
+    successCount: number;
+    lastError?: string;
+  }>;
+}
+
+export interface MCPHealthReport {
+  servers: Record<string, MCPServerHealth>;
+  lastUpdated: number;
 }
 
 // Define the API interface for type safety
@@ -36,6 +112,7 @@ export interface LevanteAPI {
   // Chat functionality
   sendMessage: (request: ChatRequest) => Promise<{ success: boolean; response: string; sources?: any[]; reasoning?: string }>
   streamChat: (request: ChatRequest, onChunk: (chunk: ChatStreamChunk) => void) => Promise<string>
+  stopStreaming: (streamId?: string) => Promise<{ success: boolean; error?: string }>
   
   // Model functionality  
   models: {
@@ -86,10 +163,48 @@ export interface LevanteAPI {
   getSettings: () => Promise<Record<string, any>>
   updateSettings: (settings: Record<string, any>) => Promise<boolean>
   
-  // MCP functionality (placeholder for future implementation)
-  listMCPServers: () => Promise<any[]>
-  invokeMCPTool: (serverId: string, toolId: string, params: any) => Promise<any>
-  
+  // MCP functionality
+  mcp: {
+    connectServer: (config: MCPServerConfig) => Promise<{ success: boolean; error?: string }>
+    disconnectServer: (serverId: string) => Promise<{ success: boolean; error?: string }>
+    listTools: (serverId: string) => Promise<{ success: boolean; data?: MCPTool[]; error?: string }>
+    callTool: (serverId: string, toolCall: MCPToolCall) => Promise<{ success: boolean; data?: MCPToolResult; error?: string }>
+    connectionStatus: (serverId?: string) => Promise<{ success: boolean; data?: Record<string, 'connected' | 'disconnected'>; error?: string }>
+    loadConfiguration: () => Promise<{ success: boolean; data?: MCPConfiguration; error?: string }>
+    refreshConfiguration: () => Promise<{ success: boolean; data?: { serverResults: Record<string, { success: boolean; error?: string }>; config: MCPConfiguration }; error?: string }>
+    saveConfiguration: (config: MCPConfiguration) => Promise<{ success: boolean; error?: string }>
+    addServer: (config: MCPServerConfig) => Promise<{ success: boolean; error?: string }>
+    removeServer: (serverId: string) => Promise<{ success: boolean; error?: string }>
+    updateServer: (serverId: string, config: Partial<Omit<MCPServerConfig, 'id'>>) => Promise<{ success: boolean; error?: string }>
+    getServer: (serverId: string) => Promise<{ success: boolean; data?: MCPServerConfig | null; error?: string }>
+    listServers: () => Promise<{ success: boolean; data?: MCPServerConfig[]; error?: string }>
+    testConnection: (config: MCPServerConfig) => Promise<{ success: boolean; error?: string }>
+    importConfiguration: (config: MCPConfiguration) => Promise<{ success: boolean; error?: string }>
+    exportConfiguration: () => Promise<{ success: boolean; data?: MCPConfiguration; error?: string }>
+    getConfigPath: () => Promise<{ success: boolean; data?: string; error?: string }>
+    diagnoseSystem: () => Promise<{ success: boolean; data?: { success: boolean; issues: string[]; recommendations: string[] }; error?: string }>
+    getRegistry: () => Promise<{ success: boolean; data?: any; error?: string }>
+    validatePackage: (packageName: string) => Promise<{ success: boolean; data?: { valid: boolean; status: string; message: string; alternative?: string }; error?: string }>
+    cleanupDeprecated: () => Promise<{ success: boolean; data?: { cleanedCount: number }; error?: string }>
+    healthReport: () => Promise<{ success: boolean; data?: MCPHealthReport; error?: string }>
+    unhealthyServers: () => Promise<{ success: boolean; data?: string[]; error?: string }>
+    serverHealth: (serverId: string) => Promise<{ success: boolean; data?: MCPServerHealth; error?: string }>
+    resetServerHealth: (serverId: string) => Promise<{ success: boolean; error?: string }>
+  }
+
+  // Logger functionality
+  logger: {
+    log: (category: LogCategory, level: LogLevel, message: string, context?: LogContext) => Promise<{ success: boolean; error?: string }>
+    isEnabled: (category: LogCategory, level: LogLevel) => Promise<{ success: boolean; data?: boolean; error?: string }>
+    configure: (config: any) => Promise<{ success: boolean; error?: string }>
+  }
+
+  // Debug functionality
+  debug: {
+    directoryInfo: () => Promise<{ success: boolean; data?: any; error?: string }>
+    serviceHealth: () => Promise<{ success: boolean; data?: any; error?: string }>
+    listFiles: () => Promise<{ success: boolean; data?: string[]; error?: string }>
+  }
 }
 
 // Expose protected methods that allow the renderer process to use
@@ -114,6 +229,9 @@ const api: LevanteAPI = {
     
     const { streamId } = await ipcRenderer.invoke('levante/chat/stream', request)
     
+    // Store streamId for potential cancellation
+    ;(globalThis as any)._currentStreamId = streamId
+    
     return new Promise<string>((resolve, reject) => {
       let fullResponse = ''
       
@@ -126,6 +244,8 @@ const api: LevanteAPI = {
         
         if (chunk.done) {
           ipcRenderer.removeAllListeners(`levante/chat/stream/${streamId}`)
+          // Clear current stream ID
+          delete (globalThis as any)._currentStreamId
           if (chunk.error) {
             reject(new Error(chunk.error))
           } else {
@@ -136,6 +256,31 @@ const api: LevanteAPI = {
       
       ipcRenderer.on(`levante/chat/stream/${streamId}`, handleChunk)
     })
+  },
+
+  stopStreaming: async (streamId?: string) => {
+    const targetStreamId = streamId || (globalThis as any)._currentStreamId
+    if (!targetStreamId) {
+      return { success: false, error: 'No active stream to stop' }
+    }
+    
+    try {
+      // Clean up listeners
+      ipcRenderer.removeAllListeners(`levante/chat/stream/${targetStreamId}`)
+      
+      // Notify main process to stop streaming
+      const result = await ipcRenderer.invoke('levante/chat/stop-stream', targetStreamId)
+      
+      // Clear current stream ID
+      delete (globalThis as any)._currentStreamId
+      
+      return result
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      }
+    }
   },
 
   // Model API
@@ -220,11 +365,107 @@ const api: LevanteAPI = {
   updateSettings: (settings: Record<string, any>) => 
     ipcRenderer.invoke('levante/settings/update', settings),
     
-  listMCPServers: () => 
-    ipcRenderer.invoke('levante/mcp/list-servers'),
+  // MCP API
+  mcp: {
+    connectServer: (config: MCPServerConfig) => 
+      ipcRenderer.invoke('levante/mcp/connect-server', config),
     
-  invokeMCPTool: (serverId: string, toolId: string, params: any) => 
-    ipcRenderer.invoke('levante/mcp/invoke-tool', { serverId, toolId, params })
+    disconnectServer: (serverId: string) => 
+      ipcRenderer.invoke('levante/mcp/disconnect-server', serverId),
+    
+    listTools: (serverId: string) => 
+      ipcRenderer.invoke('levante/mcp/list-tools', serverId),
+    
+    callTool: (serverId: string, toolCall: MCPToolCall) => 
+      ipcRenderer.invoke('levante/mcp/call-tool', serverId, toolCall),
+    
+    connectionStatus: (serverId?: string) => 
+      ipcRenderer.invoke('levante/mcp/connection-status', serverId),
+    
+    loadConfiguration: () => 
+      ipcRenderer.invoke('levante/mcp/load-configuration'),
+    
+    refreshConfiguration: () => 
+      ipcRenderer.invoke('levante/mcp/refresh-configuration'),
+    
+    saveConfiguration: (config: MCPConfiguration) => 
+      ipcRenderer.invoke('levante/mcp/save-configuration', config),
+    
+    addServer: (config: MCPServerConfig) => 
+      ipcRenderer.invoke('levante/mcp/add-server', config),
+    
+    removeServer: (serverId: string) => 
+      ipcRenderer.invoke('levante/mcp/remove-server', serverId),
+    
+    updateServer: (serverId: string, config: Partial<Omit<MCPServerConfig, 'id'>>) => 
+      ipcRenderer.invoke('levante/mcp/update-server', serverId, config),
+    
+    getServer: (serverId: string) => 
+      ipcRenderer.invoke('levante/mcp/get-server', serverId),
+    
+    listServers: () => 
+      ipcRenderer.invoke('levante/mcp/list-servers'),
+    
+    testConnection: (config: MCPServerConfig) => 
+      ipcRenderer.invoke('levante/mcp/test-connection', config),
+    
+    importConfiguration: (config: MCPConfiguration) => 
+      ipcRenderer.invoke('levante/mcp/import-configuration', config),
+    
+    exportConfiguration: () => 
+      ipcRenderer.invoke('levante/mcp/export-configuration'),
+    
+    getConfigPath: () => 
+      ipcRenderer.invoke('levante/mcp/get-config-path'),
+    
+    diagnoseSystem: () => 
+      ipcRenderer.invoke('levante/mcp/diagnose-system'),
+    
+    getRegistry: () => 
+      ipcRenderer.invoke('levante/mcp/get-registry'),
+    
+    validatePackage: (packageName: string) => 
+      ipcRenderer.invoke('levante/mcp/validate-package', packageName),
+    
+    cleanupDeprecated: () => 
+      ipcRenderer.invoke('levante/mcp/cleanup-deprecated'),
+    
+    healthReport: () => 
+      ipcRenderer.invoke('levante/mcp/health-report'),
+    
+    unhealthyServers: () => 
+      ipcRenderer.invoke('levante/mcp/unhealthy-servers'),
+    
+    serverHealth: (serverId: string) => 
+      ipcRenderer.invoke('levante/mcp/server-health', serverId),
+    
+    resetServerHealth: (serverId: string) => 
+      ipcRenderer.invoke('levante/mcp/reset-server-health', serverId)
+  },
+
+  // Logger API
+  logger: {
+    log: (category: LogCategory, level: LogLevel, message: string, context?: LogContext) =>
+      ipcRenderer.invoke('levante/logger/log', { category, level, message, context }),
+    
+    isEnabled: (category: LogCategory, level: LogLevel) =>
+      ipcRenderer.invoke('levante/logger/isEnabled', category, level),
+    
+    configure: (config: any) =>
+      ipcRenderer.invoke('levante/logger/configure', config)
+  },
+
+  // Debug API
+  debug: {
+    directoryInfo: () => 
+      ipcRenderer.invoke('levante/debug/directory-info'),
+    
+    serviceHealth: () => 
+      ipcRenderer.invoke('levante/debug/service-health'),
+    
+    listFiles: () => 
+      ipcRenderer.invoke('levante/debug/list-files')
+  }
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to
@@ -234,6 +475,7 @@ if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('levante', api)
   } catch (error) {
+    // Error in preload - cannot use centralized logger here, fallback to console
     console.error('Failed to expose API:', error)
   }
 } else {

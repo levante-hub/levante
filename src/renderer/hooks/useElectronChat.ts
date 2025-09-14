@@ -6,9 +6,22 @@ export interface ElectronMessage {
   role: 'user' | 'assistant' | 'system'
   content: string
   parts: Array<{
-    type: 'text' | 'source-url' | 'reasoning'
+    type: 'text' | 'source-url' | 'reasoning' | 'tool-call'
     text?: string
     url?: string
+    toolCall?: {
+      id: string
+      name: string
+      arguments: Record<string, any>
+      result?: {
+        success: boolean
+        content?: string
+        error?: string
+      }
+      status: 'pending' | 'running' | 'success' | 'error'
+      serverId?: string
+      timestamp?: number
+    }
   }>
 }
 
