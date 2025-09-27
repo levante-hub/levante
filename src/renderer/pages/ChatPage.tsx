@@ -31,7 +31,7 @@ import {
   ReasoningContent,
   ReasoningTrigger,
 } from '@/components/ai-elements/reasoning';
-import { Loader } from '@/components/ai-elements/loader';
+import { BreathingLogo } from '@/components/ai-elements/breathing-logo';
 import { ToolCall } from '@/components/ai-elements/tool-call';
 import { modelService } from '@/services/modelService';
 import type { Model } from '../../types/models';
@@ -51,6 +51,7 @@ const ChatPageContent = () => {
   // Using Zustand selectors for optimal performance
   const messages = useChatStore((state) => state.messages);
   const status = useChatStore((state) => state.status);
+  const streamingMessage = useChatStore((state) => state.streamingMessage);
   const sendMessage = useChatStore((state) => state.sendMessage);
   const stopStreaming = useChatStore((state) => state.stopStreaming);
   const setOnStreamFinish = useChatStore((state) => state.setOnStreamFinish);
@@ -187,7 +188,13 @@ const ChatPageContent = () => {
               </div>
             )
           })}
-          {status === 'submitted' && <Loader />}
+          {status === 'streaming' && streamingMessage && !streamingMessage.content.trim() && (
+            <Message from="assistant">
+              <MessageContent>
+                <BreathingLogo />
+              </MessageContent>
+            </Message>
+          )}
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>

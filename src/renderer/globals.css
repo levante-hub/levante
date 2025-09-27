@@ -5,6 +5,7 @@
 @tailwind utilities;
 
 
+
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -149,5 +150,17 @@
     height: auto !important;
     max-width: 100% !important;
     min-height: 100px !important;
+  }
+
+  /* Breathing animation for Levante logo */
+  @keyframes breathe {
+    0%, 100% {
+      transform: scale(0.95);
+      opacity: 0.6;
+    }
+    50% {
+      transform: scale(1.05);
+      opacity: 1;
+    }
   }
 }

@@ -9,6 +9,19 @@ import rehypeKatex from 'rehype-katex';
 import { Mermaid } from '@/components/ui/mermaid';
 import { useStreamingContext } from '@/contexts/StreamingContext';
 
+// Custom components for proper list rendering
+const listComponents = {
+  ul: ({ className, ...props }: any) => (
+    <ul className={cn("ml-4 list-outside list-disc", className)} {...props} />
+  ),
+  ol: ({ className, ...props }: any) => (
+    <ol className={cn("ml-4 list-outside list-decimal", className)} {...props} />
+  ),
+  li: ({ className, ...props }: any) => (
+    <li className={cn("py-1", className)} {...props} />
+  ),
+};
+
 type ResponseProps = ComponentProps<typeof Streamdown> & {
   children?: React.ReactNode;
 };
@@ -76,6 +89,7 @@ export const Response = memo(
             'w-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0',
             className
           )}
+          components={listComponents}
           remarkPlugins={[remarkGfm, remarkMath]}
           rehypePlugins={[rehypeKatex]}
           {...props}
@@ -103,6 +117,7 @@ export const Response = memo(
               ) : (
                 <Streamdown
                   key={`text-${index}`}
+                  components={listComponents}
                   remarkPlugins={[remarkGfm, remarkMath]}
                   rehypePlugins={[rehypeKatex]}
                   {...props}
@@ -123,6 +138,7 @@ export const Response = memo(
           'w-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0',
           className
         )}
+        components={listComponents}
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeKatex]}
         {...props}
