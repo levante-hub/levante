@@ -3,9 +3,10 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/com
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 import { useMCPStore } from '@/stores/mcpStore';
-import { MCPServerConfig } from '@/types/mcp';
+import { MCPServerConfig, MCPTool } from '@/types/mcp';
+import { MCPServerPreview } from './mcp-server-preview';
 
 interface JSONEditorPanelProps {
   serverId: string | null;
@@ -14,13 +15,15 @@ interface JSONEditorPanelProps {
 }
 
 export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelProps) {
-  const { getServerById, getRegistryEntryById, testConnection, updateServer, addServer } = useMCPStore();
+  const { getServerById, getRegistryEntryById, updateServer, addServer } = useMCPStore();
 
   const [jsonText, setJsonText] = useState('');
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [tools, setTools] = useState<MCPTool[]>([]);
+  const [isLoadingTools, setIsLoadingTools] = useState(false);
 
   const server = serverId ? getServerById(serverId) : null;
   const registryEntry = serverId ? getRegistryEntryById(serverId) : null;
@@ -94,7 +97,9 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
     }
 
     setIsTestingConnection(true);
+    setIsLoadingTools(true);
     setTestResult(null);
+    setTools([]);
 
     try {
       const testConfig: MCPServerConfig = {
@@ -108,14 +113,20 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
         headers: validation.data.headers
       };
 
-      const success = await testConnection(testConfig);
+      // Call IPC directly to get tools
+      const result = await window.levante.mcp.testConnection(testConfig);
 
       setTestResult({
-        success,
-        message: success
+        success: result.success,
+        message: result.success
           ? 'Connection test successful! Server is responding correctly.'
-          : 'Connection test failed. Please check your configuration.'
+          : result.error || 'Connection test failed. Please check your configuration.'
       });
+
+      // Set tools from the result
+      if (result.success && result.data) {
+        setTools(result.data);
+      }
     } catch (error) {
       setTestResult({
         success: false,
@@ -123,6 +134,7 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
       });
     } finally {
       setIsTestingConnection(false);
+      setIsLoadingTools(false);
     }
   };
 
@@ -169,65 +181,62 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
     }
   };
 
+  const validation = validateJSON(jsonText);
+  const serverName = registryEntry?.name || serverId || 'MCP Server';
+
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent side="right" className="w-[600px] sm:max-w-[600px] overflow-y-auto">
+      <SheetContent side="right" className="w-[900px] sm:max-w-[90vw] overflow-y-auto">
         <SheetHeader>
           <SheetTitle>
-            {isNewServer ? 'Configure' : 'Edit'} {registryEntry?.name || serverId}
+            {isNewServer ? 'Configure' : 'Edit'} {serverName}
           </SheetTitle>
         </SheetHeader>
 
-        <div className="py-6 space-y-4">
-          {/* JSON Editor */}
-          <div>
-            <label className="text-sm font-medium mb-2 block">
-              Server Configuration (JSON)
-            </label>
-            <Textarea
-              value={jsonText}
-              onChange={(e) => handleJSONChange(e.target.value)}
-              className="font-mono text-sm min-h-[400px]"
-              placeholder="Enter JSON configuration..."
-            />
-          </div>
+        <div className="py-6">
+          <div className="grid grid-cols-2 gap-6">
+            {/* Left Column: JSON Editor */}
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium mb-2 block">
+                  Server Configuration (JSON)
+                </label>
+                <Textarea
+                  value={jsonText}
+                  onChange={(e) => handleJSONChange(e.target.value)}
+                  className="font-mono text-sm min-h-[500px]"
+                  placeholder="Enter JSON configuration..."
+                />
+              </div>
 
-          {/* Validation Error */}
-          {jsonError && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{jsonError}</AlertDescription>
-            </Alert>
-          )}
-
-          {/* Test Result */}
-          {testResult && (
-            <Alert variant={testResult.success ? 'default' : 'destructive'}>
-              {testResult.success ? (
-                <CheckCircle className="h-4 w-4" />
-              ) : (
-                <AlertCircle className="h-4 w-4" />
+              {/* Validation Error */}
+              {jsonError && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{jsonError}</AlertDescription>
+                </Alert>
               )}
-              <AlertDescription>{testResult.message}</AlertDescription>
-            </Alert>
-          )}
+            </div>
+
+            {/* Right Column: Server Preview */}
+            <div>
+              <label className="text-sm font-medium mb-2 block">
+                Server Preview
+              </label>
+              <MCPServerPreview
+                serverName={serverName}
+                isValidJSON={validation.valid}
+                testResult={testResult}
+                tools={tools}
+                isTestingConnection={isTestingConnection}
+                isLoadingTools={isLoadingTools}
+                onTestConnection={handleTestConnection}
+              />
+            </div>
+          </div>
         </div>
 
         <SheetFooter className="gap-2">
-          <Button
-            variant="outline"
-            onClick={handleTestConnection}
-            disabled={!!jsonError || isTestingConnection || isSaving}
-          >
-            {isTestingConnection ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                Testing...
-              </>
-            ) : (
-              'Test Connection'
-            )}
-          </Button>
           <Button
             variant="outline"
             onClick={onClose}

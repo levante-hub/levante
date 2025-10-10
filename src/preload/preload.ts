@@ -178,7 +178,7 @@ export interface LevanteAPI {
     updateServer: (serverId: string, config: Partial<Omit<MCPServerConfig, 'id'>>) => Promise<{ success: boolean; error?: string }>
     getServer: (serverId: string) => Promise<{ success: boolean; data?: MCPServerConfig | null; error?: string }>
     listServers: () => Promise<{ success: boolean; data?: MCPServerConfig[]; error?: string }>
-    testConnection: (config: MCPServerConfig) => Promise<{ success: boolean; error?: string }>
+    testConnection: (config: MCPServerConfig) => Promise<{ success: boolean; data?: MCPTool[]; error?: string }>
     importConfiguration: (config: MCPConfiguration) => Promise<{ success: boolean; error?: string }>
     exportConfiguration: () => Promise<{ success: boolean; data?: MCPConfiguration; error?: string }>
     getConfigPath: () => Promise<{ success: boolean; data?: string; error?: string }>
