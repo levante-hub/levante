@@ -15,7 +15,7 @@ interface JSONEditorPanelProps {
 }
 
 export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelProps) {
-  const { getServerById, getRegistryEntryById, updateServer, addServer } = useMCPStore();
+  const { getServerById, getRegistryEntryById, updateServer, addServer, connectionStatus } = useMCPStore();
 
   const [jsonText, setJsonText] = useState('');
   const [jsonError, setJsonError] = useState<string | null>(null);
@@ -33,7 +33,6 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
     if (isOpen && serverId) {
       // Load initial JSON
       if (server) {
-        // Existing server - load current config
         const config = {
           type: server.transport,
           command: server.command,
@@ -44,10 +43,8 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
         };
         setJsonText(JSON.stringify(config, null, 2));
       } else if (registryEntry?.configuration?.template) {
-        // New server - load template
         setJsonText(JSON.stringify(registryEntry.configuration.template, null, 2));
       } else {
-        // Fallback empty template
         setJsonText(JSON.stringify({
           type: 'stdio',
           command: '',
@@ -55,10 +52,37 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
           env: {}
         }, null, 2));
       }
+
       setJsonError(null);
-      setTestResult(null);
+
+      // Sync with global connection status
+      if (connectionStatus[serverId] === 'connected') {
+        loadToolsFromConnectedServer(serverId);
+      } else {
+        setTestResult(null);
+        setTools([]);
+      }
     }
-  }, [isOpen, serverId, server, registryEntry]);
+  }, [isOpen, serverId, server, registryEntry, connectionStatus]);
+
+  const loadToolsFromConnectedServer = async (serverId: string) => {
+    setIsLoadingTools(true);
+    try {
+      const result = await window.levante.mcp.listTools(serverId);
+      if (result.success && result.data) {
+        setTestResult({ success: true, message: 'Server is connected' });
+        setTools(result.data);
+      } else {
+        setTestResult(null);
+        setTools([]);
+      }
+    } catch {
+      setTestResult(null);
+      setTools([]);
+    } finally {
+      setIsLoadingTools(false);
+    }
+  };
 
   const validateJSON = (text: string): { valid: boolean; data?: any; error?: string } => {
     try {
