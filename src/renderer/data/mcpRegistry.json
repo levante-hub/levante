@@ -39,6 +39,12 @@
         "defaults": {
           "command": "npx",
           "args": "-y @modelcontextprotocol/server-filesystem"
+        },
+        "template": {
+          "type": "stdio",
+          "command": "npx",
+          "args": ["-y", "@modelcontextprotocol/server-filesystem"],
+          "env": {}
         }
       }
     },
@@ -77,6 +83,12 @@
         ],
         "defaults": {
           "command": "npx @modelcontextprotocol/server-memory"
+        },
+        "template": {
+          "type": "stdio",
+          "command": "npx",
+          "args": ["-y", "@modelcontextprotocol/server-memory"],
+          "env": {}
         }
       }
     },
@@ -117,6 +129,12 @@
         "defaults": {
           "command": "npx @modelcontextprotocol/server-sequential-thinking",
           "maxThoughts": "50"
+        },
+        "template": {
+          "type": "stdio",
+          "command": "npx",
+          "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
+          "env": {}
         }
       }
     }

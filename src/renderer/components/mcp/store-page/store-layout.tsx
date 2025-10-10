@@ -6,10 +6,12 @@ import { Plus, Loader2, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { IntegrationCard } from './integration-card';
 import { AddNewModal } from './add-new-modal';
-import { ServerConfigModal } from '../config/server-config-modal';
+import { JSONEditorPanel } from '../config/json-editor-panel';
 import { ImportExport } from '../config/import-export';
 import { NetworkStatus } from '../connection/connection-status';
 import { getRendererLogger } from '@/services/logger';
+import { toast } from 'sonner';
+import { MCPServerConfig } from '@/types/mcp';
 
 const logger = getRendererLogger();
 
@@ -28,7 +30,8 @@ export function StoreLayout({ mode }: StoreLayoutProps) {
     loadActiveServers,
     refreshConnectionStatus,
     connectServer,
-    disconnectServer
+    disconnectServer,
+    addServer
   } = useMCPStore();
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -64,6 +67,34 @@ export function StoreLayout({ mode }: StoreLayoutProps) {
 
   const handleConfigureServer = (serverId: string) => {
     setConfigServerId(serverId);
+  };
+
+  const handleAddToActive = async (entryId: string) => {
+    const registryEntry = registry.entries.find(e => e.id === entryId);
+    if (!registryEntry) return;
+
+    try {
+      // Construir config desde template
+      const serverConfig: MCPServerConfig = {
+        id: entryId,
+        name: registryEntry.name,
+        transport: registryEntry.configuration?.template?.type || 'stdio',
+        command: registryEntry.configuration?.template?.command || '',
+        args: registryEntry.configuration?.template?.args || [],
+        env: registryEntry.configuration?.template?.env || {}
+      };
+
+      // Guardar directo en .mcp.json (sin test, sin connect)
+      await addServer(serverConfig);
+
+      // Recargar lista de servidores activos
+      await loadActiveServers();
+
+      // Feedback al usuario
+      toast.success(`${registryEntry.name} added to Active MCPs`);
+    } catch (error) {
+      toast.error('Failed to add server');
+    }
   };
 
   if (error) {
@@ -131,6 +162,7 @@ export function StoreLayout({ mode }: StoreLayoutProps) {
                   return (
                     <IntegrationCard
                       key={server.id}
+                      mode="active"
                       entry={registryEntry}
                       server={server}
                       status={status}
@@ -186,12 +218,14 @@ export function StoreLayout({ mode }: StoreLayoutProps) {
               return (
                 <IntegrationCard
                   key={entry.id}
+                  mode="store"
                   entry={entry}
                   server={server}
                   status={status}
                   isActive={isActive}
                   onToggle={() => handleToggleServer(entry.id)}
                   onConfigure={() => handleConfigureServer(entry.id)}
+                  onAddToActive={() => handleAddToActive(entry.id)}
                 />
               );
             })}
@@ -205,8 +239,8 @@ export function StoreLayout({ mode }: StoreLayoutProps) {
         onClose={() => setIsAddModalOpen(false)}
       />
 
-      {/* Server Configuration Modal */}
-      <ServerConfigModal
+      {/* JSON Editor Panel */}
+      <JSONEditorPanel
         serverId={configServerId}
         isOpen={!!configServerId}
         onClose={() => setConfigServerId(null)}

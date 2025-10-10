@@ -11,6 +11,14 @@ export interface MCPRegistryEntry {
   configuration: {
     fields: MCPConfigField[];
     defaults?: Record<string, any>;
+    template?: {
+      type: 'stdio' | 'http' | 'sse';
+      command?: string;
+      args?: string[];
+      env?: Record<string, string>;
+      baseUrl?: string;
+      headers?: Record<string, string>;
+    };
   };
 }
 

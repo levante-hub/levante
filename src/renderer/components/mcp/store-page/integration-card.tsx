@@ -3,26 +3,29 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { 
-  Settings, 
-  FolderOpen, 
-  Search, 
-  Github, 
+import {
+  Settings,
+  FolderOpen,
+  Search,
+  Github,
   Database,
   MessageSquare,
   Globe,
-  Cloud
+  Cloud,
+  Plus
 } from 'lucide-react';
 import { MCPRegistryEntry, MCPServerConfig, MCPConnectionStatus } from '@/types/mcp';
 import { ConnectionStatus } from '../connection/connection-status';
 
 interface IntegrationCardProps {
+  mode: 'active' | 'store';
   entry?: MCPRegistryEntry;
   server?: MCPServerConfig;
   status: MCPConnectionStatus;
   isActive: boolean;
   onToggle: () => void;
   onConfigure: () => void;
+  onAddToActive?: () => void;
 }
 
 const iconMap = {
@@ -35,13 +38,15 @@ const iconMap = {
   cloud: Cloud,
 };
 
-export function IntegrationCard({ 
-  entry, 
-  server, 
-  status, 
-  isActive, 
-  onToggle, 
-  onConfigure 
+export function IntegrationCard({
+  mode,
+  entry,
+  server,
+  status,
+  isActive,
+  onToggle,
+  onConfigure,
+  onAddToActive
 }: IntegrationCardProps) {
   const displayName = entry?.name || server?.name || server?.id || 'Unknown';
   const description = entry?.description || 'Custom MCP server integration';
@@ -65,51 +70,86 @@ export function IntegrationCard({
               </Badge>
             </div>
           </div>
-          <Switch 
-            checked={status === 'connected'} 
-            disabled={status === 'connecting'}
-            onCheckedChange={onToggle}
-          />
+          {/* Switch solo en modo Active */}
+          {mode === 'active' && (
+            <Switch
+              checked={status === 'connected'}
+              disabled={status === 'connecting'}
+              onCheckedChange={onToggle}
+            />
+          )}
         </div>
-        
+
         <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
           {description}
         </p>
-        
-        {/* Status indicator */}
-        <div className="flex items-center justify-between">
-          <ConnectionStatus 
-            serverId={server?.id || entry?.id || 'unknown'}
-            status={status}
-            size="sm"
-            variant="indicator"
-          />
-          
+
+        {/* Status indicator solo en modo Active */}
+        {mode === 'active' && (
+          <div className="flex items-center justify-between">
+            <ConnectionStatus
+              serverId={server?.id || entry?.id || 'unknown'}
+              status={status}
+              size="sm"
+              variant="indicator"
+            />
+            <Badge variant="default">Configured</Badge>
+          </div>
+        )}
+
+        {/* Badge en modo Store */}
+        {mode === 'store' && (
           <Badge variant={isActive ? 'default' : 'outline'}>
-            {isActive ? 'Configured' : 'Available'}
+            {isActive ? 'Already Added' : 'Available'}
           </Badge>
-        </div>
+        )}
       </CardContent>
-      
+
       <CardFooter className="p-6 pt-0">
         <div className="flex gap-2 w-full">
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex-1"
-            onClick={onConfigure}
-            disabled={status === 'connecting'}
-          >
-            <Settings className="w-4 h-4 mr-2" />
-            {isActive ? 'Configure' : 'Set up'}
-          </Button>
+          {/* Botón diferente según modo */}
+          {mode === 'store' ? (
+            // Store: Botón "Add to Active"
+            !isActive ? (
+              <Button
+                variant="default"
+                size="sm"
+                className="flex-1"
+                onClick={onAddToActive}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add to Active
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                disabled
+              >
+                Already Added
+              </Button>
+            )
+          ) : (
+            // Active: Botón "Configure"
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1"
+              onClick={onConfigure}
+              disabled={status === 'connecting'}
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              Configure
+            </Button>
+          )}
         </div>
       </CardFooter>
-      
-      {/* Connection status overlay for connecting state */}
-      {status === 'connecting' && (
+
+      {/* Overlay solo en modo Active */}
+      {mode === 'active' && status === 'connecting' && (
         <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center">
-          <ConnectionStatus 
+          <ConnectionStatus
             serverId={server?.id || entry?.id || 'unknown'}
             status="connecting"
             size="lg"
