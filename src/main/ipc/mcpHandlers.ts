@@ -14,11 +14,25 @@ export function registerMCPHandlers() {
   // Connect to MCP server
   ipcMain.handle('levante/mcp/connect-server', async (_, config: MCPServerConfig) => {
     try {
+      // Connect in runtime
       await mcpService.connectServer(config);
-      // Also save to configuration
-      await configManager.addServer(config);
+
+      // Check if server exists in disabled, move it to mcpServers
+      const currentConfig = await configManager.loadConfiguration();
+
+      if (currentConfig.disabled && currentConfig.disabled[config.id]) {
+        // Move from disabled to mcpServers
+        await configManager.enableServer(config.id);
+        logger.mcp.info('Server enabled and moved to mcpServers', { serverId: config.id });
+      } else if (!currentConfig.mcpServers[config.id]) {
+        // Doesn't exist anywhere, add to mcpServers
+        await configManager.addServer(config);
+        logger.mcp.info('New server added to mcpServers', { serverId: config.id });
+      }
+
       return { success: true };
     } catch (error: any) {
+      logger.mcp.error('Failed to connect server', { serverId: config.id, error: error.message });
       return { success: false, error: error.message };
     }
   });
@@ -26,10 +40,16 @@ export function registerMCPHandlers() {
   // Disconnect from MCP server
   ipcMain.handle('levante/mcp/disconnect-server', async (_, serverId: string) => {
     try {
+      // Disconnect from service (runtime)
       await mcpService.disconnectServer(serverId);
-      await configManager.removeServer(serverId);
+
+      // Move from mcpServers to disabled (persistence)
+      await configManager.disableServer(serverId);
+
+      logger.mcp.info('Server disconnected and disabled', { serverId });
       return { success: true };
     } catch (error: any) {
+      logger.mcp.error('Failed to disconnect server', { serverId, error: error.message });
       return { success: false, error: error.message };
     }
   });
@@ -90,16 +110,16 @@ export function registerMCPHandlers() {
   ipcMain.handle('levante/mcp/refresh-configuration', async () => {
     try {
       logger.mcp.info('Refreshing MCP configuration and reconnecting servers');
-      
+
       // Disconnect all current servers
       await mcpService.disconnectAll();
-      
+
       // Reload configuration from disk
       const config = await configManager.loadConfiguration();
-      
-      // Reconnect all servers
+
+      // ONLY reconnect servers in mcpServers (NOT disabled)
       const results: Record<string, { success: boolean; error?: string }> = {};
-      
+
       for (const [serverId, serverConfig] of Object.entries(config.mcpServers)) {
         try {
           await mcpService.connectServer({
@@ -113,8 +133,14 @@ export function registerMCPHandlers() {
           logger.mcp.error('Failed to reconnect MCP server', { serverId, error: error.message });
         }
       }
-      
-      logger.mcp.info('MCP configuration refresh completed');
+
+      // Log disabled servers info
+      const disabledCount = Object.keys(config.disabled || {}).length;
+      logger.mcp.info('MCP configuration refresh completed', {
+        connectedCount: Object.keys(results).length,
+        disabledCount
+      });
+
       return { success: true, data: { serverResults: results, config } };
     } catch (error: any) {
       logger.mcp.error('MCP configuration refresh failed', { error: error instanceof Error ? error.message : error });
@@ -172,6 +198,30 @@ export function registerMCPHandlers() {
       const servers = await configManager.listServers();
       return { success: true, data: servers };
     } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Enable server (move from disabled to mcpServers)
+  ipcMain.handle('levante/mcp/enable-server', async (_, serverId: string) => {
+    try {
+      await configManager.enableServer(serverId);
+      logger.mcp.info('Server enabled', { serverId });
+      return { success: true };
+    } catch (error: any) {
+      logger.mcp.error('Failed to enable server', { serverId, error: error.message });
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Disable server (move from mcpServers to disabled)
+  ipcMain.handle('levante/mcp/disable-server', async (_, serverId: string) => {
+    try {
+      await configManager.disableServer(serverId);
+      logger.mcp.info('Server disabled', { serverId });
+      return { success: true };
+    } catch (error: any) {
+      logger.mcp.error('Failed to disable server', { serverId, error: error.message });
       return { success: false, error: error.message };
     }
   });

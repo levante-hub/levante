@@ -12,8 +12,19 @@ import {
   MessageSquare,
   Globe,
   Cloud,
-  Plus
+  Plus,
+  Trash2
 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { MCPRegistryEntry, MCPServerConfig, MCPConnectionStatus } from '@/types/mcp';
 import { ConnectionStatus } from '../connection/connection-status';
 
@@ -26,6 +37,7 @@ interface IntegrationCardProps {
   onToggle: () => void;
   onConfigure: () => void;
   onAddToActive?: () => void;
+  onDelete?: () => void;
 }
 
 const iconMap = {
@@ -46,14 +58,26 @@ export function IntegrationCard({
   isActive,
   onToggle,
   onConfigure,
-  onAddToActive
+  onAddToActive,
+  onDelete
 }: IntegrationCardProps) {
   const displayName = entry?.name || server?.name || server?.id || 'Unknown';
   const description = entry?.description || 'Custom MCP server integration';
   const category = entry?.category || 'custom';
   const iconName = entry?.icon || 'folder';
-  
+
   const IconComponent = iconMap[iconName as keyof typeof iconMap] || FolderOpen;
+
+  const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
+
+  const handleDeleteClick = () => {
+    setShowDeleteDialog(true);
+  };
+
+  const handleDeleteConfirm = () => {
+    setShowDeleteDialog(false);
+    onDelete?.();
+  };
 
   return (
     <Card className="relative overflow-hidden">
@@ -93,7 +117,9 @@ export function IntegrationCard({
               size="sm"
               variant="indicator"
             />
-            <Badge variant="default">Configured</Badge>
+            <Badge variant={server?.enabled !== false ? 'default' : 'secondary'}>
+              {server?.enabled !== false ? 'Active' : 'Disabled'}
+            </Badge>
           </div>
         )}
 
@@ -131,20 +157,55 @@ export function IntegrationCard({
               </Button>
             )
           ) : (
-            // Active: Botón "Configure"
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex-1"
-              onClick={onConfigure}
-              disabled={status === 'connecting'}
-            >
-              <Settings className="w-4 h-4 mr-2" />
-              Configure
-            </Button>
+            // Active: Botones "Configure" y "Delete"
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                onClick={onConfigure}
+                disabled={status === 'connecting'}
+              >
+                <Settings className="w-4 h-4 mr-2" />
+                Configure
+              </Button>
+
+              {onDelete && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDeleteClick}
+                  disabled={status === 'connecting'}
+                  title="Delete server"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              )}
+            </>
           )}
         </div>
       </CardFooter>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete MCP Server?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>{displayName}</strong>?
+              <br />
+              <br />
+              This will remove the server from your configuration file. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Overlay solo en modo Active */}
       {mode === 'active' && status === 'connecting' && (

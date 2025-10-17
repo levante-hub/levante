@@ -47,6 +47,7 @@ export interface MCPServerConfig {
   baseUrl?: string;
   headers?: Record<string, string>;
   transport: 'stdio' | 'http' | 'sse';
+  enabled?: boolean;  // Added by listServers(), not stored in JSON
 }
 
 export interface MCPTool {

@@ -167,6 +167,8 @@ export interface LevanteAPI {
   mcp: {
     connectServer: (config: MCPServerConfig) => Promise<{ success: boolean; error?: string }>
     disconnectServer: (serverId: string) => Promise<{ success: boolean; error?: string }>
+    enableServer: (serverId: string) => Promise<{ success: boolean; error?: string }>
+    disableServer: (serverId: string) => Promise<{ success: boolean; error?: string }>
     listTools: (serverId: string) => Promise<{ success: boolean; data?: MCPTool[]; error?: string }>
     callTool: (serverId: string, toolCall: MCPToolCall) => Promise<{ success: boolean; data?: MCPToolResult; error?: string }>
     connectionStatus: (serverId?: string) => Promise<{ success: boolean; data?: Record<string, 'connected' | 'disconnected'>; error?: string }>
@@ -367,13 +369,19 @@ const api: LevanteAPI = {
     
   // MCP API
   mcp: {
-    connectServer: (config: MCPServerConfig) => 
+    connectServer: (config: MCPServerConfig) =>
       ipcRenderer.invoke('levante/mcp/connect-server', config),
-    
-    disconnectServer: (serverId: string) => 
+
+    disconnectServer: (serverId: string) =>
       ipcRenderer.invoke('levante/mcp/disconnect-server', serverId),
-    
-    listTools: (serverId: string) => 
+
+    enableServer: (serverId: string) =>
+      ipcRenderer.invoke('levante/mcp/enable-server', serverId),
+
+    disableServer: (serverId: string) =>
+      ipcRenderer.invoke('levante/mcp/disable-server', serverId),
+
+    listTools: (serverId: string) =>
       ipcRenderer.invoke('levante/mcp/list-tools', serverId),
     
     callTool: (serverId: string, toolCall: MCPToolCall) => 

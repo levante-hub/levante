@@ -523,6 +523,8 @@ export class AIService {
       const config = await configManager.loadConfiguration();
       const allTools: Record<string, any> = {};
 
+      // ONLY iterate over mcpServers (active servers)
+      // Servers in "disabled" are IGNORED completely
       for (const [serverId, serverConfig] of Object.entries(
         config.mcpServers
       )) {
@@ -541,48 +543,57 @@ export class AIService {
           // Convert MCP tools to AI SDK format
           for (const mcpTool of serverTools) {
             if (!mcpTool.name || mcpTool.name.trim() === "") {
-              this.logger.aiSdk.error("Invalid tool name from server", { 
-                serverId, 
-                tool: mcpTool 
+              this.logger.aiSdk.error("Invalid tool name from server", {
+                serverId,
+                tool: mcpTool
               });
               continue;
             }
 
             const toolId = `${serverId}_${mcpTool.name}`;
             this.logger.aiSdk.debug("Creating tool", { toolId, originalName: mcpTool.name });
-            
+
             // Additional validation before creating tool
             if (!toolId || toolId.includes('undefined') || toolId.includes('null')) {
               this.logger.aiSdk.error("Invalid toolId detected", { toolId, tool: mcpTool });
               continue;
             }
-            
+
             const aiTool = this.createAISDKTool(serverId, mcpTool);
             if (!aiTool) {
               this.logger.aiSdk.error("Failed to create AI SDK tool", { toolId });
               continue;
             }
-            
+
             allTools[toolId] = aiTool;
             this.logger.aiSdk.debug("Successfully registered tool", { toolId });
           }
 
-          this.logger.aiSdk.info("Loaded tools from MCP server", { 
-            toolCount: serverTools.length, 
-            serverId 
+          this.logger.aiSdk.info("Loaded tools from MCP server", {
+            toolCount: serverTools.length,
+            serverId
           });
         } catch (error) {
-          this.logger.aiSdk.error("Error loading tools from server", { serverId, error });
+          this.logger.aiSdk.error("Error loading tools from server", { serverId, error: error instanceof Error ? error.message : error });
+          // Continue with next server instead of failing everything
         }
       }
 
-      this.logger.aiSdk.info("MCP tools summary", { 
+      // Log info about disabled servers
+      const disabledCount = Object.keys(config.disabled || {}).length;
+      this.logger.aiSdk.debug('MCP tools loaded', {
+        activeServers: Object.keys(config.mcpServers).length,
+        disabledServers: disabledCount,
+        toolCount: Object.keys(allTools).length
+      });
+
+      this.logger.aiSdk.info("MCP tools summary", {
         totalCount: Object.keys(allTools).length,
         toolNames: Object.keys(allTools)
       });
       return allTools;
     } catch (error) {
-      this.logger.aiSdk.error("Error loading MCP tools", { error });
+      this.logger.aiSdk.error("Error loading MCP tools", { error: error instanceof Error ? error.message : error });
       return {};
     }
   }

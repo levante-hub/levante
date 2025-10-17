@@ -5,8 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Loader2, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { IntegrationCard } from './integration-card';
-import { AddNewModal } from './add-new-modal';
 import { JSONEditorPanel } from '../config/json-editor-panel';
+import { FullJSONEditorPanel } from '../config/full-json-editor-panel';
 import { ImportExport } from '../config/import-export';
 import { NetworkStatus } from '../connection/connection-status';
 import { getRendererLogger } from '@/services/logger';
@@ -31,11 +31,12 @@ export function StoreLayout({ mode }: StoreLayoutProps) {
     refreshConnectionStatus,
     connectServer,
     disconnectServer,
-    addServer
+    addServer,
+    removeServer
   } = useMCPStore();
 
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [configServerId, setConfigServerId] = useState<string | null>(null);
+  const [isFullJSONEditorOpen, setIsFullJSONEditorOpen] = useState(false);
 
   useEffect(() => {
     // Load initial data
@@ -97,6 +98,21 @@ export function StoreLayout({ mode }: StoreLayoutProps) {
     }
   };
 
+  const handleDeleteServer = async (serverId: string) => {
+    try {
+      await removeServer(serverId);
+
+      // Recargar lista de servidores activos
+      await loadActiveServers();
+
+      // Feedback al usuario
+      toast.success('Server deleted successfully');
+    } catch (error) {
+      logger.mcp.error('Failed to delete server', { serverId, error });
+      toast.error('Failed to delete server');
+    }
+  };
+
   if (error) {
     return (
       <div className="container mx-auto p-6">
@@ -154,7 +170,21 @@ export function StoreLayout({ mode }: StoreLayoutProps) {
                   {activeServers.length} active
                 </Badge>
               </div>
+              
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* Add New Card */}
+                <Card className="p-6 border-dashed border-2 hover:border-primary/50 transition-colors cursor-pointer">
+                  <div
+                    className="flex flex-col items-center justify-center text-center h-full min-h-[200px]"
+                    onClick={() => setIsFullJSONEditorOpen(true)}
+                  >
+                    <Plus className="w-12 h-12 text-muted-foreground mb-4" />
+                    <h3 className="font-semibold mb-2">Add Custom Integration</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Edit .mcp.json directly
+                    </p>
+                  </div>
+                </Card>
                 {activeServers.map(server => {
                   const registryEntry = registry.entries.find(entry => entry.id === server.id);
                   const status = connectionStatus[server.id] || 'disconnected';
@@ -169,6 +199,7 @@ export function StoreLayout({ mode }: StoreLayoutProps) {
                       isActive={true}
                       onToggle={() => handleToggleServer(server.id)}
                       onConfigure={() => handleConfigureServer(server.id)}
+                      onDelete={() => handleDeleteServer(server.id)}
                     />
                   );
                 })}
@@ -195,20 +226,6 @@ export function StoreLayout({ mode }: StoreLayoutProps) {
             </Badge>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Add New Card */}
-            <Card className="p-6 border-dashed border-2 hover:border-primary/50 transition-colors cursor-pointer">
-              <div
-                className="flex flex-col items-center justify-center text-center h-full min-h-[200px]"
-                onClick={() => setIsAddModalOpen(true)}
-              >
-                <Plus className="w-12 h-12 text-muted-foreground mb-4" />
-                <h3 className="font-semibold mb-2">Add Custom Integration</h3>
-                <p className="text-sm text-muted-foreground">
-                  Connect to your own MCP server
-                </p>
-              </div>
-            </Card>
-
             {/* Registry Cards */}
             {registry.entries.map(entry => {
               const server = activeServers.find(s => s.id === entry.id);
@@ -233,10 +250,10 @@ export function StoreLayout({ mode }: StoreLayoutProps) {
         </section>
       )}
 
-      {/* Add New Modal */}
-      <AddNewModal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
+      {/* Full JSON Editor Panel */}
+      <FullJSONEditorPanel
+        isOpen={isFullJSONEditorOpen}
+        onClose={() => setIsFullJSONEditorOpen(false)}
       />
 
       {/* JSON Editor Panel */}

@@ -126,13 +126,6 @@ export function MCPServerPreview({
 
                       <AccordionContent className="px-2 pb-2 pt-0">
                         <div className="pl-1 space-y-2">
-                          {/* Descripción completa */}
-                          {tool.description && (
-                            <p className="text-[11px] text-muted-foreground leading-relaxed">
-                              {tool.description}
-                            </p>
-                          )}
-
                           {/* Parámetros */}
                           {tool.inputSchema?.properties && (
                             <div className="space-y-1.5">

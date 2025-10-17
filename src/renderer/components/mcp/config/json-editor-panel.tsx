@@ -25,14 +25,24 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
   const [tools, setTools] = useState<MCPTool[]>([]);
   const [isLoadingTools, setIsLoadingTools] = useState(false);
 
-  const server = serverId ? getServerById(serverId) : null;
-  const registryEntry = serverId ? getRegistryEntryById(serverId) : null;
+  const isCustomNewServer = serverId === 'new-custom-server';
+  const server = serverId && !isCustomNewServer ? getServerById(serverId) : null;
+  const registryEntry = serverId && !isCustomNewServer ? getRegistryEntryById(serverId) : null;
   const isNewServer = !server;
 
   useEffect(() => {
     if (isOpen && serverId) {
       // Load initial JSON
-      if (server) {
+      if (isCustomNewServer) {
+        // New custom server: show empty template with name field
+        setJsonText(JSON.stringify({
+          name: '',
+          type: 'stdio',
+          command: 'npx',
+          args: [],
+          env: {}
+        }, null, 2));
+      } else if (server) {
         const config = {
           type: server.transport,
           command: server.command,
@@ -56,14 +66,14 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
       setJsonError(null);
 
       // Sync with global connection status
-      if (connectionStatus[serverId] === 'connected') {
+      if (!isCustomNewServer && connectionStatus[serverId] === 'connected') {
         loadToolsFromConnectedServer(serverId);
       } else {
         setTestResult(null);
         setTools([]);
       }
     }
-  }, [isOpen, serverId, server, registryEntry, connectionStatus]);
+  }, [isOpen, serverId, server, registryEntry, connectionStatus, isCustomNewServer]);
 
   const loadToolsFromConnectedServer = async (serverId: string) => {
     setIsLoadingTools(true);
@@ -87,6 +97,11 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
   const validateJSON = (text: string): { valid: boolean; data?: any; error?: string } => {
     try {
       const parsed = JSON.parse(text);
+
+      // For custom new servers, require name field
+      if (isCustomNewServer && !parsed.name) {
+        return { valid: false, error: 'Missing required field: name' };
+      }
 
       // Validate required fields
       if (!parsed.type) {
@@ -173,8 +188,12 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
 
     try {
       const serverConfig: MCPServerConfig = {
-        id: serverId,
-        name: registryEntry?.name || serverId,
+        id: isCustomNewServer
+          ? `custom-${Date.now()}`
+          : serverId,
+        name: isCustomNewServer
+          ? (validation.data.name || `Custom Server ${Date.now()}`)
+          : (registryEntry?.name || serverId),
         transport: validation.data.type,
         command: validation.data.command,
         args: validation.data.args || [],
@@ -183,7 +202,7 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
         headers: validation.data.headers
       };
 
-      if (isNewServer) {
+      if (isNewServer || isCustomNewServer) {
         await addServer(serverConfig);
       } else {
         await updateServer(serverId, {
@@ -206,7 +225,9 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
   };
 
   const validation = validateJSON(jsonText);
-  const serverName = registryEntry?.name || serverId || 'MCP Server';
+  const serverName = isCustomNewServer
+    ? (validation.valid && validation.data?.name ? validation.data.name : 'New Custom Server')
+    : (registryEntry?.name || serverId || 'MCP Server');
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
