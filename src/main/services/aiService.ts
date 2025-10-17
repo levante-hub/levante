@@ -401,11 +401,49 @@ export class AIService {
             break;
 
           case "error":
+            // Check if this is a tool use not supported error
+            const isToolUseError = this.isToolUseNotSupportedError(chunk.error);
+
+            if (isToolUseError && enableMCP) {
+              this.logger.aiSdk.warn("Model does not support tool execution. Retrying without tools", {
+                model,
+                error: chunk.error
+              });
+
+              // Inform user with clear message and retry without tools
+              yield {
+                delta: `⚠️ **Tool Use Not Supported**\n\nThe model "${model}" doesn't support tool/function calling, which is required for MCP integration.\n\n**Recommendation:** Choose a different model that supports tools, or disable MCP for this conversation.\n\nContinuing with regular chat (MCP disabled)...\n\n`
+              };
+
+              try {
+                // Retry the same request without MCP tools
+                const retryRequest = { ...request, enableMCP: false };
+                for await (const retryChunk of this.streamChat(retryRequest)) {
+                  yield retryChunk;
+                }
+                return;
+              } catch (retryError) {
+                this.logger.aiSdk.error("Retry without tools also failed", {
+                  error: retryError,
+                  model
+                });
+                yield {
+                  error: "Failed to process request both with and without tools. Please try a different model.",
+                  done: true,
+                };
+                return;
+              }
+            }
+
+            // For other errors, extract the error message
+            const errorMessage = chunk.error instanceof Error
+              ? chunk.error.message
+              : typeof chunk.error === "string"
+                ? chunk.error
+                : "Unknown error occurred";
+
             yield {
-              error:
-                typeof chunk.error === "string"
-                  ? chunk.error
-                  : "Unknown error occurred",
+              error: errorMessage,
               done: true,
             };
             return;
@@ -414,43 +452,15 @@ export class AIService {
 
       yield { done: true };
     } catch (error) {
-      this.logger.aiSdk.error("AI Service Error", { 
+      // Unexpected errors that aren't handled by the stream (rare)
+      this.logger.aiSdk.error("Unexpected streaming error", {
         error: error instanceof Error ? error.message : error,
         model,
-        enableMCP,
-        messageCount: messages.length
+        enableMCP
       });
-      
-      // Handle specific case where model doesn't support tool use
-      if (error instanceof Error && 
-          error.message.includes("No endpoints found that support tool use")) {
-        this.logger.aiSdk.warn("Model does not support tool execution. Retrying without tools", { model });
-        
-        // Inform user and retry without tools
-        yield { 
-          delta: `⚠️ The model "${model}" doesn't support tool execution. Continuing with regular chat...\n\n`
-        };
-        
-        try {
-          // Retry the same request without MCP tools
-          const retryRequest = { ...request, enableMCP: false };
-          for await (const chunk of this.streamChat(retryRequest)) {
-            yield chunk;
-          }
-          return;
-        } catch (retryError) {
-          this.logger.aiSdk.error("Retry without tools also failed", { error: retryError });
-          yield {
-            error: "Failed to process request both with and without tools",
-            done: true,
-          };
-          return;
-        }
-      }
-      
+
       yield {
-        error:
-          error instanceof Error ? error.message : "Unknown error occurred",
+        error: error instanceof Error ? error.message : "An unexpected error occurred",
         done: true,
       };
     }
@@ -489,33 +499,121 @@ export class AIService {
         reasoning: undefined, // Reasoning would come from the model response if supported
       };
     } catch (error) {
-      this.logger.aiSdk.error("AI Service Error", { error });
-      
-      // Handle specific case where model doesn't support tool use
-      if (error instanceof Error && 
-          error.message.includes("No endpoints found that support tool use")) {
+      // Extract error details for better logging
+      const errorDetails: any = {};
+      if (error && typeof error === 'object') {
+        errorDetails.statusCode = (error as any).statusCode;
+        errorDetails.responseBody = (error as any).responseBody;
+        errorDetails.url = (error as any).url;
+        errorDetails.data = (error as any).data;
+      }
+
+      this.logger.aiSdk.error("AI Service Error", {
+        error: error instanceof Error ? error.message : error,
+        errorType: error?.constructor?.name,
+        model,
+        enableMCP,
+        messageCount: messages.length,
+        ...errorDetails
+      });
+
+      // Check if this is a tool use not supported error
+      const isToolUseError = this.isToolUseNotSupportedError(error);
+
+      if (isToolUseError && enableMCP) {
         this.logger.aiSdk.warn(`Model '${model}' does not support tool execution. Retrying without tools...`);
-        
+
         // Retry the same request without MCP tools
         try {
           const retryRequest = { ...request, enableMCP: false };
           const retryResult = await this.sendSingleMessage(retryRequest);
-          
+
           return {
-            response: `⚠️ The model "${model}" doesn't support tool execution. Here's the response without tools:\n\n${retryResult.response}`,
+            response: `⚠️ **Tool Use Not Supported**\n\nThe model "${model}" doesn't support tool/function calling, which is required for MCP integration.\n\n**Recommendation:** Choose a different model that supports tools, or disable MCP for this conversation.\n\nHere's the response without tools:\n\n${retryResult.response}`,
             sources: retryResult.sources,
             reasoning: retryResult.reasoning
           };
         } catch (retryError) {
           this.logger.aiSdk.error("Retry without tools also failed", { error: retryError });
-          throw new Error("Failed to process request both with and without tools");
+          throw new Error("Failed to process request both with and without tools. Please try a different model.");
         }
       }
-      
+
       throw new Error(
         error instanceof Error ? error.message : "Unknown error occurred"
       );
     }
+  }
+
+  /**
+   * Detects if an error is related to the model not supporting tool use
+   * Handles multiple error formats from different AI providers
+   */
+  private isToolUseNotSupportedError(error: unknown): boolean {
+    if (!error) return false;
+
+    // Patterns that indicate tool/function calling is not supported
+    const toolUseErrorPatterns = [
+      // OpenRouter
+      'no endpoints found that support tool use',
+      'tool use is not supported',
+      'tools are not supported',
+      'does not support tool',
+      'tool calling is not supported',
+      // OpenAI / Anthropic
+      'function calling is not supported',
+      'functions are not supported',
+      'does not support function calling',
+      // Generic patterns
+      'tool_choice is not supported',
+      'tools parameter is not supported',
+      'model does not support tools',
+      'model does not support functions',
+    ];
+
+    // Check error message (Error object)
+    if (error instanceof Error) {
+      const message = error.message.toLowerCase();
+      if (toolUseErrorPatterns.some(pattern => message.includes(pattern))) {
+        return true;
+      }
+    }
+
+    // Check structured error data (from AI SDK APICallError)
+    if (error && typeof error === 'object') {
+      const statusCode = (error as any).statusCode;
+      const errorData = (error as any).data;
+      const responseBody = (error as any).responseBody;
+
+      // Check if there's an error message in the data
+      const nestedMessage = errorData?.error?.message;
+      if (nestedMessage && typeof nestedMessage === 'string') {
+        const msg = nestedMessage.toLowerCase();
+        if (toolUseErrorPatterns.some(pattern => msg.includes(pattern))) {
+          return true;
+        }
+      }
+
+      // Check response body for error messages
+      if (typeof responseBody === 'string') {
+        const body = responseBody.toLowerCase();
+        if (toolUseErrorPatterns.some(pattern => body.includes(pattern))) {
+          return true;
+        }
+      }
+
+      // Status code hints (4xx errors related to invalid parameters)
+      // Combined with message patterns above for more accuracy
+      if (statusCode === 404 || statusCode === 400) {
+        // Already checked messages above, just log for debugging
+        this.logger.aiSdk.debug('Received 4xx error with tools enabled', {
+          statusCode,
+          hasErrorMessage: !!nestedMessage
+        });
+      }
+    }
+
+    return false;
   }
 
   private async getMCPTools(): Promise<Record<string, any>> {

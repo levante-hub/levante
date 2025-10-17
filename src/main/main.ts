@@ -193,7 +193,7 @@ ipcMain.handle("levante/chat/stream", async (event, request: ChatRequest) => {
           });
           break;
         }
-        
+
         // Send chunk immediately without buffering (pattern from Expo)
         event.sender.send(`levante/chat/stream/${streamId}`, chunk);
         // Small yield to prevent blocking the event loop
@@ -206,9 +206,9 @@ ipcMain.handle("levante/chat/stream", async (event, request: ChatRequest) => {
         }
       }
     } catch (error) {
-      logger.aiSdk.error("AI Stream error", { 
+      logger.aiSdk.error("AI Stream error", {
         streamId,
-        error: error instanceof Error ? error.message : error 
+        error: error instanceof Error ? error.message : error
       });
       event.sender.send(`levante/chat/stream/${streamId}`, {
         error: error instanceof Error ? error.message : "Stream error",

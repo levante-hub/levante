@@ -37,6 +37,7 @@ export function StoreLayout({ mode }: StoreLayoutProps) {
 
   const [configServerId, setConfigServerId] = useState<string | null>(null);
   const [isFullJSONEditorOpen, setIsFullJSONEditorOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     // Load initial data
@@ -113,6 +114,41 @@ export function StoreLayout({ mode }: StoreLayoutProps) {
     }
   };
 
+  const handleRefreshConfiguration = async () => {
+    setIsRefreshing(true);
+
+    try {
+      logger.mcp.info('Refreshing MCP configuration from Store page');
+      const result = await window.levante.mcp.refreshConfiguration();
+
+      if (result.success) {
+        // Reload active servers and connection status
+        await loadActiveServers();
+        await refreshConnectionStatus();
+
+        toast.success('Configuration refreshed successfully');
+
+        // Log any server connection errors
+        if (result.data?.serverResults) {
+          const failedServers = Object.entries(result.data.serverResults)
+            .filter(([_, res]: [string, any]) => !res.success)
+            .map(([id]) => id);
+
+          if (failedServers.length > 0) {
+            toast.warning(`Some servers failed to connect: ${failedServers.join(', ')}`);
+          }
+        }
+      } else {
+        toast.error(result.error || 'Failed to refresh configuration');
+      }
+    } catch (error) {
+      logger.mcp.error('MCP refresh error in Store page', { error: error instanceof Error ? error.message : error });
+      toast.error('Failed to refresh configuration');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   if (error) {
     return (
       <div className="container mx-auto p-6">
@@ -147,7 +183,11 @@ export function StoreLayout({ mode }: StoreLayoutProps) {
                 size="md"
               />
             )}
-            <ImportExport variant="dropdown" />
+            <ImportExport
+              variant="dropdown"
+              onRefresh={handleRefreshConfiguration}
+              isRefreshing={isRefreshing}
+            />
           </div>
         </div>
       </div>

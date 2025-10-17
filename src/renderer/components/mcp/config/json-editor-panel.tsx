@@ -24,14 +24,19 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
   const [isSaving, setIsSaving] = useState(false);
   const [tools, setTools] = useState<MCPTool[]>([]);
   const [isLoadingTools, setIsLoadingTools] = useState(false);
+  const [hasUserEdits, setHasUserEdits] = useState(false);
 
   const isCustomNewServer = serverId === 'new-custom-server';
   const server = serverId && !isCustomNewServer ? getServerById(serverId) : null;
   const registryEntry = serverId && !isCustomNewServer ? getRegistryEntryById(serverId) : null;
   const isNewServer = !server;
 
+  // Effect 1: Load initial JSON configuration when panel opens
   useEffect(() => {
     if (isOpen && serverId) {
+      // Reset edit flag when opening panel
+      setHasUserEdits(false);
+
       // Load initial JSON
       if (isCustomNewServer) {
         // New custom server: show empty template with name field
@@ -64,16 +69,20 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
       }
 
       setJsonError(null);
+    }
+  }, [isOpen, serverId, server, registryEntry, isCustomNewServer]);
 
-      // Sync with global connection status
-      if (!isCustomNewServer && connectionStatus[serverId] === 'connected') {
+  // Effect 2: Sync tools with global connection status (only if user hasn't edited)
+  useEffect(() => {
+    if (isOpen && serverId && !isCustomNewServer && !hasUserEdits) {
+      if (connectionStatus[serverId] === 'connected') {
         loadToolsFromConnectedServer(serverId);
       } else {
         setTestResult(null);
         setTools([]);
       }
     }
-  }, [isOpen, serverId, server, registryEntry, connectionStatus, isCustomNewServer]);
+  }, [isOpen, serverId, connectionStatus, isCustomNewServer, hasUserEdits]);
 
   const loadToolsFromConnectedServer = async (serverId: string) => {
     setIsLoadingTools(true);
@@ -124,6 +133,7 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
 
   const handleJSONChange = (text: string) => {
     setJsonText(text);
+    setHasUserEdits(true); // Mark that user has made edits
     const validation = validateJSON(text);
     setJsonError(validation.error || null);
   };
