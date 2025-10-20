@@ -95,7 +95,14 @@ module.exports = {
     icon: './resources/icons/icon', // Forge will add appropriate extension (.icns/.ico)
 
     // macOS Code Signing
-    osxSign: {
+    osxSign: process.env.CI ? {
+      // In CI: import sets up keychain, sign will find the cert automatically
+      'hardened-runtime': true,
+      entitlements: 'build/entitlements.mac.plist',
+      'entitlements-inherit': 'build/entitlements.mac.inherit.plist',
+      'signature-flags': 'library'
+    } : {
+      // Local: use specific identity
       identity: 'Developer ID Application',
       'hardened-runtime': true,
       entitlements: 'build/entitlements.mac.plist',
