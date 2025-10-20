@@ -99,7 +99,8 @@ module.exports = {
     arch: 'universal', // Build for both Intel and Apple Silicon
 
     osxSign: process.env.APPLE_ID ? {
-      identity: 'Developer ID Application',
+      // Use Apple Development for beta, Developer ID Application for production
+      identity: process.env.SIGNING_IDENTITY || 'Apple Development',
       'hardened-runtime': true,
       entitlements: 'build/entitlements.mac.plist',
       'entitlements-inherit': 'build/entitlements.mac.inherit.plist',
