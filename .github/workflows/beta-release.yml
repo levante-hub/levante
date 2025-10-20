@@ -71,8 +71,8 @@ jobs:
 
           rm certificate.p12
 
-      - name: Build application
-        run: pnpm run build
+      - name: Build and package application
+        run: pnpm run make
 
       - name: Package & Publish Beta (macOS)
         if: matrix.platform == 'darwin'
