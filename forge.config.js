@@ -88,7 +88,7 @@ module.exports = {
   },
 
   packagerConfig: {
-    asar: false,  // Desactivar ASAR completamente para evitar problemas con @libsql dynamic requires
+    asar: true,  // Desactivar ASAR completamente para evitar problemas con @libsql dynamic requires
     name: 'Levante',
     executableName: 'Levante',
     appBundleId: 'com.levante.app',
@@ -98,21 +98,22 @@ module.exports = {
     platform: 'darwin',
     arch: 'universal', // Build for both Intel and Apple Silicon
 
-    osxSign: process.env.APPLE_ID ? {
-      // Use Apple Development for beta, Developer ID Application for production
-      identity: process.env.SIGNING_IDENTITY || 'Apple Development',
+    osxSign: {
+      // Use the full identity name from security find-identity
+      identity: 'Apple Development: iva oliver montes guevara (2RZWBW9697)',
       'hardened-runtime': true,
       entitlements: 'build/entitlements.mac.plist',
       'entitlements-inherit': 'build/entitlements.mac.inherit.plist',
       'gatekeeper-assess': false
-    } : undefined,
+    },
 
-    osxNotarize: process.env.APPLE_ID ? {
-      tool: 'notarytool',
-      appleId: process.env.APPLE_ID,
-      appleIdPassword: process.env.APPLE_ID_PASSWORD,
-      teamId: process.env.APPLE_TEAM_ID
-    } : undefined,
+    // Notarization disabled: requires Developer ID Application certificate
+    // osxNotarize: process.env.APPLE_ID ? {
+    //   tool: 'notarytool',
+    //   appleId: process.env.APPLE_ID,
+    //   appleIdPassword: process.env.APPLE_ID_PASSWORD,
+    //   teamId: process.env.APPLE_TEAM_ID
+    // } : undefined,
 
     // Windows specific
     win32metadata: {
