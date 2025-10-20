@@ -5,7 +5,7 @@
     "baseUrl": ".",
     "allowJs": true,
     "module": "ESNext",
-    "moduleResolution": "Node",
+    "moduleResolution": "Bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
@@ -14,12 +14,14 @@
     "allowSyntheticDefaultImports": true,
     "strict": true,
     "forceConsistentCasingInFileNames": true,
+    "typeRoots": ["./node_modules/@types"],
     "paths": {
       "@/*": ["src/renderer/*"],
       "@main/*": ["src/main/*"],
-      "@preload/*": ["src/preload/*"]
+      "@preload/*": ["src/preload/*"],
+      "zod": ["node_modules/zod/v3"]
     }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
-  "exclude": ["node_modules", "dist"]
+  "exclude": ["node_modules", "dist", ".vite", "out"]
 }

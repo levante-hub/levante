@@ -1,0 +1,129 @@
+name: Beta Release Build & Publish
+
+on:
+  push:
+    tags:
+      - 'v*-beta.*'  # Only beta tags
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build & Release Beta - ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            platform: darwin
+            arch: arm64
+          - os: windows-latest
+            platform: win32
+            arch: x64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.20.0'
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9.4.0
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # macOS signing (required for signed builds)
+      - name: Import Apple certificate (macOS)
+        if: matrix.platform == 'darwin'
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          security create-keychain -p actions temp.keychain
+          security default-keychain -s temp.keychain
+          security unlock-keychain -p actions temp.keychain
+          security set-keychain-settings -t 3600 -u temp.keychain
+
+          echo "$APPLE_CERTIFICATE_BASE64" | base64 --decode > certificate.p12
+          security import certificate.p12 -k temp.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k actions temp.keychain
+
+          rm certificate.p12
+
+      - name: Build and package application
+        env:
+          # Only set signing env vars if secrets exist, otherwise build unsigned
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: pnpm run make
+
+      - name: Package & Publish Beta (macOS)
+        if: matrix.platform == 'darwin'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          # Notarization env vars needed for electron-forge publish
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: pnpm run publish
+
+      - name: Package & Publish Beta (Windows)
+        if: matrix.platform == 'win32'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: pnpm run publish
+
+      - name: Cleanup keychain (macOS)
+        if: matrix.platform == 'darwin' && always()
+        run: security delete-keychain temp.keychain || true
+
+      # Mark as pre-release
+      - name: Mark as pre-release
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GH_TOKEN }}
+          script: |
+            const tag = context.ref.replace('refs/tags/', '');
+            const releases = await github.rest.repos.listReleases({
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            });
+
+            const release = releases.data.find(r => r.tag_name === tag);
+            if (release) {
+              await github.rest.repos.updateRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: release.id,
+                prerelease: true
+              });
+              console.log(`Marked release ${tag} as pre-release`);
+            }
