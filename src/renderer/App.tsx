@@ -4,13 +4,38 @@ import ChatPage from '@/pages/ChatPage'
 import SettingsPage from '@/pages/SettingsPage'
 import ModelPage from '@/pages/ModelPage'
 import StorePage from '@/pages/StorePage'
+import { OnboardingWizard } from '@/pages/OnboardingWizard'
 import { useChatStore, initializeChatStore } from '@/stores/chatStore'
 import { modelService } from '@/services/modelService'
 import { logger } from '@/services/logger'
 
 function App() {
   const [currentPage, setCurrentPage] = useState('chat')
+  const [wizardCompleted, setWizardCompleted] = useState<boolean | null>(null)
   
+  // Check wizard status on mount
+  useEffect(() => {
+    const checkWizard = async () => {
+      try {
+        const result = await window.levante.wizard.checkStatus();
+        if (result.success && result.data) {
+          setWizardCompleted(result.data.isCompleted);
+          logger.core.info('Wizard status checked', {
+            isCompleted: result.data.isCompleted
+          });
+        }
+      } catch (error) {
+        logger.core.error('Failed to check wizard status', {
+          error: error instanceof Error ? error.message : error
+        });
+        // Default to showing wizard on error
+        setWizardCompleted(false);
+      }
+    };
+
+    checkWizard();
+  }, []);
+
   // Initialize services after component mounts
   useEffect(() => {
     const initializeServices = async () => {
@@ -21,7 +46,7 @@ function App() {
       ]);
       logger.core.info('Renderer services initialized successfully');
     };
-    
+
     initializeServices().catch(error => {
       logger.core.error('Failed to initialize renderer services', { error: error instanceof Error ? error.message : error });
     });
@@ -74,8 +99,34 @@ function App() {
     return null;
   }
 
+  // Show loading state while checking wizard
+  if (wizardCompleted === null) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="mb-4">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto" />
+          </div>
+          <p className="text-muted-foreground">Loading Levante...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show wizard if not completed
+  if (!wizardCompleted) {
+    return (
+      <OnboardingWizard
+        onComplete={() => {
+          setWizardCompleted(true);
+          logger.core.info('Wizard completed, reloading app state');
+        }}
+      />
+    );
+  }
+
   return (
-    <MainLayout 
+    <MainLayout
       title={getPageTitle(currentPage)}
       currentPage={currentPage}
       onPageChange={setCurrentPage}

@@ -9,7 +9,10 @@ import { setupModelHandlers } from "./ipc/modelHandlers";
 import { registerMCPHandlers, configManager } from "./ipc/mcpHandlers";
 import { setupLoggerHandlers } from "./ipc/loggerHandlers";
 import { registerDebugHandlers } from "./ipc/debugHandlers";
+import { setupWizardHandlers } from "./ipc/wizardHandlers";
+import { setupProfileHandlers } from "./ipc/profileHandlers";
 import { preferencesService } from "./services/preferencesService";
+import { userProfileService } from "./services/userProfileService";
 import { getLogger, initializeLogger } from "./services/logging";
 
 // Load environment variables from .env.local and .env files
@@ -139,6 +142,15 @@ app.whenReady().then(async () => {
     // Could show error dialog or continue with degraded functionality
   }
 
+  // Initialize user profile service
+  try {
+    await userProfileService.initialize();
+    logger.core.info('User profile service initialized successfully');
+  } catch (error) {
+    logger.core.error('Failed to initialize user profile service', { error: error instanceof Error ? error.message : error });
+    // Could show error dialog or continue with degraded functionality
+  }
+
   // Migrate MCP configuration to include disabled section
   try {
     await configManager.migrateConfiguration();
@@ -154,6 +166,8 @@ app.whenReady().then(async () => {
   setupPreferencesHandlers();
   setupModelHandlers();
   setupLoggerHandlers();
+  setupWizardHandlers();
+  setupProfileHandlers();
   registerMCPHandlers();
   registerDebugHandlers();
 
