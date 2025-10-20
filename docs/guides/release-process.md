@@ -2,6 +2,44 @@
 
 Complete guide for creating production and beta releases for Levante.
 
+## Quick Start: Version Management
+
+**TL;DR** - Cómo gestionar versiones entre develop (beta) y main (production):
+
+### Develop Branch (Betas)
+- `package.json` → **`"version": "0.1.0-beta"`** (constante, con sufijo `-beta`)
+- Para crear beta releases, solo crea tags: `v0.1.0-beta.1`, `v0.1.0-beta.2`, etc.
+- **NO cambiar `package.json`** para cada beta
+
+### Main Branch (Production)
+- `package.json` → **`"version": "1.0.0"`** (sin sufijo `-beta`)
+- El cambio de versión se hace **en el PR** de develop → main
+- Tag de producción: `v1.0.0`
+
+### Flujo Típico
+
+```bash
+# 1. Beta releases (develop branch)
+develop → package.json: "0.1.0-beta"
+  ├─ git tag v0.1.0-beta.1 && git push origin v0.1.0-beta.1
+  ├─ git tag v0.1.0-beta.2 && git push origin v0.1.0-beta.2
+  └─ git tag v0.1.0-beta.7 && git push origin v0.1.0-beta.7
+
+# 2. Production release
+git checkout -b release/v1.0.0
+# Editar package.json: "0.1.0-beta" → "1.0.0"
+git commit -m "chore: bump version to v1.0.0"
+# PR: release/v1.0.0 → main
+# Merge PR
+
+# 3. Tag production
+git checkout main && git pull
+git tag v1.0.0 && git push origin v1.0.0
+
+# 4. Sync back to develop
+git checkout develop && git merge main && git push
+```
+
 ## Overview
 
 Levante uses automated releases via GitHub Actions. When you push a tag, the system automatically:
@@ -26,40 +64,44 @@ Levante uses automated releases via GitHub Actions. When you push a tag, the sys
 
 ## Production Release Process
 
-### Step 1: Prepare Release Branch
+El flujo de producción implica **cambiar la versión de `develop` a `main`**, removiendo el sufijo `-beta` en el PR.
+
+### Step 1: Crear Release Branch desde Develop
 
 ```bash
-# Ensure main is up to date
-git checkout main
-git pull origin main
+# Asegúrate de estar en develop actualizado
+git checkout develop
+git pull origin develop
 
-# Optional: Create release branch for final prep
+# Crea release branch desde develop
 git checkout -b release/v1.0.0
-
-# Make any final adjustments
-# - Update CHANGELOG.md
-# - Review documentation
-# - Final testing
 ```
 
-### Step 2: Bump Version
+### Step 2: Cambiar Versión (Remover -beta)
+
+**Edita `package.json`** y cambia la versión de `"0.1.0-beta"` a `"1.0.0"`:
+
+```json
+{
+  "version": "1.0.0"
+}
+```
 
 ```bash
-# For patch release (1.0.0 → 1.0.1)
-npm version patch --no-git-tag-version
-
-# For minor release (1.0.0 → 1.1.0)
-npm version minor --no-git-tag-version
-
-# For major release (1.0.0 → 2.0.0)
-npm version major --no-git-tag-version
-
-# Commit version bump
+# Commit el cambio de versión
 git add package.json
-git commit -m "chore: bump version to v1.0.0"
+git commit -m "chore: bump version to v1.0.0 for production release"
 ```
 
-### Step 3: Create Pull Request (if using release branch)
+**Opcional**: Actualizar CHANGELOG.md si existe:
+
+```bash
+# Añade entrada de changelog
+git add CHANGELOG.md
+git commit -m "docs: update CHANGELOG for v1.0.0"
+```
+
+### Step 3: Push y Crear Pull Request a Main
 
 ```bash
 # Push release branch
@@ -69,7 +111,21 @@ git push origin release/v1.0.0
 1. Go to https://github.com/levante-hub/levante/pulls
 2. Create PR from `release/v1.0.0` → `main`
 3. Title: `Release v1.0.0`
-4. Add changelog to description
+4. Add changelog to description:
+   ```markdown
+   ## Release v1.0.0
+
+   ### Features
+   - Feature A
+   - Feature B
+
+   ### Bug Fixes
+   - Fix X
+   - Fix Y
+
+   ### Changes
+   - Updated version from 0.1.0-beta to 1.0.0
+   ```
 5. Get approval from team
 6. Merge PR
 
@@ -192,47 +248,48 @@ git push origin develop
 
 ## Beta Release Process
 
-Beta releases are for testing new features before production.
+Beta releases are for testing new features before production. **Importante**: La versión en `package.json` del branch `develop` siempre mantiene el sufijo `-beta` constante (ej: `"0.1.0-beta"`). Solo el número de tag se incrementa.
 
-### Step 1: Prepare Beta Version
-
-```bash
-# On your feature branch or develop
-git checkout feat/new-feature
-
-# Bump to beta version
-npm version prerelease --preid=beta --no-git-tag-version
-# This creates: 1.0.0 → 1.0.1-beta.0
-
-# Or manually set version for first beta
-npm version 1.1.0-beta.1 --no-git-tag-version
-
-# Commit
-git add package.json
-git commit -m "chore: bump version to v1.1.0-beta.1"
-```
-
-### Step 2: Merge to Develop
+### Step 1: Verificar Versión en Develop
 
 ```bash
-# Merge to develop (or beta branch)
+# Asegúrate de estar en develop
 git checkout develop
-git merge feat/new-feature
-git push origin develop
+git pull origin develop
+
+# Verifica que package.json tiene la versión beta base
+cat package.json | grep version
+# Debe mostrar: "version": "0.1.0-beta"
+
+# NO es necesario cambiar package.json para betas
+# La versión se mantiene constante en develop
 ```
 
-### Step 3: Create Beta Tag
+### Step 2: Determinar Siguiente Número de Beta
 
 ```bash
-# Create beta tag
-git tag -a v1.1.0-beta.1 -m "Beta Release v1.1.0-beta.1
+# Lista todos los tags beta existentes
+git tag -l "v0.1.0-beta.*"
+# Ejemplo output:
+# v0.1.0-beta.1
+# v0.1.0-beta.2
+# v0.1.0-beta.7
+
+# El siguiente sería: v0.1.0-beta.8
+```
+
+### Step 3: Crear Tag Beta Incremental
+
+```bash
+# Crea el siguiente tag beta (sin cambiar package.json)
+git tag -a v0.1.0-beta.8 -m "Beta Release v0.1.0-beta.8
 
 Testing new features:
 - Feature A: Description
 - Feature B: Description
 
 ## Known Issues
-- Issue X (will fix in beta.2)
+- Issue X (will fix in beta.9)
 
 ## Beta Testers
 Please test:
@@ -241,9 +298,11 @@ Please test:
 3. Performance with large datasets
 "
 
-# Push tag
-git push origin v1.1.0-beta.1
+# Push tag para disparar workflow
+git push origin v0.1.0-beta.8
 ```
+
+**Nota importante**: No es necesario hacer commit antes del tag porque package.json no cambia. El tag se crea directamente desde el último commit de develop.
 
 ### Step 4: Monitor Workflow
 
@@ -436,6 +495,28 @@ Levante follows [Semantic Versioning](https://semver.org/):
 
 **Format**: `MAJOR.MINOR.PATCH[-PRERELEASE]`
 
+### Branch-Specific Versioning
+
+**Develop Branch**:
+- `package.json` version: `"0.1.0-beta"` (con sufijo `-beta`)
+- Tags: `v0.1.0-beta.1`, `v0.1.0-beta.2`, etc.
+- El número incremental después de `.beta.` se incrementa con cada release beta
+
+**Main Branch**:
+- `package.json` version: `"1.0.0"` (sin sufijo)
+- Tags: `v1.0.0`, `v1.1.0`, `v1.0.1`, etc.
+- Sigue semantic versioning estándar
+
+**Flujo de Versioning**:
+1. Desarrollo en `develop` con versión `0.1.0-beta`
+2. Tags incrementales: `v0.1.0-beta.1`, `v0.1.0-beta.2`, etc.
+3. Cuando beta está listo para producción:
+   - Crear PR de `develop` → `main`
+   - Cambiar versión en PR a `1.0.0` (remover `-beta`)
+   - Merge a main
+4. Tag de producción desde main: `v1.0.0`
+5. Merge main → develop para sincronizar
+
 ### When to Bump
 
 **MAJOR** (1.0.0 → 2.0.0):
@@ -457,21 +538,27 @@ Levante follows [Semantic Versioning](https://semver.org/):
 - Documentation updates
 - Performance optimizations
 
-**PRERELEASE** (1.1.0-beta.1):
-- Beta releases for testing
-- Release candidates
-- Alpha releases (internal testing)
+**PRERELEASE** (0.1.0-beta.X):
+- Beta releases for testing from develop branch
+- Número incremental después de `.beta.`
+- No cambia la versión base en package.json
 
 ### Version Examples
 
 ```
-v1.0.0         → Initial release with auto-update
-v1.0.1         → Bug fix for chat history
-v1.1.0         → New model provider support
-v1.1.0-beta.1  → Beta testing new provider
-v1.1.0-beta.2  → Second beta with fixes
-v1.1.0         → Production release
-v2.0.0         → Major redesign with breaking changes
+# Development cycle
+develop: package.json → "0.1.0-beta"
+  ├─ v0.1.0-beta.1   → First beta release
+  ├─ v0.1.0-beta.2   → Second beta with fixes
+  └─ v0.1.0-beta.7   → Final beta, ready for production
+
+# Production release
+PR develop → main: Change "0.1.0-beta" → "1.0.0"
+  └─ v1.0.0          → Production release
+
+# Post-release
+main merged to develop: "1.0.0" stays in main
+develop continues with: "0.2.0-beta" for next cycle
 ```
 
 ## Rollback Procedure
