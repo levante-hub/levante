@@ -10,9 +10,59 @@ permissions:
   contents: write  # Required to create releases
 
 jobs:
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    outputs:
+      release_id: ${{ steps.create_release.outputs.result }}
+      tag_name: ${{ steps.get_tag.outputs.result }}
+    steps:
+      - name: Get tag name
+        id: get_tag
+        uses: actions/github-script@v7
+        with:
+          script: |
+            return context.ref.replace('refs/tags/', '');
+          result-encoding: string
+
+      - name: Create or get release
+        id: create_release
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GH_TOKEN }}
+          script: |
+            const tag = context.ref.replace('refs/tags/', '');
+
+            // Check if release already exists
+            try {
+              const { data: existingRelease } = await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag: tag
+              });
+              console.log(`Release ${tag} already exists with ID: ${existingRelease.id}`);
+              return existingRelease.id;
+            } catch (error) {
+              if (error.status === 404) {
+                // Create new release
+                const { data: release } = await github.rest.repos.createRelease({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  tag_name: tag,
+                  name: tag,
+                  draft: true,
+                  prerelease: false
+                });
+                console.log(`Created new release ${tag} with ID: ${release.id}`);
+                return release.id;
+              }
+              throw error;
+            }
+
   build:
     name: Build & Release - ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    needs: create-release
 
     strategy:
       fail-fast: false
