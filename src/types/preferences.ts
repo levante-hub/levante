@@ -29,6 +29,10 @@ export interface UIPreferences {
   };
   providers: ProviderConfig[];
   activeProvider: string | null;
+  ai: {
+    baseSteps: number;
+    maxSteps: number;
+  };
 }
 
 export type PreferenceKey = keyof UIPreferences;
@@ -65,5 +69,9 @@ export const DEFAULT_PREFERENCES: UIPreferences = {
     search: 'Cmd+F'
   },
   providers: [],
-  activeProvider: null
+  activeProvider: null,
+  ai: {
+    baseSteps: 5,
+    maxSteps: 20
+  }
 };

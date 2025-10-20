@@ -6,6 +6,7 @@ import ModelPage from '@/pages/ModelPage'
 import StorePage from '@/pages/StorePage'
 import { useChatStore, initializeChatStore } from '@/stores/chatStore'
 import { modelService } from '@/services/modelService'
+import { logger } from '@/services/logger'
 
 function App() {
   const [currentPage, setCurrentPage] = useState('chat')
@@ -13,13 +14,17 @@ function App() {
   // Initialize services after component mounts
   useEffect(() => {
     const initializeServices = async () => {
+      logger.core.info('Renderer application starting');
       await Promise.all([
         initializeChatStore(),
         modelService.initialize()
       ]);
+      logger.core.info('Renderer services initialized successfully');
     };
     
-    initializeServices().catch(console.error);
+    initializeServices().catch(error => {
+      logger.core.error('Failed to initialize renderer services', { error: error instanceof Error ? error.message : error });
+    });
   }, []);
   
   // Chat management for sidebar - using Zustand selectors

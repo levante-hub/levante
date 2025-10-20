@@ -1,7 +1,10 @@
 import { BrowserWindow } from 'electron';
 import { UIPreferences, PreferenceKey, DEFAULT_PREFERENCES, PreferenceChangeEvent } from '../../types/preferences';
+import { getLogger } from './logging';
+import { directoryService } from './directoryService';
 
 export class PreferencesService {
+  private logger = getLogger();
   private store: any;
   private initialized = false;
 
@@ -14,8 +17,13 @@ export class PreferencesService {
 
     try {
       const Store = (await import('electron-store')).default;
+      
+      // Ensure ~/levante directory exists
+      await directoryService.ensureBaseDir();
+      
       this.store = new Store({
       name: 'ui-preferences',
+      cwd: directoryService.getBaseDir(), // Store preferences in ~/levante/ directory
       defaults: DEFAULT_PREFERENCES,
       schema: {
         theme: {
@@ -106,9 +114,11 @@ export class PreferencesService {
     });
 
     this.initialized = true;
-    console.log('[PreferencesService] Initialized with store path:', this.store.path);
+    this.logger.preferences.info("PreferencesService initialized", { storePath: this.store.path });
     } catch (error) {
-      console.error('[PreferencesService] Failed to initialize:', error);
+      this.logger.preferences.error("Failed to initialize PreferencesService", { 
+        error: error instanceof Error ? error.message : error 
+      });
       throw error;
     }
   }
@@ -122,7 +132,16 @@ export class PreferencesService {
   get<K extends PreferenceKey>(key: K): UIPreferences[K] {
     this.ensureInitialized();
     const value = this.store.get(key);
-    console.log(`[PreferencesService] Retrieved preference: ${key} =`, value);
+    
+    // Use models category for provider/model related preferences
+    const isModelRelated = key === 'providers' || key === 'activeProvider';
+    const logger = isModelRelated ? this.logger.models : this.logger.preferences;
+    
+    logger.debug("Retrieved preference", { 
+      key, 
+      value: isModelRelated ? this.summarizeModelData(value) : value 
+    });
+    
     return value;
   }
 
@@ -130,9 +149,14 @@ export class PreferencesService {
     this.ensureInitialized();
     const previousValue = this.store.get(key);
     
-    console.log(`[PreferencesService] Setting preference: ${key}`, {
-      previousValue,
-      newValue: value
+    // Use models category for provider/model related preferences
+    const isModelRelated = key === 'providers' || key === 'activeProvider';
+    const logger = isModelRelated ? this.logger.models : this.logger.preferences;
+    
+    logger.debug("Setting preference", {
+      key,
+      previousValue: isModelRelated ? this.summarizeModelData(previousValue) : previousValue,
+      newValue: isModelRelated ? this.summarizeModelData(value) : value
     });
     
     this.store.set(key, value);
@@ -145,14 +169,19 @@ export class PreferencesService {
     };
 
     const windows = BrowserWindow.getAllWindows();
-    console.log(`[PreferencesService] Broadcasting preference change to ${windows.length} windows`);
+    logger.debug("Broadcasting preference change", { 
+      key, 
+      windowCount: windows.length 
+    });
     
     windows.forEach(window => {
       if (window && !window.isDestroyed()) {
         try {
           window.webContents.send('levante/preferences/changed', changeEvent);
         } catch (error) {
-          console.error('[PreferencesService] Failed to broadcast to window:', error);
+          this.logger.preferences.error("Failed to broadcast to window", { 
+            error: error instanceof Error ? error.message : error 
+          });
         }
       }
     });
@@ -161,13 +190,13 @@ export class PreferencesService {
   getAll(): UIPreferences {
     this.ensureInitialized();
     const preferences = this.store.store;
-    console.log('[PreferencesService] Retrieved all preferences');
+    this.logger.preferences.debug("Retrieved all preferences", { count: Object.keys(preferences).length });
     return preferences;
   }
 
   reset(): void {
     this.ensureInitialized();
-    console.log('[PreferencesService] Resetting all preferences to defaults');
+    this.logger.preferences.info("Resetting all preferences to defaults");
     this.store.clear();
     
     // Broadcast reset event
@@ -177,7 +206,9 @@ export class PreferencesService {
         try {
           window.webContents.send('levante/preferences/reset', DEFAULT_PREFERENCES);
         } catch (error) {
-          console.error('[PreferencesService] Failed to broadcast reset to window:', error);
+          this.logger.preferences.error("Failed to broadcast reset to window", { 
+            error: error instanceof Error ? error.message : error 
+          });
         }
       }
     });
@@ -190,21 +221,24 @@ export class PreferencesService {
 
   delete(key: PreferenceKey): void {
     this.ensureInitialized();
-    console.log(`[PreferencesService] Deleting preference: ${key}`);
+    this.logger.preferences.debug("Deleting preference", { key });
     this.store.delete(key);
   }
 
   // Export preferences to JSON
   export(): UIPreferences {
     this.ensureInitialized();
-    console.log('[PreferencesService] Exporting preferences');
+    this.logger.preferences.debug("Exporting preferences");
     return this.store.store;
   }
 
   // Import preferences from JSON
   import(preferences: Partial<UIPreferences>): void {
     this.ensureInitialized();
-    console.log('[PreferencesService] Importing preferences', Object.keys(preferences));
+    this.logger.preferences.debug("Importing preferences", { 
+      keys: Object.keys(preferences),
+      count: Object.keys(preferences).length 
+    });
     
     // Validate and merge with existing preferences
     Object.entries(preferences).forEach(([key, value]) => {
@@ -224,6 +258,26 @@ export class PreferencesService {
   getStoreSize(): number {
     this.ensureInitialized();
     return this.store.size;
+  }
+
+  // Helper method to summarize model data for logging
+  private summarizeModelData(value: any): any {
+    // If it's providers data, summarize for logging
+    if (Array.isArray(value) && value.length > 0 && value[0]?.models) {
+      return value.map(provider => ({
+        id: provider.id,
+        name: provider.name,
+        type: provider.type,
+        isActive: provider.isActive,
+        modelCount: Array.isArray(provider.models) ? provider.models.length : 0,
+        selectedModels: Array.isArray(provider.models) 
+          ? provider.models.filter((m: any) => m.isSelected).length 
+          : 0
+      }));
+    }
+    
+    // For other model-related data, return as-is (it's probably short)
+    return value;
   }
 }
 

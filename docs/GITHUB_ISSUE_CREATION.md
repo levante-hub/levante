@@ -145,7 +145,7 @@ Set up the Electron + React + TypeScript app with hexagonal structure and local 
 - DB service with `init` and `runMigrations`.
 
 ## Notes
-See `docs/ARCHITECTURE.md`, `docs/TECH_SPEC.md`, and `docs/DB/MIGRATIONS/0001_init.sql`.
+See `docs/ARCHITECTURE.md`, `docs/TECH_SPEC.md`, and `database/migrations/0001_init.sql`.
 
 **Priority:** P0  
 **Role:** Platform Engineer  

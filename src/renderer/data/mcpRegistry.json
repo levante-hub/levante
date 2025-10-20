@@ -1,0 +1,175 @@
+{
+  "version": "2.0.0",
+  "lastUpdated": "2025-01-14",
+  "entries": [
+    {
+      "id": "filesystem-local",
+      "name": "Local File System",
+      "description": "Read and write local files and directories",
+      "category": "system",
+      "icon": "folder",
+      "status": "active",
+      "npmPackage": "@modelcontextprotocol/server-filesystem",
+      "version": "2025.8.21",
+      "transport": {
+        "type": "stdio",
+        "autoDetect": false
+      },
+      "configuration": {
+        "fields": [
+          {
+            "key": "command",
+            "label": "MCP Server Command",
+            "type": "text",
+            "required": true,
+            "description": "Base command (always npx for npm packages)",
+            "placeholder": "npx",
+            "defaultValue": "npx"
+          },
+          {
+            "key": "args",
+            "label": "Command Arguments",
+            "type": "text",
+            "required": true,
+            "description": "Arguments including package name and allowed directories (space separated)",
+            "placeholder": "-y @modelcontextprotocol/server-filesystem /path/to/directory",
+            "defaultValue": "-y @modelcontextprotocol/server-filesystem"
+          }
+        ],
+        "defaults": {
+          "command": "npx",
+          "args": "-y @modelcontextprotocol/server-filesystem"
+        }
+      }
+    },
+    {
+      "id": "memory",
+      "name": "Memory Storage",
+      "description": "Persistent memory storage and retrieval for AI conversations",
+      "category": "ai",
+      "icon": "brain",
+      "status": "active",
+      "npmPackage": "@modelcontextprotocol/server-memory",
+      "version": "2025.8.4",
+      "transport": {
+        "type": "stdio",
+        "autoDetect": false
+      },
+      "configuration": {
+        "fields": [
+          {
+            "key": "command",
+            "label": "MCP Server Command",
+            "type": "text",
+            "required": true,
+            "description": "Path to the MCP server executable",
+            "placeholder": "npx @modelcontextprotocol/server-memory",
+            "defaultValue": "npx @modelcontextprotocol/server-memory"
+          },
+          {
+            "key": "MEMORY_FILE_PATH",
+            "label": "Memory File Path",
+            "type": "text",
+            "required": false,
+            "description": "Path to the memory storage JSON file (optional, defaults to memory.json)",
+            "placeholder": "/Users/yourusername/levante/memory.json"
+          }
+        ],
+        "defaults": {
+          "command": "npx @modelcontextprotocol/server-memory"
+        }
+      }
+    },
+    {
+      "id": "sequential-thinking",
+      "name": "Sequential Thinking",
+      "description": "Advanced problem-solving through sequential thought processes",
+      "category": "ai",
+      "icon": "zap",
+      "status": "active",
+      "npmPackage": "@modelcontextprotocol/server-sequential-thinking",
+      "version": "2025.7.1",
+      "transport": {
+        "type": "stdio",
+        "autoDetect": false
+      },
+      "configuration": {
+        "fields": [
+          {
+            "key": "command",
+            "label": "MCP Server Command",
+            "type": "text",
+            "required": true,
+            "description": "Path to the MCP server executable",
+            "placeholder": "npx @modelcontextprotocol/server-sequential-thinking",
+            "defaultValue": "npx @modelcontextprotocol/server-sequential-thinking"
+          },
+          {
+            "key": "maxThoughts",
+            "label": "Maximum Thoughts",
+            "type": "number",
+            "required": false,
+            "description": "Maximum number of sequential thoughts (default: 50)",
+            "placeholder": "50",
+            "defaultValue": "50"
+          }
+        ],
+        "defaults": {
+          "command": "npx @modelcontextprotocol/server-sequential-thinking",
+          "maxThoughts": "50"
+        }
+      }
+    }
+  ],
+  "deprecated": [
+    {
+      "id": "github",
+      "name": "GitHub (Official)",
+      "reason": "Package no longer supported. Use community github-mcp-server instead.",
+      "npmPackage": "@modelcontextprotocol/server-github",
+      "alternative": "Community alternatives available on npm"
+    },
+    {
+      "id": "puppeteer",
+      "name": "Puppeteer (Official)",
+      "reason": "Package no longer supported. Consider community browser automation alternatives.",
+      "npmPackage": "@modelcontextprotocol/server-puppeteer",
+      "alternative": "Community browser automation packages available"
+    },
+    {
+      "id": "sqlite",
+      "name": "SQLite Database",
+      "reason": "Package never existed. Use @modelcontextprotocol/server-filesystem for file operations or @modelcontextprotocol/server-memory for data storage.",
+      "npmPackage": "@modelcontextprotocol/server-sqlite",
+      "alternative": "@modelcontextprotocol/server-memory or @modelcontextprotocol/server-filesystem"
+    },
+    {
+      "id": "brave-search",
+      "name": "Brave Search",
+      "reason": "Package availability uncertain. Check npm registry for current status.",
+      "npmPackage": "@modelcontextprotocol/server-brave-search",
+      "alternative": "Community search packages may be available"
+    },
+    {
+      "id": "postgresql",
+      "name": "PostgreSQL Database", 
+      "reason": "Package availability uncertain. Check npm registry for current status.",
+      "npmPackage": "@modelcontextprotocol/server-postgres",
+      "alternative": "Community database packages may be available"
+    },
+    {
+      "id": "slack",
+      "name": "Slack Integration",
+      "reason": "Package availability uncertain. Check npm registry for current status.",
+      "npmPackage": "@modelcontextprotocol/server-slack",
+      "alternative": "Community Slack packages may be available"
+    },
+    {
+      "id": "google-drive",
+      "name": "Google Drive",
+      "reason": "Package availability uncertain. Check npm registry for current status.",
+      "npmPackage": "@modelcontextprotocol/server-gdrive",
+      "alternative": "Community cloud storage packages may be available"
+    }
+  ]
+}

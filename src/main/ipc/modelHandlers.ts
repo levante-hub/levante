@@ -1,5 +1,8 @@
 import { ipcMain } from 'electron';
 import { ModelFetchService } from '../services/modelFetchService';
+import { getLogger } from '../services/logging';
+
+const logger = getLogger();
 
 export function setupModelHandlers() {
   // Fetch OpenRouter models
@@ -12,7 +15,7 @@ export function setupModelHandlers() {
         data: models
       };
     } catch (error) {
-      console.error('[ModelHandlers] Failed to fetch OpenRouter models:', error);
+      logger.ipc.error('Failed to fetch OpenRouter models', { error: error instanceof Error ? error.message : error });
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -30,7 +33,7 @@ export function setupModelHandlers() {
         data: models
       };
     } catch (error) {
-      console.error('[ModelHandlers] Failed to fetch Gateway models:', error);
+      logger.ipc.error('Failed to fetch Gateway models', { error: error instanceof Error ? error.message : error });
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -48,7 +51,7 @@ export function setupModelHandlers() {
         data: models
       };
     } catch (error) {
-      console.error('[ModelHandlers] Failed to fetch local models:', error);
+      logger.ipc.error('Failed to fetch local models', { endpoint, error: error instanceof Error ? error.message : error });
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -56,5 +59,5 @@ export function setupModelHandlers() {
     }
   });
 
-  console.log('[ModelHandlers] IPC handlers registered');
+  logger.ipc.info('Model IPC handlers registered');
 }

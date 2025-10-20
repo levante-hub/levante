@@ -56,7 +56,7 @@ ModelStore (Zustand) → ModelService → ModelFetchService → IPC → Main Pro
 
 ## Database Schema
 
-SQLite database with migrations in `docs/DB/MIGRATIONS/`:
+SQLite database with migrations in `database/migrations/`:
 - `chat_sessions`: Session management with model tracking
 - `messages`: Message storage with streaming support
 - Schema version tracking for migrations
@@ -76,6 +76,11 @@ All IPC uses the `levante/*` namespace with structured responses:
 
 **Preferences:**
 - `levante/preferences/get|set|getAll` → Settings management
+
+**Logging:**
+- `levante/logger/log` → Send log messages from renderer to main
+- `levante/logger/isEnabled` → Check if category/level is enabled
+- `levante/logger/configure` → Update logger configuration
 
 ## State Management with Zustand
 
@@ -152,10 +157,20 @@ Environment variables loaded from:
 1. `.env.local` (highest priority, git-ignored)
 2. `.env` (committed defaults)
 
-Common variables:
+**API Keys:**
 - `OPENAI_API_KEY`
 - `ANTHROPIC_API_KEY`
 - `GOOGLE_GENERATIVE_AI_API_KEY`
+
+**Logging Configuration:**
+- `DEBUG_ENABLED` → Master switch for all debug logging
+- `DEBUG_AI_SDK` → AI service operations and streaming
+- `DEBUG_MCP` → MCP server management and tools  
+- `DEBUG_DATABASE` → Database operations and migrations
+- `DEBUG_IPC` → Inter-process communication
+- `DEBUG_PREFERENCES` → Settings and configuration
+- `DEBUG_CORE` → Application lifecycle and errors
+- `LOG_LEVEL` → Minimum log level (debug|info|warn|error)
 
 ## Testing Strategy
 
@@ -169,3 +184,52 @@ Common variables:
 - **TypeScript**: Strict mode with separate configs for main and preload processes
 - **Assets**: Icons and resources in `resources/` directory
 - **Output**: Built files in `out/` directory for development, `dist-electron/` for distribution
+- no realices comprobaciones con pnpm dev, se realizaran manualmente
+
+## Logging System
+
+Levante uses a centralized logging system for better development experience and debugging:
+
+### Usage
+
+```typescript
+// Main Process
+import { getLogger } from './services/logging';
+const logger = getLogger();
+
+// Renderer Process  
+import { logger } from '@/services/logger';
+
+// Usage examples
+logger.aiSdk.debug('Model provider loaded', { provider: 'openai' });
+logger.mcp.info('Server started', { serverId: 'filesystem' });
+logger.database.error('Migration failed', { error: error.message });
+logger.core.info('Application initialized');
+```
+
+### Categories
+
+- **ai-sdk**: AI service operations, model interactions, streaming
+- **mcp**: MCP server management, tool execution, health monitoring  
+- **database**: Database operations and migrations
+- **ipc**: Inter-process communication
+- **preferences**: Settings and configuration management
+- **core**: General application lifecycle and errors
+
+### Configuration
+
+Control logging via `.env.local`:
+
+```bash
+DEBUG_ENABLED=true
+DEBUG_AI_SDK=true
+DEBUG_MCP=true
+DEBUG_DATABASE=false
+DEBUG_IPC=false
+DEBUG_PREFERENCES=false
+DEBUG_CORE=true
+LOG_LEVEL=debug
+```
+
+See [docs/LOGGING.md](docs/LOGGING.md) for complete documentation.
+- No utilices pnpm dev

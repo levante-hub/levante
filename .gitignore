@@ -35,3 +35,6 @@ tsconfig.preload.tsbuildinfo
 .env.development.local
 .env.test.local
 .env.production.local
+
+# Vite
+.vite

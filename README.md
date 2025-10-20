@@ -108,10 +108,17 @@ We welcome contributions from the community! Here's how to get started:
 
 ### Development Workflow
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feat/your-feature`)
+2. Create a feature branch from `develop` (`git checkout develop && git checkout -b feat/your-feature`)
 3. Commit your changes (`git commit -m 'feat: add new feature'`)
 4. Push to the branch (`git push origin feat/your-feature`)
-5. Open a Pull Request
+5. Open a Pull Request targeting the `develop` branch
+6. Ensure you have at least 1 approval before merging
+
+### Branch Strategy
+- **`main`**: Production-ready releases only
+- **`develop`**: Default branch for development and integration
+- **Feature branches**: Created from `develop`, merged back via PR
+- **Branch protection**: Both `main` and `develop` require PR approval and prohibit direct pushes
 
 ### Code Guidelines
 - Follow existing code style and patterns

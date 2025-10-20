@@ -6,6 +6,7 @@
   },
   "include": [
     "src/preload/**/*.ts",
-    "src/types/**/*.ts"
+    "src/types/**/*.ts",
+    "src/main/types/**/*.ts"
   ]
 }

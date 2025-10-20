@@ -1,11 +1,20 @@
 import type { Model, ProviderConfig } from '../../types/models';
+import { getRendererLogger } from '@/services/logger';
+
+const logger = getRendererLogger();
 
 class ModelServiceImpl {
   private providers: ProviderConfig[] = [];
   private activeProviderId: string | null = null;
+  private isInitialized = false;
 
   // Initialize with default providers and load from storage
   async initialize(): Promise<void> {
+    // Prevent double initialization from React StrictMode
+    if (this.isInitialized) {
+      return;
+    }
+
     try {
       // Load providers from electron store
       const providersResult = await window.levante.preferences.get('providers');
@@ -18,9 +27,12 @@ class ModelServiceImpl {
       if (this.providers.length === 0) {
         await this.initializeDefaultProviders();
       }
+
+      this.isInitialized = true;
     } catch (error) {
-      console.error('Failed to initialize ModelService:', error);
+      logger.models.error('Failed to initialize ModelService', { error: error instanceof Error ? error.message : error });
       await this.initializeDefaultProviders();
+      this.isInitialized = true;
     }
   }
 
@@ -121,7 +133,7 @@ class ModelServiceImpl {
       try {
         await this.syncProviderModels(activeProvider.id);
       } catch (error) {
-        console.error('Failed to sync models:', error);
+        logger.models.error('Failed to sync models for getAvailableModels', { providerId: activeProvider.id, error: error instanceof Error ? error.message : error });
       }
     }
 
@@ -138,7 +150,7 @@ class ModelServiceImpl {
       try {
         await this.syncProviderModels(activeProvider.id);
       } catch (error) {
-        console.error('Failed to sync models:', error);
+        logger.models.error('Failed to sync models for getAllProviderModels', { providerId: activeProvider.id, error: error instanceof Error ? error.message : error });
       }
     }
 
@@ -209,7 +221,7 @@ class ModelServiceImpl {
         userDefined: false
       }));
     } catch (error) {
-      console.error('Failed to fetch OpenRouter models:', error);
+      logger.models.error('Failed to fetch OpenRouter models', { hasApiKey: !!apiKey, error: error instanceof Error ? error.message : error });
       throw error;
     }
   }
@@ -241,7 +253,7 @@ class ModelServiceImpl {
         pricing: this.getModelPricing(model.id)
       }));
     } catch (error) {
-      console.error('Failed to fetch Gateway models:', error);
+      logger.models.error('Failed to fetch Gateway models', { baseUrl, error: error instanceof Error ? error.message : error });
       throw error;
     }
   }
@@ -317,7 +329,7 @@ class ModelServiceImpl {
       const result = await window.levante.models.fetchLocal(endpoint);
       
       if (!result.success) {
-        console.warn('Failed to discover local models:', result.error);
+        logger.models.warn('Failed to discover local models', { endpoint, error: result.error });
         return [];
       }
 
@@ -332,7 +344,7 @@ class ModelServiceImpl {
         userDefined: false
       }));
     } catch (error) {
-      console.error('Failed to discover local models:', error);
+      logger.models.error('Failed to discover local models', { endpoint, error: error instanceof Error ? error.message : error });
       return [];
     }
   }
@@ -391,7 +403,7 @@ class ModelServiceImpl {
 
       return models;
     } catch (error) {
-      console.error(`Failed to sync models for provider ${providerId}:`, error);
+      logger.models.error('Failed to sync models for provider', { providerId, providerType: provider.type, error: error instanceof Error ? error.message : error });
       throw error;
     }
   }
@@ -409,7 +421,7 @@ class ModelServiceImpl {
         throw new Error(activeProviderResult.error || 'Failed to save active provider');
       }
     } catch (error) {
-      console.error('Failed to save providers:', error);
+      logger.models.error('Failed to save providers to preferences', { providersCount: this.providers.length, activeProviderId: this.activeProviderId, error: error instanceof Error ? error.message : error });
       throw error;
     }
   }

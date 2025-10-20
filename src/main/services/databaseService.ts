@@ -2,39 +2,37 @@ import { createClient, Client, InValue } from '@libsql/client';
 import { app } from 'electron';
 import path from 'path';
 import fs from 'fs/promises';
+import { getLogger } from './logging';
+import { directoryService } from './directoryService';
 
 export class DatabaseService {
+  private logger = getLogger();
   private client: Client | null = null;
   private dbPath: string;
 
   constructor() {
-    this.dbPath = this.getDatabasePath();
-  }
-
-  private getDatabasePath(): string {
-    if (process.env.NODE_ENV === 'development') {
-      return path.join(process.cwd(), 'dev-levante.db');
-    }
-    return path.join(app.getPath('userData'), 'levante.db');
+    this.dbPath = directoryService.getDatabasePath();
   }
 
   async initialize(): Promise<void> {
     try {
       // Ensure the directory exists
-      const dbDir = path.dirname(this.dbPath);
-      await fs.mkdir(dbDir, { recursive: true });
+      await directoryService.ensureBaseDir();
 
       // Create the client
       this.client = createClient({
         url: `file:${this.dbPath}`
       });
 
-      console.log(`Database initialized at: ${this.dbPath}`);
+      this.logger.database.info("Database initialized", { dbPath: this.dbPath });
       
       // Run migrations on initialization
       await this.runMigrations();
     } catch (error) {
-      console.error('Failed to initialize database:', error);
+      this.logger.database.error("Failed to initialize database", { 
+        error: error instanceof Error ? error.message : error,
+        dbPath: this.dbPath 
+      });
       throw error;
     }
   }
@@ -48,7 +46,10 @@ export class DatabaseService {
     const operation = this.getOperationType(sql);
     const table = this.getTableFromSql(sql);
     
-    console.log(`[DB:${operation}] ${table}: ${sql}`, {
+    this.logger.database.debug("SQL execution", {
+      operation,
+      table,
+      sql,
       params: params?.length ? params : 'none',
       timestamp: new Date().toISOString()
     });
@@ -60,7 +61,10 @@ export class DatabaseService {
       });
       
       const duration = performance.now() - startTime;
-      console.log(`[DB:${operation}] ${table}: Success (${duration.toFixed(2)}ms)`, {
+      this.logger.database.debug("SQL execution success", {
+        operation,
+        table,
+        duration: duration.toFixed(2) + 'ms',
         rowsAffected: result.rowsAffected,
         rowsReturned: result.rows.length,
         lastInsertRowid: result.lastInsertRowid
@@ -69,7 +73,10 @@ export class DatabaseService {
       return result;
     } catch (error) {
       const duration = performance.now() - startTime;
-      console.error(`[DB:${operation}] ${table}: Error (${duration.toFixed(2)}ms)`, {
+      this.logger.database.error("SQL execution failed", {
+        operation,
+        table,
+        duration: duration.toFixed(2) + 'ms',
         error: error instanceof Error ? error.message : error,
         sql,
         params
@@ -86,7 +93,9 @@ export class DatabaseService {
     const startTime = performance.now();
     const operations = queries.map(q => `${this.getOperationType(q.sql)}:${this.getTableFromSql(q.sql)}`).join(', ');
     
-    console.log(`[DB:TRANSACTION] Starting transaction with ${queries.length} operations: [${operations}]`, {
+    this.logger.database.debug("Transaction started", {
+      queryCount: queries.length,
+      operations,
       timestamp: new Date().toISOString()
     });
 
@@ -96,7 +105,8 @@ export class DatabaseService {
       const duration = performance.now() - startTime;
       const totalRowsAffected = results.reduce((sum, result) => sum + (result.rowsAffected || 0), 0);
       
-      console.log(`[DB:TRANSACTION] Success (${duration.toFixed(2)}ms)`, {
+      this.logger.database.debug("Transaction success", {
+        duration: duration.toFixed(2) + 'ms',
         operations: queries.length,
         totalRowsAffected,
         results: results.length
@@ -105,7 +115,8 @@ export class DatabaseService {
       return results;
     } catch (error) {
       const duration = performance.now() - startTime;
-      console.error(`[DB:TRANSACTION] Error (${duration.toFixed(2)}ms)`, {
+      this.logger.database.error("Transaction failed", {
+        duration: duration.toFixed(2) + 'ms',
         error: error instanceof Error ? error.message : error,
         operations: queries.length,
         queries: queries.map(q => ({ sql: q.sql, paramsCount: q.args?.length || 0 }))
@@ -126,14 +137,17 @@ export class DatabaseService {
 
       // Get current schema version
       const currentVersion = await this.getCurrentSchemaVersion();
-      console.log(`Current schema version: ${currentVersion}`);
+      this.logger.database.info("Database migration check", { currentSchemaVersion: currentVersion });
 
       // Apply migrations
       const migrations = this.getMigrations();
       
       for (const migration of migrations) {
         if (migration.version > currentVersion) {
-          console.log(`Applying migration ${migration.version}: ${migration.name}`);
+          this.logger.database.info("Applying database migration", { 
+            version: migration.version, 
+            name: migration.name 
+          });
           
           // Execute migration in transaction
           const migrationQueries = migration.queries.map(sql => ({ sql }));
@@ -144,11 +158,13 @@ export class DatabaseService {
           
           await this.transaction([...migrationQueries, versionQuery]);
           
-          console.log(`Migration ${migration.version} applied successfully`);
+          this.logger.database.info("Database migration completed", { version: migration.version });
         }
       }
     } catch (error) {
-      console.error('Migration failed:', error);
+      this.logger.database.error("Database migration failed", { 
+        error: error instanceof Error ? error.message : error 
+      });
       throw error;
     }
   }
@@ -182,7 +198,7 @@ export class DatabaseService {
             created_at INTEGER NOT NULL,
             updated_at INTEGER NOT NULL
           )`,
-          
+
           // Messages
           `CREATE TABLE IF NOT EXISTS messages (
             id TEXT PRIMARY KEY,
@@ -193,7 +209,7 @@ export class DatabaseService {
             created_at INTEGER NOT NULL,
             FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE
           )`,
-          
+
           // AI Providers
           `CREATE TABLE IF NOT EXISTS providers (
             id TEXT PRIMARY KEY,
@@ -203,7 +219,7 @@ export class DatabaseService {
             enabled BOOLEAN DEFAULT true,
             created_at INTEGER NOT NULL
           )`,
-          
+
           // AI Models
           `CREATE TABLE IF NOT EXISTS models (
             id TEXT PRIMARY KEY,
@@ -216,7 +232,7 @@ export class DatabaseService {
             enabled BOOLEAN DEFAULT true,
             FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE CASCADE
           )`,
-          
+
           // MCP Servers
           `CREATE TABLE IF NOT EXISTS mcp_servers (
             id TEXT PRIMARY KEY,
@@ -227,7 +243,7 @@ export class DatabaseService {
             enabled BOOLEAN DEFAULT true,
             created_at INTEGER NOT NULL
           )`,
-          
+
           // MCP Tools
           `CREATE TABLE IF NOT EXISTS mcp_tools (
             id TEXT PRIMARY KEY,
@@ -239,7 +255,7 @@ export class DatabaseService {
             consent_required BOOLEAN DEFAULT true,
             FOREIGN KEY (server_id) REFERENCES mcp_servers(id) ON DELETE CASCADE
           )`,
-          
+
           // Application settings
           `CREATE TABLE IF NOT EXISTS settings (
             key TEXT PRIMARY KEY,
@@ -247,19 +263,49 @@ export class DatabaseService {
             type TEXT DEFAULT 'string',
             updated_at INTEGER NOT NULL
           )`,
-          
+
           // Create indexes
-          `CREATE INDEX IF NOT EXISTS idx_messages_session_created 
+          `CREATE INDEX IF NOT EXISTS idx_messages_session_created
            ON messages(session_id, created_at)`,
-          
-          `CREATE INDEX IF NOT EXISTS idx_messages_content_search 
+
+          `CREATE INDEX IF NOT EXISTS idx_messages_content_search
            ON messages(content)`,
-          
-          `CREATE INDEX IF NOT EXISTS idx_models_provider_enabled 
+
+          `CREATE INDEX IF NOT EXISTS idx_models_provider_enabled
            ON models(provider_id, enabled)`,
-          
-          `CREATE INDEX IF NOT EXISTS idx_chat_sessions_updated 
+
+          `CREATE INDEX IF NOT EXISTS idx_chat_sessions_updated
            ON chat_sessions(updated_at DESC)`
+        ]
+      },
+      {
+        version: 2,
+        name: 'Clean up unused tables',
+        queries: [
+          // Drop unused tables that are not being used by the application
+          // These tables were created initially but the app evolved to use:
+          // - electron-store for preferences (providers, models, settings)
+          // - JSON config files for MCP configuration (mcp_servers, mcp_tools)
+
+          // Disable foreign key constraints temporarily
+          `PRAGMA foreign_keys = OFF`,
+
+          // Drop unused MCP tables
+          `DROP TABLE IF EXISTS mcp_tools`,
+          `DROP TABLE IF EXISTS mcp_servers`,
+
+          // Drop unused AI provider/model tables
+          `DROP TABLE IF EXISTS models`,
+          `DROP TABLE IF EXISTS providers`,
+
+          // Drop unused settings table
+          `DROP TABLE IF EXISTS settings`,
+
+          // Drop related indexes that are no longer needed
+          `DROP INDEX IF EXISTS idx_models_provider_enabled`,
+
+          // Re-enable foreign key constraints
+          `PRAGMA foreign_keys = ON`
         ]
       }
     ];
@@ -269,7 +315,7 @@ export class DatabaseService {
     if (this.client) {
       await this.client.close();
       this.client = null;
-      console.log('Database connection closed');
+      this.logger.database.info("Database connection closed");
     }
   }
 
