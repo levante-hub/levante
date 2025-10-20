@@ -88,6 +88,10 @@ jobs:
         if: matrix.platform == 'darwin'
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          # Notarization env vars needed for electron-forge publish
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: pnpm run publish
 
       - name: Package & Publish Beta (Windows)
