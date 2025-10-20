@@ -20,6 +20,12 @@ jobs:
           - os: macos-latest
             platform: darwin
             arch: arm64
+          - os: macos-13  # Intel Mac
+            platform: darwin
+            arch: x64
+          - os: ubuntu-latest
+            platform: linux
+            arch: x64
           - os: windows-latest
             platform: win32
             arch: x64
@@ -96,6 +102,12 @@ jobs:
 
       - name: Package & Publish Beta (Windows)
         if: matrix.platform == 'win32'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: pnpm run publish
+
+      - name: Package & Publish Beta (Linux)
+        if: matrix.platform == 'linux'
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
         run: pnpm run publish
