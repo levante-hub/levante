@@ -88,7 +88,9 @@ module.exports = {
   },
 
   packagerConfig: {
-    asar: true,
+    asar: {
+      unpack: '**/@libsql/**/*.node'
+    },
     name: 'Levante',
     executableName: 'Levante',
     appBundleId: 'com.levante.app',
