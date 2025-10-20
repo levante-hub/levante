@@ -161,8 +161,8 @@ module.exports = {
       name: '@electron-forge/maker-squirrel',
       config: {
         name: 'Levante',
-        setupIcon: './resources/icons/icon.ico',
-        loadingGif: './resources/install-spinner.gif', // Optional: Add install animation
+        setupIcon: './resources/icons/icon.ico'
+        // loadingGif is optional, can be added later if needed
         // Code signing will be added in Phase 2
         // certificateFile: './cert.pfx',
         // certificatePassword: process.env.WINDOWS_CERTIFICATE_PASSWORD
