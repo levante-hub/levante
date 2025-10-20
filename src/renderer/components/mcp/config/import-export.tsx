@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { 
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -16,14 +16,15 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { 
-  Download, 
-  Upload, 
-  FileText, 
-  AlertCircle, 
+import {
+  Download,
+  Upload,
+  FileText,
+  AlertCircle,
   CheckCircle,
   Info,
-  Settings
+  Settings,
+  RefreshCw
 } from 'lucide-react';
 import { useMCPStore } from '@/stores/mcpStore';
 import { toast } from 'sonner';
@@ -33,9 +34,11 @@ const logger = getRendererLogger();
 
 interface ImportExportProps {
   variant?: 'buttons' | 'dropdown';
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }
 
-export function ImportExport({ variant = 'dropdown' }: ImportExportProps) {
+export function ImportExport({ variant = 'dropdown', onRefresh, isRefreshing = false }: ImportExportProps) {
   const { exportConfiguration, importConfiguration, activeServers } = useMCPStore();
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -147,14 +150,23 @@ export function ImportExport({ variant = 'dropdown' }: ImportExportProps) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem 
+            {onRefresh && (
+              <DropdownMenuItem
+                onClick={onRefresh}
+                disabled={isRefreshing}
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                {isRefreshing ? 'Refreshing...' : 'Refresh Configuration'}
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem
               onClick={handleExport}
               disabled={isExporting || activeServers.length === 0}
             >
               <Download className="w-4 h-4 mr-2" />
               {isExporting ? 'Exporting...' : 'Export Config'}
             </DropdownMenuItem>
-            <DropdownMenuItem 
+            <DropdownMenuItem
               onClick={() => setShowImportDialog(true)}
               disabled={isImporting}
             >

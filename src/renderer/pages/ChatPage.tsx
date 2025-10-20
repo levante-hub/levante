@@ -9,21 +9,17 @@ import {
 import {
   PromptInput,
   PromptInputButton,
-  PromptInputModelSelect,
-  PromptInputModelSelectContent,
-  PromptInputModelSelectItem,
-  PromptInputModelSelectTrigger,
-  PromptInputModelSelectValue,
   PromptInputSubmit,
   PromptInputTextarea,
   PromptInputToolbar,
   PromptInputTools,
 } from '@/components/ai-elements/prompt-input';
+import { ModelSearchableSelect } from '@/components/ai-elements/model-searchable-select';
 import { useState, useEffect } from 'react';
 import { useChatStore } from '@/stores/chatStore';
 import { StreamingProvider, useStreamingContext } from '@/contexts/StreamingContext';
 import { ChatList } from '@/components/chat/ChatList';
-import { GlobeIcon, Loader2, Wrench } from 'lucide-react';
+import { GlobeIcon, Wrench } from 'lucide-react';
 import {
   Source,
   Sources,
@@ -35,7 +31,7 @@ import {
   ReasoningContent,
   ReasoningTrigger,
 } from '@/components/ai-elements/reasoning';
-import { Loader } from '@/components/ai-elements/loader';
+import { BreathingLogo } from '@/components/ai-elements/breathing-logo';
 import { ToolCall } from '@/components/ai-elements/tool-call';
 import { modelService } from '@/services/modelService';
 import type { Model } from '../../types/models';
@@ -55,6 +51,7 @@ const ChatPageContent = () => {
   // Using Zustand selectors for optimal performance
   const messages = useChatStore((state) => state.messages);
   const status = useChatStore((state) => state.status);
+  const streamingMessage = useChatStore((state) => state.streamingMessage);
   const sendMessage = useChatStore((state) => state.sendMessage);
   const stopStreaming = useChatStore((state) => state.stopStreaming);
   const setOnStreamFinish = useChatStore((state) => state.setOnStreamFinish);
@@ -191,7 +188,13 @@ const ChatPageContent = () => {
               </div>
             )
           })}
-          {status === 'submitted' && <Loader />}
+          {status === 'streaming' && streamingMessage && !streamingMessage.content.trim() && (
+            <Message from="assistant">
+              <MessageContent>
+                <BreathingLogo />
+              </MessageContent>
+            </Message>
+          )}
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>
@@ -218,34 +221,13 @@ const ChatPageContent = () => {
                 <Wrench size={16} />
                 <span>Tools</span>
               </PromptInputButton>
-              <PromptInputModelSelect
-                onValueChange={(value) => {
-                  setModel(value);
-                }}
+              <ModelSearchableSelect
                 value={model}
-              >
-                <PromptInputModelSelectTrigger>
-                  <PromptInputModelSelectValue />
-                </PromptInputModelSelectTrigger>
-                <PromptInputModelSelectContent>
-                  {modelsLoading ? (
-                    <div className="flex items-center justify-center p-2">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span className="ml-2 text-sm">Loading models...</span>
-                    </div>
-                  ) : availableModels.length > 0 ? (
-                    availableModels.map((modelItem) => (
-                      <PromptInputModelSelectItem key={modelItem.id} value={modelItem.id}>
-                        {modelItem.name}
-                      </PromptInputModelSelectItem>
-                    ))
-                  ) : (
-                    <div className="flex items-center justify-center p-2 text-sm text-muted-foreground">
-                      No models available. Configure a provider in Settings.
-                    </div>
-                  )}
-                </PromptInputModelSelectContent>
-              </PromptInputModelSelect>
+                onValueChange={setModel}
+                models={availableModels}
+                loading={modelsLoading}
+                placeholder={availableModels.length === 0 ? "No models available" : "Select model..."}
+              />
             </PromptInputTools>
             <PromptInputSubmit disabled={!input} status={status} />
           </PromptInputToolbar>

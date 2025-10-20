@@ -489,9 +489,40 @@ export const useChatStore = create<ChatStore>()(
           await window.levante.streamChat(
             { messages: apiMessages, model, webSearch, enableMCP },
             (chunk) => {
+              // Handle error chunks
+              if (chunk.error) {
+                console.error('[ChatStore] Stream error:', chunk.error);
+
+                // If there's accumulated response, add the error to it
+                if (fullResponse) {
+                  fullResponse += `\n\n❌ Error: ${chunk.error}`;
+                } else {
+                  fullResponse = `❌ Error: ${chunk.error}`;
+                }
+
+                set((state) => ({
+                  streamingMessage: state.streamingMessage ? {
+                    ...state.streamingMessage,
+                    content: fullResponse,
+                    parts: [{ type: 'text', text: fullResponse }]
+                  } : null,
+                  status: 'error'
+                }));
+                get().updateDisplayMessages();
+
+                // If done with error, save the error message
+                if (chunk.done) {
+                  get().addMessage(fullResponse, 'assistant').then(() => {
+                    set({ streamingMessage: null });
+                    get().updateDisplayMessages();
+                  });
+                }
+                return; // Stop processing this chunk
+              }
+
               if (chunk.delta) {
                 fullResponse += chunk.delta;
-                
+
                 set((state) => ({
                   streamingMessage: state.streamingMessage ? {
                     ...state.streamingMessage,
@@ -501,7 +532,7 @@ export const useChatStore = create<ChatStore>()(
                 }));
                 get().updateDisplayMessages();
               }
-              
+
               if (chunk.sources) {
                 set((state) => ({
                   streamingMessage: state.streamingMessage ? {

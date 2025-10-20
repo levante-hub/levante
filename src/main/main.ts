@@ -6,7 +6,7 @@ import { databaseService } from "./services/databaseService";
 import { setupDatabaseHandlers } from "./ipc/databaseHandlers";
 import { setupPreferencesHandlers } from "./ipc/preferencesHandlers";
 import { setupModelHandlers } from "./ipc/modelHandlers";
-import { registerMCPHandlers } from "./ipc/mcpHandlers";
+import { registerMCPHandlers, configManager } from "./ipc/mcpHandlers";
 import { setupLoggerHandlers } from "./ipc/loggerHandlers";
 import { registerDebugHandlers } from "./ipc/debugHandlers";
 import { preferencesService } from "./services/preferencesService";
@@ -139,6 +139,16 @@ app.whenReady().then(async () => {
     // Could show error dialog or continue with degraded functionality
   }
 
+  // Migrate MCP configuration to include disabled section
+  try {
+    await configManager.migrateConfiguration();
+    logger.core.info('MCP configuration migrated successfully');
+  } catch (error) {
+    logger.core.error('Failed to migrate MCP configuration', {
+      error: error instanceof Error ? error.message : error
+    });
+  }
+
   // Setup IPC handlers
   setupDatabaseHandlers();
   setupPreferencesHandlers();
@@ -220,7 +230,7 @@ ipcMain.handle("levante/chat/stream", async (event, request: ChatRequest) => {
           });
           break;
         }
-        
+
         // Send chunk immediately without buffering (pattern from Expo)
         event.sender.send(`levante/chat/stream/${streamId}`, chunk);
         // Small yield to prevent blocking the event loop
@@ -233,9 +243,9 @@ ipcMain.handle("levante/chat/stream", async (event, request: ChatRequest) => {
         }
       }
     } catch (error) {
-      logger.aiSdk.error("AI Stream error", { 
+      logger.aiSdk.error("AI Stream error", {
         streamId,
-        error: error instanceof Error ? error.message : error 
+        error: error instanceof Error ? error.message : error
       });
       event.sender.send(`levante/chat/stream/${streamId}`, {
         error: error instanceof Error ? error.message : "Stream error",

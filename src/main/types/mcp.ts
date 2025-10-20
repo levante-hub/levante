@@ -7,10 +7,12 @@ export interface MCPServerConfig {
   baseUrl?: string;
   headers?: Record<string, string>;
   transport: 'stdio' | 'http' | 'sse';
+  enabled?: boolean;  // Added by listServers(), not stored in JSON
 }
 
 export interface MCPConfiguration {
   mcpServers: Record<string, Omit<MCPServerConfig, 'id'>>;
+  disabled?: Record<string, Omit<MCPServerConfig, 'id'>>;
 }
 
 export interface Tool {
