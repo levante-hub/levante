@@ -58,9 +58,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # macOS signing (optional - only if secrets are configured)
+      # macOS signing (required for signed builds)
       - name: Import Apple certificate (macOS)
-        if: matrix.platform == 'darwin' && secrets.APPLE_CERTIFICATE_BASE64 != ''
+        if: matrix.platform == 'darwin'
         env:
           APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -97,7 +97,7 @@ jobs:
         run: pnpm run publish
 
       - name: Cleanup keychain (macOS)
-        if: matrix.platform == 'darwin' && always() && secrets.APPLE_CERTIFICATE_BASE64 != ''
+        if: matrix.platform == 'darwin' && always()
         run: security delete-keychain temp.keychain || true
 
       # Mark as pre-release
