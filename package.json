@@ -110,6 +110,8 @@
     "@electron-forge/plugin-auto-unpack-natives": "^7.10.2",
     "@electron-forge/plugin-vite": "^7.10.2",
     "@electron-forge/publisher-github": "^7.10.2",
+    "@electron/notarize": "^3.1.0",
+    "@electron/osx-sign": "^2.2.0",
     "@playwright/test": "^1.55.0",
     "@types/fs-extra": "^11.0.4",
     "@types/node": "^24.3.0",
