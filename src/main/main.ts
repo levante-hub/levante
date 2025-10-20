@@ -21,6 +21,23 @@ const logger = getLogger();
 // Explicitly initialize logger with environment variables
 initializeLogger();
 
+// Enable auto-updates (official Electron module)
+// Only enable in production builds
+if (!process.env.NODE_ENV || process.env.NODE_ENV === 'production') {
+  // Usar require() con destructuring porque updateElectronApp es un named export
+  const { updateElectronApp } = require('update-electron-app');
+  updateElectronApp({
+    repo: 'levante-hub/levante',
+    updateInterval: '1 hour', // Check for updates every hour
+    notifyUser: true, // Show update notifications to user
+    logger: {
+      log: (...args: any[]) => logger.core.info('Auto-update:', ...args),
+      error: (...args: any[]) => logger.core.error('Auto-update error:', ...args)
+    }
+  });
+  logger.core.info('Auto-update system initialized');
+}
+
 // Keep a global reference of the window object
 let mainWindow: BrowserWindow | null = null;
 
@@ -35,7 +52,8 @@ function createWindow(): void {
     icon: join(__dirname, "../../resources/icons/icon.png"), // App icon
     titleBarStyle: process.platform === "darwin" ? "default" : "default",
     webPreferences: {
-      preload: join(__dirname, "../preload/preload.js"),
+      // Con Electron Forge + Vite, preload.js está en __dirname directamente
+      preload: join(__dirname, "preload.js"),
       sandbox: false, // Required for some native modules
       contextIsolation: true,
       nodeIntegration: false,
@@ -44,13 +62,32 @@ function createWindow(): void {
   });
 
   // Load the app
-  if (
+  // Electron Forge usa MAIN_WINDOW_VITE_DEV_SERVER_URL para dev
+  // electron-vite usa ELECTRON_RENDERER_URL para dev
+
+  // Debug: ver qué variables están disponibles
+  logger.core.debug('Environment variables', {
+    MAIN_WINDOW_VITE_DEV_SERVER_URL: process.env["MAIN_WINDOW_VITE_DEV_SERVER_URL"],
+    ELECTRON_RENDERER_URL: process.env["ELECTRON_RENDERER_URL"],
+    NODE_ENV: process.env.NODE_ENV,
+    viteVars: Object.keys(process.env).filter(k => k.includes('VITE'))
+  });
+
+  if (process.env["MAIN_WINDOW_VITE_DEV_SERVER_URL"]) {
+    logger.core.info('Loading from Forge dev server', { url: process.env["MAIN_WINDOW_VITE_DEV_SERVER_URL"] });
+    mainWindow.loadURL(process.env["MAIN_WINDOW_VITE_DEV_SERVER_URL"]);
+  } else if (
     process.env.NODE_ENV === "development" &&
     process.env["ELECTRON_RENDERER_URL"]
   ) {
+    logger.core.info('Loading from electron-vite dev server', { url: process.env["ELECTRON_RENDERER_URL"] });
     mainWindow.loadURL(process.env["ELECTRON_RENDERER_URL"]);
   } else {
-    mainWindow.loadFile(join(__dirname, "../renderer/index.html"));
+    // En producción con Forge: main está en .vite/build/main.js
+    // y renderer está en .vite/renderer/main_window/index.html
+    const filePath = join(__dirname, "../renderer/main_window/index.html");
+    logger.core.info('Loading from file (production build)', { filePath });
+    mainWindow.loadFile(filePath);
   }
 
   // Show window when ready to prevent visual flash

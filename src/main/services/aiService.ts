@@ -11,7 +11,7 @@ import { google } from "@ai-sdk/google";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { createGateway } from "@ai-sdk/gateway";
 import { tool } from "ai";
-import { z } from "zod";
+import { z } from "zod/v3";
 import type { ProviderConfig } from "../../types/models";
 import { mcpService, configManager } from "../ipc/mcpHandlers";
 import { mcpHealthService } from "./mcpHealthService.js";
