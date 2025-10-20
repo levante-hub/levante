@@ -100,14 +100,28 @@ module.exports = {
       'hardened-runtime': true,
       entitlements: 'build/entitlements.mac.plist',
       'entitlements-inherit': 'build/entitlements.mac.inherit.plist',
-      'signature-flags': 'library'
+      'signature-flags': 'library',
+      'optionsForFile': (_filePath) => {
+        // Sign all native modules with same entitlements
+        return {
+          hardenedRuntime: true,
+          entitlements: 'build/entitlements.mac.inherit.plist'
+        }
+      }
     } : {
       // Local: use specific identity
       identity: 'Developer ID Application',
       'hardened-runtime': true,
       entitlements: 'build/entitlements.mac.plist',
       'entitlements-inherit': 'build/entitlements.mac.inherit.plist',
-      'signature-flags': 'library'
+      'signature-flags': 'library',
+      'optionsForFile': (_filePath) => {
+        // Sign all native modules with same entitlements
+        return {
+          hardenedRuntime: true,
+          entitlements: 'build/entitlements.mac.inherit.plist'
+        }
+      }
     },
 
     // macOS Notarization
