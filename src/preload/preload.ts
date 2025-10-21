@@ -116,11 +116,16 @@ export interface LevanteAPI {
   streamChat: (request: ChatRequest, onChunk: (chunk: ChatStreamChunk) => void) => Promise<string>
   stopStreaming: (streamId?: string) => Promise<{ success: boolean; error?: string }>
   
-  // Model functionality  
+  // Model functionality
   models: {
     fetchOpenRouter: (apiKey?: string) => Promise<{ success: boolean; data?: any[]; error?: string }>
     fetchGateway: (apiKey: string, baseUrl?: string) => Promise<{ success: boolean; data?: any[]; error?: string }>
     fetchLocal: (endpoint: string) => Promise<{ success: boolean; data?: any[]; error?: string }>
+    fetchOpenAI: (apiKey: string) => Promise<{ success: boolean; data?: any[]; error?: string }>
+    fetchGoogle: (apiKey: string) => Promise<{ success: boolean; data?: any[]; error?: string }>
+    fetchAnthropic: (apiKey: string) => Promise<{ success: boolean; data?: any[]; error?: string }>
+    fetchGroq: (apiKey: string) => Promise<{ success: boolean; data?: any[]; error?: string }>
+    fetchXAI: (apiKey: string) => Promise<{ success: boolean; data?: any[]; error?: string }>
   }
   
   // Database functionality
@@ -307,12 +312,22 @@ const api: LevanteAPI = {
 
   // Model API
   models: {
-    fetchOpenRouter: (apiKey?: string) => 
+    fetchOpenRouter: (apiKey?: string) =>
       ipcRenderer.invoke('levante/models/openrouter', apiKey),
-    fetchGateway: (apiKey: string, baseUrl?: string) => 
+    fetchGateway: (apiKey: string, baseUrl?: string) =>
       ipcRenderer.invoke('levante/models/gateway', apiKey, baseUrl),
-    fetchLocal: (endpoint: string) => 
+    fetchLocal: (endpoint: string) =>
       ipcRenderer.invoke('levante/models/local', endpoint),
+    fetchOpenAI: (apiKey: string) =>
+      ipcRenderer.invoke('levante/models/openai', apiKey),
+    fetchGoogle: (apiKey: string) =>
+      ipcRenderer.invoke('levante/models/google', apiKey),
+    fetchAnthropic: (apiKey: string) =>
+      ipcRenderer.invoke('levante/models/anthropic', apiKey),
+    fetchGroq: (apiKey: string) =>
+      ipcRenderer.invoke('levante/models/groq', apiKey),
+    fetchXAI: (apiKey: string) =>
+      ipcRenderer.invoke('levante/models/xai', apiKey),
   },
 
   // Database API
