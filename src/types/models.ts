@@ -13,17 +13,25 @@ export interface Model {
   isSelected?: boolean; // For user model selection
 }
 
+export type CloudProviderType = 'openai' | 'anthropic' | 'google' | 'groq' | 'xai';
+export type ProviderType = 'openrouter' | 'vercel-gateway' | 'local' | CloudProviderType;
+
 export interface ProviderConfig {
   id: string;
   name: string;
-  type: 'openrouter' | 'vercel-gateway' | 'local' | 'cloud';
+  type: ProviderType;
   apiKey?: string;
   baseUrl?: string;
-  models: Model[];
+  models: Model[]; // In-memory: full list. In storage: only selected models for 'dynamic' providers
+  selectedModelIds?: string[]; // IDs of selected models (for dynamic providers, saved to disk)
   isActive: boolean;
   settings: Record<string, any>;
   modelSource: 'dynamic' | 'user-defined';
   lastModelSync?: number;
+  // Cloud provider specific fields
+  organizationId?: string; // For OpenAI
+  projectId?: string; // For Google, Anthropic
+  region?: string; // For AWS Bedrock (future)
 }
 
 export interface ModelService {

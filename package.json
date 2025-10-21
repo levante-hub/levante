@@ -1,6 +1,6 @@
 {
   "name": "Levante",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A friendly, private desktop chat app with AI and MCP integration",
   "main": ".vite/build/main.js",
   "homepage": "https://github.com/minte-community/levante",
@@ -104,7 +104,9 @@
   },
   "devDependencies": {
     "@electron-forge/cli": "^7.10.2",
+    "@electron-forge/maker-deb": "^7.10.2",
     "@electron-forge/maker-dmg": "^7.10.2",
+    "@electron-forge/maker-rpm": "^7.10.2",
     "@electron-forge/maker-squirrel": "^7.10.2",
     "@electron-forge/maker-zip": "^7.10.2",
     "@electron-forge/plugin-auto-unpack-natives": "^7.10.2",

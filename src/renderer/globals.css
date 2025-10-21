@@ -5,6 +5,7 @@
 @tailwind utilities;
 
 
+
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -65,47 +66,87 @@
   }
 
   .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
+    /* Cursor-inspired warm dark theme */
+    --background: 36 23% 7%;        /* #14120b - Main background */
+    --foreground: 60 7% 93%;        /* #edecec - Main text */
 
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
+    --card: 40 18% 10%;             /* #1b1913 - Card background */
+    --card-foreground: 60 7% 93%;   /* #edecec - Card text */
 
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 40 18% 10%;          /* #1b1913 - Popover background */
+    --popover-foreground: 60 7% 93%; /* #edecec - Popover text */
 
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
+    --primary: 60 7% 93%;           /* #edecec - Primary (text-like) */
+    --primary-foreground: 36 23% 7%; /* #14120b - Primary foreground */
 
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
+    --secondary: 38 16% 25%;        /* Lighter for user messages - better contrast */
+    --secondary-foreground: 60 7% 93%; /* #edecec - Secondary text */
 
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
+    --muted: 38 16% 13%;            /* #26241e - Muted background */
+    --muted-foreground: 40 5% 84%;  /* #d7d6d5 - Muted text */
 
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
+    --accent: 40 14% 11%;           /* #201e18 - Accent/hover */
+    --accent-foreground: 60 7% 93%; /* #edecec - Accent text */
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive: 348 63% 50%;     /* Red for destructive actions */
+    --destructive-foreground: 60 7% 93%; /* #edecec */
 
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
+    --border: 38 16% 13%;           /* #26241e - Border color */
+    --input: 40 14% 11%;            /* #201e18 - Input background */
+    --ring: 60 7% 93%;              /* #edecec - Focus ring */
+
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+
+    --sidebar-background: 40 18% 10%;   /* #1b1913 */
+    --sidebar-foreground: 60 7% 93%;    /* #edecec */
+    --sidebar-primary: 60 7% 93%;       /* #edecec */
+    --sidebar-primary-foreground: 36 23% 7%; /* #14120b */
+    --sidebar-accent: 40 14% 11%;       /* #201e18 - hover */
+    --sidebar-accent-foreground: 60 7% 93%; /* #edecec */
+    --sidebar-border: 38 16% 13%;       /* #26241e */
+    --sidebar-ring: 60 7% 93%;          /* #edecec */
   }
+}
+
+/* Custom Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted));
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.3);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: hsl(38 16% 25%);  /* Más claro y visible */
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: hsl(38 16% 35%);  /* Aún más claro on hover */
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted)) transparent;
+}
+
+.dark * {
+  scrollbar-color: hsl(38 16% 25%) transparent;
 }
 
 /* Electron window dragging */
@@ -149,5 +190,17 @@
     height: auto !important;
     max-width: 100% !important;
     min-height: 100px !important;
+  }
+
+  /* Breathing animation for Levante logo */
+  @keyframes breathe {
+    0%, 100% {
+      transform: scale(0.95);
+      opacity: 0.6;
+    }
+    50% {
+      transform: scale(1.05);
+      opacity: 1;
+    }
   }
 }

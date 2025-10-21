@@ -5,15 +5,21 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Loader2, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { IntegrationCard } from './integration-card';
-import { AddNewModal } from './add-new-modal';
-import { ServerConfigModal } from '../config/server-config-modal';
+import { JSONEditorPanel } from '../config/json-editor-panel';
+import { FullJSONEditorPanel } from '../config/full-json-editor-panel';
 import { ImportExport } from '../config/import-export';
 import { NetworkStatus } from '../connection/connection-status';
 import { getRendererLogger } from '@/services/logger';
+import { toast } from 'sonner';
+import { MCPServerConfig } from '@/types/mcp';
 
 const logger = getRendererLogger();
 
-export function StoreLayout() {
+interface StoreLayoutProps {
+  mode: 'active' | 'store';
+}
+
+export function StoreLayout({ mode }: StoreLayoutProps) {
   const {
     registry,
     activeServers,
@@ -24,11 +30,14 @@ export function StoreLayout() {
     loadActiveServers,
     refreshConnectionStatus,
     connectServer,
-    disconnectServer
+    disconnectServer,
+    addServer,
+    removeServer
   } = useMCPStore();
 
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [configServerId, setConfigServerId] = useState<string | null>(null);
+  const [isFullJSONEditorOpen, setIsFullJSONEditorOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     // Load initial data
@@ -62,6 +71,84 @@ export function StoreLayout() {
     setConfigServerId(serverId);
   };
 
+  const handleAddToActive = async (entryId: string) => {
+    const registryEntry = registry.entries.find(e => e.id === entryId);
+    if (!registryEntry) return;
+
+    try {
+      // Construir config desde template
+      const serverConfig: MCPServerConfig = {
+        id: entryId,
+        name: registryEntry.name,
+        transport: registryEntry.configuration?.template?.type || 'stdio',
+        command: registryEntry.configuration?.template?.command || '',
+        args: registryEntry.configuration?.template?.args || [],
+        env: registryEntry.configuration?.template?.env || {}
+      };
+
+      // Guardar directo en .mcp.json (sin test, sin connect)
+      await addServer(serverConfig);
+
+      // Recargar lista de servidores activos
+      await loadActiveServers();
+
+      // Feedback al usuario
+      toast.success(`${registryEntry.name} added to Active MCPs`);
+    } catch (error) {
+      toast.error('Failed to add server');
+    }
+  };
+
+  const handleDeleteServer = async (serverId: string) => {
+    try {
+      await removeServer(serverId);
+
+      // Recargar lista de servidores activos
+      await loadActiveServers();
+
+      // Feedback al usuario
+      toast.success('Server deleted successfully');
+    } catch (error) {
+      logger.mcp.error('Failed to delete server', { serverId, error });
+      toast.error('Failed to delete server');
+    }
+  };
+
+  const handleRefreshConfiguration = async () => {
+    setIsRefreshing(true);
+
+    try {
+      logger.mcp.info('Refreshing MCP configuration from Store page');
+      const result = await window.levante.mcp.refreshConfiguration();
+
+      if (result.success) {
+        // Reload active servers and connection status
+        await loadActiveServers();
+        await refreshConnectionStatus();
+
+        toast.success('Configuration refreshed successfully');
+
+        // Log any server connection errors
+        if (result.data?.serverResults) {
+          const failedServers = Object.entries(result.data.serverResults)
+            .filter(([_, res]: [string, any]) => !res.success)
+            .map(([id]) => id);
+
+          if (failedServers.length > 0) {
+            toast.warning(`Some servers failed to connect: ${failedServers.join(', ')}`);
+          }
+        }
+      } else {
+        toast.error(result.error || 'Failed to refresh configuration');
+      }
+    } catch (error) {
+      logger.mcp.error('MCP refresh error in Store page', { error: error instanceof Error ? error.message : error });
+      toast.error('Failed to refresh configuration');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   if (error) {
     return (
       <div className="container mx-auto p-6">
@@ -74,22 +161,33 @@ export function StoreLayout() {
   }
 
   return (
-    <div className="px-10 py-6">
+    <div className="max-w-4xl mx-auto space-y-6 px-4">
       <div className="mb-6">
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold mb-2">MCP Store</h1>
+            <h1 className="text-3xl font-bold mb-2">
+              {mode === 'active' ? 'Active MCPs' : 'MCP Store'}
+            </h1>
             <p className="text-muted-foreground">
-              Manage your Model Context Protocol integrations to extend AI capabilities
+              {mode === 'active'
+                ? 'Manage your connected MCP servers'
+                : 'Discover and configure new MCP integrations'
+              }
             </p>
           </div>
           <div className="flex items-center gap-4">
-            <NetworkStatus
-              connectedCount={Object.values(connectionStatus).filter(s => s === 'connected').length}
-              totalCount={activeServers.length}
-              size="md"
+            {mode === 'active' && (
+              <NetworkStatus
+                connectedCount={Object.values(connectionStatus).filter(s => s === 'connected').length}
+                totalCount={activeServers.length}
+                size="md"
+              />
+            )}
+            <ImportExport
+              variant="dropdown"
+              onRefresh={handleRefreshConfiguration}
+              isRefreshing={isRefreshing}
             />
-            <ImportExport variant="dropdown" />
           </div>
         </div>
       </div>
@@ -101,29 +199,90 @@ export function StoreLayout() {
         </div>
       )}
 
-      {/* Active Integrations Section */}
-      {activeServers.length > 0 && (
-        <section className="mb-8">
+      {/* Active Mode: Show only active servers */}
+      {mode === 'active' && (
+        <section>
+          {activeServers.length > 0 ? (
+            <>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-2xl font-bold">Connected Servers</h2>
+                <Badge variant="secondary">
+                  {activeServers.length} active
+                </Badge>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* Add New Card */}
+                <Card className="p-6 border-dashed border-2 hover:border-primary/50 transition-colors cursor-pointer">
+                  <div
+                    className="flex flex-col items-center justify-center text-center h-full min-h-[200px]"
+                    onClick={() => setIsFullJSONEditorOpen(true)}
+                  >
+                    <Plus className="w-12 h-12 text-muted-foreground mb-4" />
+                    <h3 className="font-semibold mb-2">Add Custom Integration</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Edit .mcp.json directly
+                    </p>
+                  </div>
+                </Card>
+                {activeServers.map(server => {
+                  const registryEntry = registry.entries.find(entry => entry.id === server.id);
+                  const status = connectionStatus[server.id] || 'disconnected';
+
+                  return (
+                    <IntegrationCard
+                      key={server.id}
+                      mode="active"
+                      entry={registryEntry}
+                      server={server}
+                      status={status}
+                      isActive={true}
+                      onToggle={() => handleToggleServer(server.id)}
+                      onConfigure={() => handleConfigureServer(server.id)}
+                      onDelete={() => handleDeleteServer(server.id)}
+                    />
+                  );
+                })}
+              </div>
+            </>
+          ) : (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground mb-4">No active MCP servers</p>
+              <p className="text-sm text-muted-foreground">
+                Switch to the Store tab to configure new integrations
+              </p>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Store Mode: Show available servers */}
+      {mode === 'store' && (
+        <section>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-bold">Active integrations</h2>
-            <Badge variant="secondary">
-              {activeServers.length} configured
+            <h2 className="text-2xl font-bold">Available Integrations</h2>
+            <Badge variant="outline">
+              {registry.entries.length} available
             </Badge>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {activeServers.map(server => {
-              const registryEntry = registry.entries.find(entry => entry.id === server.id);
-              const status = connectionStatus[server.id] || 'disconnected';
+            {/* Registry Cards */}
+            {registry.entries.map(entry => {
+              const server = activeServers.find(s => s.id === entry.id);
+              const status = connectionStatus[entry.id] || 'disconnected';
+              const isActive = !!server;
 
               return (
                 <IntegrationCard
-                  key={server.id}
-                  entry={registryEntry}
+                  key={entry.id}
+                  mode="store"
+                  entry={entry}
                   server={server}
                   status={status}
-                  isActive={true}
-                  onToggle={() => handleToggleServer(server.id)}
-                  onConfigure={() => handleConfigureServer(server.id)}
+                  isActive={isActive}
+                  onToggle={() => handleToggleServer(entry.id)}
+                  onConfigure={() => handleConfigureServer(entry.id)}
+                  onAddToActive={() => handleAddToActive(entry.id)}
                 />
               );
             })}
@@ -131,58 +290,14 @@ export function StoreLayout() {
         </section>
       )}
 
-      {/* Available Integrations Section */}
-      <section>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold">Available integrations</h2>
-          <Badge variant="outline">
-            {registry.entries.length} available
-          </Badge>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Add New Card */}
-          <Card className="p-6 border-dashed border-2 hover:border-primary/50 transition-colors cursor-pointer">
-            <div
-              className="flex flex-col items-center justify-center text-center h-full min-h-[200px]"
-              onClick={() => setIsAddModalOpen(true)}
-            >
-              <Plus className="w-12 h-12 text-muted-foreground mb-4" />
-              <h3 className="font-semibold mb-2">Add Custom Integration</h3>
-              <p className="text-sm text-muted-foreground">
-                Connect to your own MCP server
-              </p>
-            </div>
-          </Card>
-
-          {/* Registry Cards */}
-          {registry.entries.map(entry => {
-            const server = activeServers.find(s => s.id === entry.id);
-            const status = connectionStatus[entry.id] || 'disconnected';
-            const isActive = !!server;
-
-            return (
-              <IntegrationCard
-                key={entry.id}
-                entry={entry}
-                server={server}
-                status={status}
-                isActive={isActive}
-                onToggle={() => handleToggleServer(entry.id)}
-                onConfigure={() => handleConfigureServer(entry.id)}
-              />
-            );
-          })}
-        </div>
-      </section>
-
-      {/* Add New Modal */}
-      <AddNewModal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
+      {/* Full JSON Editor Panel */}
+      <FullJSONEditorPanel
+        isOpen={isFullJSONEditorOpen}
+        onClose={() => setIsFullJSONEditorOpen(false)}
       />
 
-      {/* Server Configuration Modal */}
-      <ServerConfigModal
+      {/* JSON Editor Panel */}
+      <JSONEditorPanel
         serverId={configServerId}
         isOpen={!!configServerId}
         onClose={() => setConfigServerId(null)}

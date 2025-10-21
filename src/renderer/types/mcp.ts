@@ -11,6 +11,14 @@ export interface MCPRegistryEntry {
   configuration: {
     fields: MCPConfigField[];
     defaults?: Record<string, any>;
+    template?: {
+      type: 'stdio' | 'http' | 'sse';
+      command?: string;
+      args?: string[];
+      env?: Record<string, string>;
+      baseUrl?: string;
+      headers?: Record<string, string>;
+    };
   };
 }
 
@@ -39,6 +47,7 @@ export interface MCPServerConfig {
   baseUrl?: string;
   headers?: Record<string, string>;
   transport: 'stdio' | 'http' | 'sse';
+  enabled?: boolean;  // Added by listServers(), not stored in JSON
 }
 
 export interface MCPTool {

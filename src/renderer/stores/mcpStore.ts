@@ -85,7 +85,7 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
   // Connect to a server
   connectServer: async (config: MCPServerConfig) => {
     set({ isLoading: true, error: null });
-    
+
     try {
       // Update connection status to connecting
       set(state => ({
@@ -96,18 +96,35 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
       }));
 
       const result = await window.levante.mcp.connectServer(config);
-      
+
       if (result.success) {
-        // Add to active servers if not already there
-        set(state => ({
-          activeServers: state.activeServers.some(s => s.id === config.id)
-            ? state.activeServers
-            : [...state.activeServers, config],
-          connectionStatus: {
-            ...state.connectionStatus,
-            [config.id]: 'connected'
+        // Update or add to activeServers with enabled=true
+        set(state => {
+          const existingIndex = state.activeServers.findIndex(s => s.id === config.id);
+
+          if (existingIndex !== -1) {
+            // Update existing server
+            const updatedServers = [...state.activeServers];
+            updatedServers[existingIndex] = { ...config, enabled: true };
+
+            return {
+              activeServers: updatedServers,
+              connectionStatus: {
+                ...state.connectionStatus,
+                [config.id]: 'connected'
+              }
+            };
+          } else {
+            // Add new server
+            return {
+              activeServers: [...state.activeServers, { ...config, enabled: true }],
+              connectionStatus: {
+                ...state.connectionStatus,
+                [config.id]: 'connected'
+              }
+            };
           }
-        }));
+        });
       } else {
         set(state => ({
           connectionStatus: {
@@ -134,13 +151,18 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
   // Disconnect from a server
   disconnectServer: async (serverId: string) => {
     set({ isLoading: true, error: null });
-    
+
     try {
       const result = await window.levante.mcp.disconnectServer(serverId);
-      
+
       if (result.success) {
         set(state => ({
-          activeServers: state.activeServers.filter(s => s.id !== serverId),
+          // DO NOT remove from activeServers, just mark as disabled
+          activeServers: state.activeServers.map(server =>
+            server.id === serverId
+              ? { ...server, enabled: false }
+              : server
+          ),
           connectionStatus: {
             ...state.connectionStatus,
             [serverId]: 'disconnected'

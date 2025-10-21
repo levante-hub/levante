@@ -1,11 +1,11 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { UIMessage } from 'ai'
 import { UIPreferences, PreferenceKey } from '../types/preferences'
-import { 
-  CreateChatSessionInput, 
-  CreateMessageInput, 
+import {
+  CreateChatSessionInput,
+  CreateMessageInput,
   UpdateChatSessionInput,
-  GetMessagesQuery, 
+  GetMessagesQuery,
   GetChatSessionsQuery,
   DatabaseResult,
   PaginatedResult,
@@ -13,6 +13,8 @@ import {
   Message
 } from '../types/database'
 import type { LogCategory, LogLevel, LogContext } from '../main/types/logger'
+import type { UserProfile, WizardCompletionData } from '../types/userProfile'
+import type { ValidationResult, ProviderValidationConfig } from '../types/wizard'
 
 export interface ChatRequest {
   messages: UIMessage[];
@@ -108,17 +110,24 @@ export interface LevanteAPI {
   // App information
   getVersion: () => Promise<string>
   getPlatform: () => Promise<string>
-  
+  getSystemTheme: () => Promise<{ shouldUseDarkColors: boolean; themeSource: string }>
+  onSystemThemeChanged: (callback: (theme: { shouldUseDarkColors: boolean; themeSource: string }) => void) => () => void
+
   // Chat functionality
   sendMessage: (request: ChatRequest) => Promise<{ success: boolean; response: string; sources?: any[]; reasoning?: string }>
   streamChat: (request: ChatRequest, onChunk: (chunk: ChatStreamChunk) => void) => Promise<string>
   stopStreaming: (streamId?: string) => Promise<{ success: boolean; error?: string }>
   
-  // Model functionality  
+  // Model functionality
   models: {
     fetchOpenRouter: (apiKey?: string) => Promise<{ success: boolean; data?: any[]; error?: string }>
     fetchGateway: (apiKey: string, baseUrl?: string) => Promise<{ success: boolean; data?: any[]; error?: string }>
     fetchLocal: (endpoint: string) => Promise<{ success: boolean; data?: any[]; error?: string }>
+    fetchOpenAI: (apiKey: string) => Promise<{ success: boolean; data?: any[]; error?: string }>
+    fetchGoogle: (apiKey: string) => Promise<{ success: boolean; data?: any[]; error?: string }>
+    fetchAnthropic: (apiKey: string) => Promise<{ success: boolean; data?: any[]; error?: string }>
+    fetchGroq: (apiKey: string) => Promise<{ success: boolean; data?: any[]; error?: string }>
+    fetchXAI: (apiKey: string) => Promise<{ success: boolean; data?: any[]; error?: string }>
   }
   
   // Database functionality
@@ -167,6 +176,8 @@ export interface LevanteAPI {
   mcp: {
     connectServer: (config: MCPServerConfig) => Promise<{ success: boolean; error?: string }>
     disconnectServer: (serverId: string) => Promise<{ success: boolean; error?: string }>
+    enableServer: (serverId: string) => Promise<{ success: boolean; error?: string }>
+    disableServer: (serverId: string) => Promise<{ success: boolean; error?: string }>
     listTools: (serverId: string) => Promise<{ success: boolean; data?: MCPTool[]; error?: string }>
     callTool: (serverId: string, toolCall: MCPToolCall) => Promise<{ success: boolean; data?: MCPToolResult; error?: string }>
     connectionStatus: (serverId?: string) => Promise<{ success: boolean; data?: Record<string, 'connected' | 'disconnected'>; error?: string }>
@@ -178,7 +189,7 @@ export interface LevanteAPI {
     updateServer: (serverId: string, config: Partial<Omit<MCPServerConfig, 'id'>>) => Promise<{ success: boolean; error?: string }>
     getServer: (serverId: string) => Promise<{ success: boolean; data?: MCPServerConfig | null; error?: string }>
     listServers: () => Promise<{ success: boolean; data?: MCPServerConfig[]; error?: string }>
-    testConnection: (config: MCPServerConfig) => Promise<{ success: boolean; error?: string }>
+    testConnection: (config: MCPServerConfig) => Promise<{ success: boolean; data?: MCPTool[]; error?: string }>
     importConfiguration: (config: MCPConfiguration) => Promise<{ success: boolean; error?: string }>
     exportConfiguration: () => Promise<{ success: boolean; data?: MCPConfiguration; error?: string }>
     getConfigPath: () => Promise<{ success: boolean; data?: string; error?: string }>
@@ -205,6 +216,24 @@ export interface LevanteAPI {
     serviceHealth: () => Promise<{ success: boolean; data?: any; error?: string }>
     listFiles: () => Promise<{ success: boolean; data?: string[]; error?: string }>
   }
+
+  // Wizard functionality
+  wizard: {
+    checkStatus: () => Promise<{ success: boolean; data?: { status: 'not_started' | 'in_progress' | 'completed'; isCompleted: boolean }; error?: string }>
+    start: () => Promise<{ success: boolean; data?: boolean; error?: string }>
+    complete: (data: WizardCompletionData) => Promise<{ success: boolean; data?: boolean; error?: string }>
+    reset: () => Promise<{ success: boolean; data?: boolean; error?: string }>
+    validateProvider: (config: ProviderValidationConfig) => Promise<{ success: boolean; data?: ValidationResult; error?: string }>
+  }
+
+  // Profile functionality
+  profile: {
+    get: () => Promise<{ success: boolean; data?: UserProfile; error?: string }>
+    update: (updates: Partial<UserProfile>) => Promise<{ success: boolean; data?: UserProfile; error?: string }>
+    getPath: () => Promise<{ success: boolean; data?: string; error?: string }>
+    openDirectory: () => Promise<{ success: boolean; data?: string; error?: string }>
+    getDirectoryInfo: () => Promise<{ success: boolean; data?: { baseDir: string; exists: boolean; files: string[]; totalFiles: number }; error?: string }>
+  }
 }
 
 // Expose protected methods that allow the renderer process to use
@@ -212,8 +241,20 @@ export interface LevanteAPI {
 const api: LevanteAPI = {
   getVersion: () => ipcRenderer.invoke('levante/app/version'),
   getPlatform: () => ipcRenderer.invoke('levante/app/platform'),
-  
-  sendMessage: (request: ChatRequest) => 
+  getSystemTheme: () => ipcRenderer.invoke('levante/app/theme'),
+  onSystemThemeChanged: (callback) => {
+    const listener = (_event: any, theme: { shouldUseDarkColors: boolean; themeSource: string }) => {
+      callback(theme);
+    };
+    ipcRenderer.on('levante/app/theme-changed', listener);
+
+    // Return cleanup function
+    return () => {
+      ipcRenderer.removeListener('levante/app/theme-changed', listener);
+    };
+  },
+
+  sendMessage: (request: ChatRequest) =>
     ipcRenderer.invoke('levante/chat/send', request),
   
   streamChat: async (request: ChatRequest, onChunk: (chunk: ChatStreamChunk) => void) => {
@@ -285,12 +326,22 @@ const api: LevanteAPI = {
 
   // Model API
   models: {
-    fetchOpenRouter: (apiKey?: string) => 
+    fetchOpenRouter: (apiKey?: string) =>
       ipcRenderer.invoke('levante/models/openrouter', apiKey),
-    fetchGateway: (apiKey: string, baseUrl?: string) => 
+    fetchGateway: (apiKey: string, baseUrl?: string) =>
       ipcRenderer.invoke('levante/models/gateway', apiKey, baseUrl),
-    fetchLocal: (endpoint: string) => 
+    fetchLocal: (endpoint: string) =>
       ipcRenderer.invoke('levante/models/local', endpoint),
+    fetchOpenAI: (apiKey: string) =>
+      ipcRenderer.invoke('levante/models/openai', apiKey),
+    fetchGoogle: (apiKey: string) =>
+      ipcRenderer.invoke('levante/models/google', apiKey),
+    fetchAnthropic: (apiKey: string) =>
+      ipcRenderer.invoke('levante/models/anthropic', apiKey),
+    fetchGroq: (apiKey: string) =>
+      ipcRenderer.invoke('levante/models/groq', apiKey),
+    fetchXAI: (apiKey: string) =>
+      ipcRenderer.invoke('levante/models/xai', apiKey),
   },
 
   // Database API
@@ -367,13 +418,19 @@ const api: LevanteAPI = {
     
   // MCP API
   mcp: {
-    connectServer: (config: MCPServerConfig) => 
+    connectServer: (config: MCPServerConfig) =>
       ipcRenderer.invoke('levante/mcp/connect-server', config),
-    
-    disconnectServer: (serverId: string) => 
+
+    disconnectServer: (serverId: string) =>
       ipcRenderer.invoke('levante/mcp/disconnect-server', serverId),
-    
-    listTools: (serverId: string) => 
+
+    enableServer: (serverId: string) =>
+      ipcRenderer.invoke('levante/mcp/enable-server', serverId),
+
+    disableServer: (serverId: string) =>
+      ipcRenderer.invoke('levante/mcp/disable-server', serverId),
+
+    listTools: (serverId: string) =>
       ipcRenderer.invoke('levante/mcp/list-tools', serverId),
     
     callTool: (serverId: string, toolCall: MCPToolCall) => 
@@ -457,14 +514,50 @@ const api: LevanteAPI = {
 
   // Debug API
   debug: {
-    directoryInfo: () => 
+    directoryInfo: () =>
       ipcRenderer.invoke('levante/debug/directory-info'),
-    
-    serviceHealth: () => 
+
+    serviceHealth: () =>
       ipcRenderer.invoke('levante/debug/service-health'),
-    
-    listFiles: () => 
+
+    listFiles: () =>
       ipcRenderer.invoke('levante/debug/list-files')
+  },
+
+  // Wizard API
+  wizard: {
+    checkStatus: () =>
+      ipcRenderer.invoke('levante/wizard/check-status'),
+
+    start: () =>
+      ipcRenderer.invoke('levante/wizard/start'),
+
+    complete: (data: WizardCompletionData) =>
+      ipcRenderer.invoke('levante/wizard/complete', data),
+
+    reset: () =>
+      ipcRenderer.invoke('levante/wizard/reset'),
+
+    validateProvider: (config: ProviderValidationConfig) =>
+      ipcRenderer.invoke('levante/wizard/validate-provider', config)
+  },
+
+  // Profile API
+  profile: {
+    get: () =>
+      ipcRenderer.invoke('levante/profile/get'),
+
+    update: (updates: Partial<UserProfile>) =>
+      ipcRenderer.invoke('levante/profile/update', updates),
+
+    getPath: () =>
+      ipcRenderer.invoke('levante/profile/get-path'),
+
+    openDirectory: () =>
+      ipcRenderer.invoke('levante/profile/open-directory'),
+
+    getDirectoryInfo: () =>
+      ipcRenderer.invoke('levante/profile/get-directory-info')
   }
 }
 

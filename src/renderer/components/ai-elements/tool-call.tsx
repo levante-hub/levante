@@ -1,15 +1,23 @@
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import {
   Wrench,
+  ChevronDown,
   CheckCircle2,
   XCircle,
   Clock,
-  Eye
+  Copy
 } from 'lucide-react';
-import { ToolCallModal } from './tool-call-modal';
+import { Button } from '@/components/ui/button';
+
+// ═══════════════════════════════════════════════════════
+// TIPOS
+// ═══════════════════════════════════════════════════════
 
 export interface ToolCallData {
   id: string;
@@ -30,144 +38,266 @@ interface ToolCallProps {
   className?: string;
 }
 
-interface ToolCallsProps {
-  toolCalls: ToolCallData[];
-  className?: string;
-}
+// ═══════════════════════════════════════════════════════
+// CONFIGURACIÓN DE ESTADOS
+// ═══════════════════════════════════════════════════════
 
 const statusConfig = {
   pending: {
     icon: Clock,
-    color: 'text-muted-foreground',
-    label: 'Pending',
-    badgeVariant: 'outline' as const
+    label: 'Pendiente',
+    className: 'text-muted-foreground'
   },
   running: {
     icon: Clock,
-    color: 'text-yellow-500',
-    label: 'Running',
-    badgeVariant: 'secondary' as const
+    label: 'Ejecutando...',
+    className: 'text-muted-foreground animate-pulse'
   },
   success: {
     icon: CheckCircle2,
-    color: 'text-green-500',
-    label: 'Success',
-    badgeVariant: 'default' as const
+    label: 'Completado',
+    className: 'text-muted-foreground'
   },
   error: {
     icon: XCircle,
-    color: 'text-red-500',
     label: 'Error',
-    badgeVariant: 'destructive' as const
+    className: 'text-muted-foreground'
   }
 };
 
+// ═══════════════════════════════════════════════════════
+// COMPONENTE PRINCIPAL
+// ═══════════════════════════════════════════════════════
+
+/**
+ * ToolCall - Componente de visualización de llamadas a herramientas
+ *
+ * Diseño: Desplegable sutil que se integra en el flujo del mensaje
+ * Patrón: Similar a reasoning.tsx (Collapsible)
+ *
+ * Estados:
+ * - Colapsado (default): Solo icono + nombre en gris
+ * - Expandido: Muestra argumentos, resultado y metadata
+ * - Running: Indicador "Ejecutando..." con pulse
+ * - Error: Indicador sutil, detalles en content
+ *
+ * @param toolCall - Datos de la tool call (ver ToolCallData)
+ */
 export function ToolCall({ toolCall, className }: ToolCallProps) {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   const statusInfo = statusConfig[toolCall.status];
   const StatusIcon = statusInfo.icon;
 
+  return (
+    <Collapsible
+      open={isOpen}
+      onOpenChange={setIsOpen}
+      className={cn('not-prose my-2', className)}
+    >
+      {/* TRIGGER: Línea sutil colapsable */}
+      <CollapsibleTrigger
+        className={cn(
+          'flex items-center gap-2 text-muted-foreground text-sm',
+          'hover:text-foreground transition-colors',
+          'w-full text-left group'
+        )}
+      >
+        {/* Icono de herramienta */}
+        <Wrench className="w-3.5 h-3.5 flex-shrink-0" />
 
-  const getArgumentsSummary = () => {
-    const argCount = Object.keys(toolCall.arguments).length;
-    if (argCount === 0) return null;
+        {/* Nombre de la tool */}
+        <span className="font-medium">{toolCall.name}</span>
 
-    const firstArg = Object.entries(toolCall.arguments)[0];
-    if (argCount === 1) {
-      let value = firstArg[1];
-      if (typeof value === 'string' && value.length > 50) {
-        value = value.substring(0, 50) + '...';
-      }
-      return `${firstArg[0]}: ${value}`;
-    }
+        {/* Indicador de estado (solo si running/error) */}
+        {(toolCall.status === 'running' || toolCall.status === 'error') && (
+          <span className="text-xs flex items-center gap-1">
+            <StatusIcon className={cn('w-3 h-3', statusInfo.className)} />
+            {statusInfo.label}
+          </span>
+        )}
 
-    return `${argCount} arguments`;
+        {/* Chevron indicador */}
+        <ChevronDown
+          className={cn(
+            'w-3.5 h-3.5 ml-auto transition-transform',
+            isOpen ? 'rotate-180' : 'rotate-0'
+          )}
+        />
+      </CollapsibleTrigger>
+
+      {/* CONTENT: Detalles expandibles */}
+      <CollapsibleContent
+        className={cn(
+          'mt-2 ml-5', // Indentación para alinear con contenido
+          'data-[state=closed]:fade-out-0',
+          'data-[state=closed]:slide-out-to-top-2',
+          'data-[state=open]:slide-in-from-top-2',
+          'data-[state=closed]:animate-out',
+          'data-[state=open]:animate-in'
+        )}
+      >
+        <div className="rounded-lg bg-muted/30 p-3 space-y-3 text-sm">
+          {/* Sección: Arguments */}
+          <ArgumentsSection arguments={toolCall.arguments} />
+
+          {/* Sección: Result */}
+          {toolCall.result && (
+            <ResultSection result={toolCall.result} />
+          )}
+
+          {/* Sección: Metadata */}
+          <MetadataSection toolCall={toolCall} />
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+// ═══════════════════════════════════════════════════════
+// SUB-COMPONENTES
+// ═══════════════════════════════════════════════════════
+
+function ArgumentsSection({ arguments: args }: { arguments: Record<string, any> }) {
+  const argEntries = Object.entries(args);
+
+  if (argEntries.length === 0) return null;
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(JSON.stringify(args, null, 2));
   };
 
-  const argumentsSummary = getArgumentsSummary();
-
   return (
-    <>
-      <div className={cn("border rounded-lg bg-background hover:bg-muted/30 transition-colors cursor-pointer mt-1", className)}>
-        <div
-          onClick={() => setIsModalOpen(true)}
-          className="w-full px-3 py-2 text-left"
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+          Argumentos
+        </h4>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={copyToClipboard}
+          className="h-6 px-2 text-muted-foreground hover:text-foreground"
         >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 flex-1">
-              <Wrench className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-              <div className="flex flex-col gap-1 flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium truncate">{toolCall.name}</span>
-                  {toolCall.serverId && (
-                    <Badge variant="outline" className="text-xs flex-shrink-0">
-                      {toolCall.serverId}
-                    </Badge>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <StatusIcon
-                    className={cn(
-                      "w-3 h-3 flex-shrink-0",
-                      statusInfo.color,
-                      toolCall.status === 'running' && "animate-spin"
-                    )}
-                  />
-                  <Badge variant={statusInfo.badgeVariant} className="text-xs">
-                    {statusInfo.label}
-                  </Badge>
-                  {toolCall.timestamp && (
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(toolCall.timestamp).toLocaleTimeString()}
-                    </span>
-                  )}
-                </div>
-
-                {/* Arguments Summary */}
-                <div className="space-y-1 text-xs">
-                  {argumentsSummary && (
-                    <div className="text-muted-foreground truncate">
-                      Args: {argumentsSummary}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0 hover:bg-muted"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsModalOpen(true);
-                }}
-              >
-                <Eye className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
+          <Copy className="w-3 h-3" />
+        </Button>
       </div>
 
-      <ToolCallModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        toolCall={toolCall}
-      />
-    </>
+      <div className="space-y-2">
+        {argEntries.map(([key, value]) => (
+          <div key={key} className="space-y-1">
+            <div className="text-xs font-medium text-muted-foreground">
+              {key}
+            </div>
+            <div className="bg-background/50 rounded border border-border/50 p-2">
+              <pre className="text-xs font-mono text-foreground/80 whitespace-pre-wrap overflow-x-auto">
+                {typeof value === 'string' ? value : JSON.stringify(value, null, 2)}
+              </pre>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
+}
+
+function ResultSection({ result }: { result: NonNullable<ToolCallData['result']> }) {
+  const copyToClipboard = () => {
+    const content = result.success ? result.content : result.error;
+    if (content) {
+      navigator.clipboard.writeText(content);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+          {result.success ? 'Resultado' : 'Error'}
+        </h4>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={copyToClipboard}
+          className="h-6 px-2 text-muted-foreground hover:text-foreground"
+        >
+          <Copy className="w-3 h-3" />
+        </Button>
+      </div>
+
+      <div className={cn(
+        'rounded border p-2',
+        result.success
+          ? 'bg-green-50/50 dark:bg-green-950/20 border-green-200/50 dark:border-green-800/50'
+          : 'bg-red-50/50 dark:bg-red-950/20 border-red-200/50 dark:border-red-800/50'
+      )}>
+        <div className="flex items-start gap-2">
+          {result.success ? (
+            <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+          ) : (
+            <XCircle className="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+          )}
+          <pre className={cn(
+            'text-xs font-mono whitespace-pre-wrap flex-1 overflow-x-auto',
+            result.success
+              ? 'text-green-800 dark:text-green-200'
+              : 'text-red-800 dark:text-red-200'
+          )}>
+            {result.success ? result.content : result.error}
+          </pre>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MetadataSection({ toolCall }: { toolCall: ToolCallData }) {
+  const statusInfo = statusConfig[toolCall.status];
+  const StatusIcon = statusInfo.icon;
+
+  return (
+    <div className="pt-2 border-t border-border/50">
+      <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+        <div className="flex items-center gap-1.5">
+          <StatusIcon className={cn('w-3 h-3', statusInfo.className)} />
+          <span>Estado: {statusInfo.label}</span>
+        </div>
+
+        {toolCall.serverId && (
+          <div>
+            <span className="font-medium">Servidor:</span> {toolCall.serverId}
+          </div>
+        )}
+
+        {toolCall.timestamp && (
+          <div>
+            <span className="font-medium">Ejecutado:</span>{' '}
+            {new Date(toolCall.timestamp).toLocaleTimeString()}
+          </div>
+        )}
+
+        <div>
+          <span className="font-medium">ID:</span>{' '}
+          <span className="font-mono text-[10px]">{toolCall.id.slice(0, 8)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════
+// COMPONENTE PARA MÚLTIPLES TOOL CALLS
+// ═══════════════════════════════════════════════════════
+
+interface ToolCallsProps {
+  toolCalls: ToolCallData[];
+  className?: string;
 }
 
 export function ToolCalls({ toolCalls, className }: ToolCallsProps) {
   if (toolCalls.length === 0) return null;
 
   return (
-    <div className={cn("space-y-2", className)}>
-      <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-        <Wrench className="w-4 h-4" />
-        Tool Calls ({toolCalls.length})
-      </div>
+    <div className={cn('space-y-1', className)}>
       {toolCalls.map((toolCall) => (
         <ToolCall key={toolCall.id} toolCall={toolCall} />
       ))}

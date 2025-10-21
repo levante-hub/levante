@@ -282,6 +282,11 @@ export class MCPService {
   }
 
   async connectServer(config: MCPServerConfig): Promise<Client> {
+    // Normalize config for compatibility with different MCP formats
+    // Accept both "transport"/"type" and "baseUrl"/"url"
+    const transportType = config.transport || (config as any).type;
+    const baseUrl = config.baseUrl || (config as any).url;
+
     // Resolve command first so we can use it in error messages
     let resolved: { command: string; args: string[] } | undefined;
 
@@ -303,7 +308,7 @@ export class MCPService {
 
       // Create transport based on config
       let transport;
-      switch (config.transport) {
+      switch (transportType) {
         case "stdio":
           if (!config.command) {
             throw new Error("Command is required for stdio transport");
@@ -345,17 +350,17 @@ export class MCPService {
           break;
 
         case "http":
-          if (!config.baseUrl) {
+          if (!baseUrl) {
             throw new Error("Base URL is required for HTTP transport");
           }
-          
-          this.logger.mcp.debug("Creating HTTP transport", { 
-            serverId: config.id, 
-            baseUrl: config.baseUrl,
+
+          this.logger.mcp.debug("Creating HTTP transport", {
+            serverId: config.id,
+            baseUrl: baseUrl,
             hasHeaders: !!(config.headers && Object.keys(config.headers).length > 0)
           });
-          
-          transport = new StreamableHTTPClientTransport(new URL(config.baseUrl), {
+
+          transport = new StreamableHTTPClientTransport(new URL(baseUrl), {
             requestInit: {
               headers: config.headers || {}
             }
@@ -363,17 +368,17 @@ export class MCPService {
           break;
 
         case "sse":
-          if (!config.baseUrl) {
+          if (!baseUrl) {
             throw new Error("Base URL is required for SSE transport");
           }
-          
-          this.logger.mcp.debug("Creating SSE transport", { 
-            serverId: config.id, 
-            baseUrl: config.baseUrl,
+
+          this.logger.mcp.debug("Creating SSE transport", {
+            serverId: config.id,
+            baseUrl: baseUrl,
             hasHeaders: !!(config.headers && Object.keys(config.headers).length > 0)
           });
-          
-          transport = new SSEClientTransport(new URL(config.baseUrl), {
+
+          transport = new SSEClientTransport(new URL(baseUrl), {
             requestInit: {
               headers: config.headers || {}
             }
@@ -381,7 +386,7 @@ export class MCPService {
           break;
 
         default:
-          throw new Error(`Unknown transport type: ${config.transport}`);
+          throw new Error(`Unknown transport type: ${transportType}`);
       }
 
       // Connect to the server with detailed error handling
@@ -397,7 +402,7 @@ export class MCPService {
         });
 
         // Provide more specific error messages
-        if (connectionError instanceof Error && config.transport === 'stdio' && resolved) {
+        if (connectionError instanceof Error && transportType === 'stdio' && resolved) {
           const errorMessage = connectionError.message;
 
           if (errorMessage.includes("ENOENT")) {
@@ -459,20 +464,20 @@ export class MCPService {
               `MCP server connection failed. The server process may have exited unexpectedly. Please check the server logs for more details.`
             );
           }
-        } else if (connectionError instanceof Error && (config.transport === 'http' || config.transport === 'sse')) {
+        } else if (connectionError instanceof Error && (transportType === 'http' || transportType === 'sse')) {
           // Basic error handling for HTTP/SSE transports
           const errorMessage = connectionError.message;
           if (errorMessage.includes("fetch") || errorMessage.includes("network")) {
             throw new Error(
-              `Network error connecting to ${config.transport.toUpperCase()} server at ${config.baseUrl}. Please check the URL and network connection.`
+              `Network error connecting to ${transportType.toUpperCase()} server at ${baseUrl}. Please check the URL and network connection.`
             );
           } else if (errorMessage.includes("401") || errorMessage.includes("403")) {
             throw new Error(
-              `Authentication failed for ${config.transport.toUpperCase()} server. Please check your API key and permissions.`
+              `Authentication failed for ${transportType.toUpperCase()} server. Please check your API key and permissions.`
             );
           } else if (errorMessage.includes("404")) {
             throw new Error(
-              `${config.transport.toUpperCase()} server not found at ${config.baseUrl}. Please check the URL.`
+              `${transportType.toUpperCase()} server not found at ${baseUrl}. Please check the URL.`
             );
           }
         }

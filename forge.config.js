@@ -193,6 +193,41 @@ module.exports = {
       name: '@electron-forge/maker-zip',
       platforms: ['win32'],
       config: {}
+    },
+    // Linux makers
+    {
+      name: '@electron-forge/maker-deb',
+      config: {
+        options: {
+          name: 'levante',
+          productName: 'Levante',
+          genericName: 'AI Chat Application',
+          description: 'A friendly, private desktop chat app with AI and MCP integration',
+          categories: ['Utility', 'Network'],
+          maintainer: 'Levante Team',
+          homepage: 'https://www.levanteapp.com',
+          icon: './resources/icons/icon.png'
+        }
+      }
+    },
+    {
+      name: '@electron-forge/maker-rpm',
+      config: {
+        options: {
+          name: 'levante',
+          productName: 'Levante',
+          genericName: 'AI Chat Application',
+          description: 'A friendly, private desktop chat app with AI and MCP integration',
+          categories: ['Utility', 'Network'],
+          homepage: 'https://www.levanteapp.com',
+          icon: './resources/icons/icon.png'
+        }
+      }
+    },
+    {
+      name: '@electron-forge/maker-zip',
+      platforms: ['linux'],
+      config: {}
     }
   ],
 

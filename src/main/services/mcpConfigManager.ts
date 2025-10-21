@@ -25,28 +25,33 @@ export class MCPConfigurationManager {
     try {
       const content = await fs.readFile(this.configPath, 'utf-8');
       const config = JSON.parse(content);
-      
+
       // Validate configuration structure
       if (!config.mcpServers || typeof config.mcpServers !== 'object') {
         this.logger.mcp.warn("Invalid MCP configuration format, using empty config", { configPath: this.configPath });
-        return { mcpServers: {} };
+        return { mcpServers: {}, disabled: {} };
       }
-      
+
+      // Ensure disabled exists
+      if (!config.disabled) {
+        config.disabled = {};
+      }
+
       return config;
     } catch (error) {
       if ((error as any).code === 'ENOENT') {
         // File doesn't exist, create with empty config
-        const emptyConfig = { mcpServers: {} };
+        const emptyConfig = { mcpServers: {}, disabled: {} };
         await this.saveConfiguration(emptyConfig);
         return emptyConfig;
       }
-      
-      this.logger.mcp.error("Failed to load MCP configuration", { 
+
+      this.logger.mcp.error("Failed to load MCP configuration", {
         error: error instanceof Error ? error.message : error,
-        configPath: this.configPath 
+        configPath: this.configPath
       });
       // Return empty config on any other error
-      return { mcpServers: {} };
+      return { mcpServers: {}, disabled: {} };
     }
   }
 
@@ -79,10 +84,24 @@ export class MCPConfigurationManager {
 
   async removeServer(serverId: string): Promise<void> {
     const currentConfig = await this.loadConfiguration();
-    
+
+    let found = false;
+
     if (currentConfig.mcpServers[serverId]) {
       delete currentConfig.mcpServers[serverId];
+      found = true;
+    }
+
+    if (currentConfig.disabled && currentConfig.disabled[serverId]) {
+      delete currentConfig.disabled[serverId];
+      found = true;
+    }
+
+    if (found) {
       await this.saveConfiguration(currentConfig);
+      this.logger.mcp.info("Server removed from configuration", { serverId });
+    } else {
+      this.logger.mcp.warn("Server not found in configuration", { serverId });
     }
   }
 
@@ -116,11 +135,21 @@ export class MCPConfigurationManager {
 
   async listServers(): Promise<MCPServerConfig[]> {
     const config = await this.loadConfiguration();
-    
-    return Object.entries(config.mcpServers).map(([id, serverConfig]) => ({
+
+    // Combine mcpServers (active) + disabled
+    const activeServers = Object.entries(config.mcpServers).map(([id, serverConfig]) => ({
       id,
-      ...serverConfig
+      ...serverConfig,
+      enabled: true
     }));
+
+    const disabledServers = Object.entries(config.disabled || {}).map(([id, serverConfig]) => ({
+      id,
+      ...serverConfig,
+      enabled: false
+    }));
+
+    return [...activeServers, ...disabledServers];
   }
 
   getConfigPath(): string {
@@ -140,6 +169,10 @@ export class MCPConfigurationManager {
       mcpServers: {
         ...currentConfig.mcpServers,
         ...importedConfig.mcpServers
+      },
+      disabled: {
+        ...currentConfig.disabled,
+        ...(importedConfig.disabled || {})
       }
     };
 
@@ -149,5 +182,66 @@ export class MCPConfigurationManager {
   // Export current configuration
   async exportConfiguration(): Promise<MCPConfiguration> {
     return await this.loadConfiguration();
+  }
+
+  /**
+   * Disable a server (move from mcpServers to disabled)
+   */
+  async disableServer(serverId: string): Promise<void> {
+    const currentConfig = await this.loadConfiguration();
+
+    // Verify exists in mcpServers
+    if (!currentConfig.mcpServers[serverId]) {
+      this.logger.mcp.warn(`Server ${serverId} not found in mcpServers, cannot disable`);
+      throw new Error(`Server ${serverId} not found in mcpServers`);
+    }
+
+    // Move from mcpServers to disabled
+    const serverConfig = currentConfig.mcpServers[serverId];
+    currentConfig.disabled = currentConfig.disabled || {};
+    currentConfig.disabled[serverId] = serverConfig;
+    delete currentConfig.mcpServers[serverId];
+
+    await this.saveConfiguration(currentConfig);
+    this.logger.mcp.info("Server disabled and moved to disabled section", { serverId });
+  }
+
+  /**
+   * Enable a server (move from disabled to mcpServers)
+   */
+  async enableServer(serverId: string): Promise<void> {
+    const currentConfig = await this.loadConfiguration();
+
+    // Verify exists in disabled
+    if (!currentConfig.disabled || !currentConfig.disabled[serverId]) {
+      throw new Error(`Server ${serverId} not found in disabled`);
+    }
+
+    // Move from disabled to mcpServers
+    const serverConfig = currentConfig.disabled[serverId];
+    currentConfig.mcpServers[serverId] = serverConfig;
+    delete currentConfig.disabled[serverId];
+
+    await this.saveConfiguration(currentConfig);
+    this.logger.mcp.info("Server enabled and moved to mcpServers", { serverId });
+  }
+
+  /**
+   * Migrate configuration to include disabled section
+   */
+  async migrateConfiguration(): Promise<void> {
+    const config = await this.loadConfiguration();
+
+    // If already has disabled, no migration needed
+    if (config.disabled !== undefined) {
+      this.logger.mcp.info('Configuration already migrated');
+      return;
+    }
+
+    // Create disabled empty
+    config.disabled = {};
+
+    await this.saveConfiguration(config);
+    this.logger.mcp.info('Configuration migrated to include disabled section');
   }
 }

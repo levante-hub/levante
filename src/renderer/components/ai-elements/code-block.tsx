@@ -37,7 +37,7 @@ export const CodeBlock = ({
   <CodeBlockContext.Provider value={{ code }}>
     <div
       className={cn(
-        'relative w-full overflow-hidden rounded-md border bg-background text-foreground',
+        'relative w-full overflow-hidden rounded-md border bg-background text-foreground dark:bg-secondary',
         className
       )}
       {...props}
@@ -52,12 +52,9 @@ export const CodeBlock = ({
             margin: 0,
             padding: '1rem',
             fontSize: '0.875rem',
-            background: 'hsl(var(--background))',
-            color: 'hsl(var(--foreground))',
           }}
           language={language}
           lineNumberStyle={{
-            color: 'hsl(var(--muted-foreground))',
             paddingRight: '1rem',
             minWidth: '2.5rem',
           }}
@@ -75,12 +72,9 @@ export const CodeBlock = ({
             margin: 0,
             padding: '1rem',
             fontSize: '0.875rem',
-            background: 'hsl(var(--background))',
-            color: 'hsl(var(--foreground))',
           }}
           language={language}
           lineNumberStyle={{
-            color: 'hsl(var(--muted-foreground))',
             paddingRight: '1rem',
             minWidth: '2.5rem',
           }}
