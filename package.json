@@ -114,7 +114,7 @@
     "@electron-forge/publisher-github": "^7.10.2",
     "@electron/notarize": "^3.1.0",
     "@electron/osx-sign": "^2.2.0",
-    "@playwright/test": "^1.55.0",
+    "@playwright/test": "^1.56.1",
     "@types/fs-extra": "^11.0.4",
     "@types/node": "^24.3.0",
     "@types/react": "^19.1.11",
@@ -134,7 +134,7 @@
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.9.2",
-    "vite": "^7.1.5",
+    "vite": "^7.1.11",
     "vitest": "^3.2.4"
   },
   "engines": {
@@ -144,7 +144,9 @@
   "packageManager": "pnpm@9.4.0",
   "pnpm": {
     "overrides": {
-      "prismjs": "^1.30.0"
+      "prismjs": "^1.30.0",
+      "tar-fs": "^3.1.1",
+      "tmp": "^0.2.3"
     }
   }
 }
