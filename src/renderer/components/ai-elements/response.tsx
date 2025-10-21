@@ -28,7 +28,7 @@ type ResponseProps = ComponentProps<typeof Streamdown> & {
 
 const MermaidCodeBlock = ({ children, className }: { children: string; className?: string }) => {
   return (
-    <div className={cn("my-6 border rounded-lg p-6 bg-muted/50 overflow-auto shadow-sm", className)}>
+    <div className={cn("my-6 border rounded-lg p-6 bg-muted/50 overflow-auto shadow-sm dark:bg-muted-foreground", className)}>
       <Mermaid chart={children} className="w-full h-auto min-h-[200px] flex items-center justify-center" />
     </div>
   );
@@ -101,7 +101,7 @@ export const Response = memo(
 
     // Check if content has complete mermaid blocks
     const hasCompleteMermaid = /```mermaid\s*\n[\s\S]*?\n\s*```/.test(children);
-    
+
     // If we should process Mermaid and have complete blocks, do so
     if (shouldProcessMermaid && hasCompleteMermaid) {
       const parts = processContentWithMermaid(children);

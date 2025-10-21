@@ -6,20 +6,12 @@ import {
   ConversationContent,
   ConversationScrollButton,
 } from '@/components/ai-elements/conversation';
-import {
-  PromptInput,
-  PromptInputButton,
-  PromptInputSubmit,
-  PromptInputTextarea,
-  PromptInputToolbar,
-  PromptInputTools,
-} from '@/components/ai-elements/prompt-input';
-import { ModelSearchableSelect } from '@/components/ai-elements/model-searchable-select';
 import { useState, useEffect } from 'react';
 import { useChatStore } from '@/stores/chatStore';
 import { StreamingProvider, useStreamingContext } from '@/contexts/StreamingContext';
 import { ChatList } from '@/components/chat/ChatList';
-import { GlobeIcon, Wrench } from 'lucide-react';
+import { WelcomeScreen } from '@/components/chat/WelcomeScreen';
+import { ChatPromptInput } from '@/components/chat/ChatPromptInput';
 import {
   Source,
   Sources,
@@ -36,6 +28,7 @@ import { ToolCall } from '@/components/ai-elements/tool-call';
 import { modelService } from '@/services/modelService';
 import type { Model } from '../../types/models';
 import { getRendererLogger } from '@/services/logger';
+import { cn } from '@/lib/utils';
 
 const logger = getRendererLogger();
 
@@ -47,6 +40,7 @@ const ChatPageContent = () => {
   const [enableMCP, setEnableMCP] = useState(false);
   const [availableModels, setAvailableModels] = useState<Model[]>([]);
   const [modelsLoading, setModelsLoading] = useState(true);
+  const [userName, setUserName] = useState<string>('Usuario');
 
   // Using Zustand selectors for optimal performance
   const messages = useChatStore((state) => state.messages);
@@ -61,13 +55,13 @@ const ChatPageContent = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // If currently streaming, stop the stream
     if (status === 'streaming') {
       stopStreaming();
       return;
     }
-    
+
     // Otherwise, send a new message
     if (input.trim()) {
       sendMessage(
@@ -93,7 +87,20 @@ const ChatPageContent = () => {
   // Load available models on component mount
   useEffect(() => {
     loadAvailableModels();
+    loadUserName();
   }, []);
+
+  // Load user name from profile
+  const loadUserName = async () => {
+    try {
+      const profile = await window.levante.profile.get();
+      if (profile?.data?.personalization?.nickname) {
+        setUserName(profile.data.personalization.nickname);
+      }
+    } catch (error) {
+      logger.preferences.error('Error loading user name', { error: error instanceof Error ? error.message : error });
+    }
+  };
 
 
   const loadAvailableModels = async () => {
@@ -114,125 +121,138 @@ const ChatPageContent = () => {
     }
   };
 
+  // Check if chat is empty (no messages)
+  const isChatEmpty = messages.length === 0 && status !== 'streaming';
+
   return (
     <div className="flex flex-col h-full">
-      <Conversation className="flex-1">
-        <ConversationContent className="max-w-4xl mx-auto px-4 py-4">
-          {messages.map((message) => {
-            return (
-              <div key={message.id}>
-                {message.role === 'assistant' && (
-                  <Sources>
-                    {message.parts.map((part, i) => {
-                      switch (part.type) {
-                        case 'source-url':
-                          return (
-                            <>
-                              <SourcesTrigger
-                                count={
-                                  message.parts.filter(
-                                    (part) => part.type === 'source-url',
-                                  ).length
-                                }
-                              />
-                              <SourcesContent key={`${message.id}-${i}`}>
-                                <Source
+      {isChatEmpty ? (
+        // Empty state with welcome screen and centered input
+        <div className="flex-1 flex flex-col items-center justify-center px-4">
+          <div className="w-full max-w-3xl flex flex-col items-center gap-8">
+            <WelcomeScreen userName={userName} />
+            <div className="w-full">
+              <ChatPromptInput
+                input={input}
+                onInputChange={setInput}
+                onSubmit={handleSubmit}
+                webSearch={webSearch}
+                enableMCP={enableMCP}
+                onWebSearchChange={setWebSearch}
+                onMCPChange={setEnableMCP}
+                model={model}
+                onModelChange={setModel}
+                availableModels={availableModels}
+                modelsLoading={modelsLoading}
+                status={status}
+              />
+            </div>
+          </div>
+        </div>
+      ) : (
+        // Chat conversation with input at bottom
+        <>
+          <Conversation className="flex-1">
+            <ConversationContent className="max-w-3xl mx-auto p-0 pl-4 pr-2 py-4">
+              {messages.map((message) => {
+                return (
+                  <div key={message.id}>
+                    {message.role === 'assistant' && (
+                      <Sources>
+                        {message.parts.map((part, i) => {
+                          switch (part.type) {
+                            case 'source-url':
+                              return (
+                                <>
+                                  <SourcesTrigger
+                                    count={
+                                      message.parts.filter(
+                                        (part) => part.type === 'source-url',
+                                      ).length
+                                    }
+                                  />
+                                  <SourcesContent key={`${message.id}-${i}`}>
+                                    <Source
+                                      key={`${message.id}-${i}`}
+                                      href={part.url}
+                                      title={part.url}
+                                    />
+                                  </SourcesContent>
+                                </>
+                              );
+                          }
+                        })}
+                      </Sources>
+                    )}
+                    <Message from={message.role} key={message.id} className={cn('p-0', message.role === 'user' ? 'is-user my-6' : 'is-assistant')}>
+                      <MessageContent from={message.role} className={cn('', message.role === 'user' ? 'p-2 mb-0 dark:text-white' : 'px-2 py-0')}>
+                        {message.parts.map((part, i) => {
+                          switch (part.type) {
+                            case 'text':
+                              return (
+                                <Response key={`${message.id}-${i}`}>
+                                  {part.text}
+                                </Response>
+                              );
+                            case 'reasoning':
+                              return (
+                                <Reasoning
                                   key={`${message.id}-${i}`}
-                                  href={part.url}
-                                  title={part.url}
+                                  className="w-full"
+                                  isStreaming={status === 'streaming'}
+                                >
+                                  <ReasoningTrigger />
+                                  <ReasoningContent>
+                                    {`${part.text || ''} `}
+                                  </ReasoningContent>
+                                </Reasoning>
+                              );
+                            case 'tool-call':
+                              return part.toolCall ? (
+                                <ToolCall
+                                  key={`${message.id}-${i}`}
+                                  toolCall={part.toolCall}
+                                  className="w-full"
                                 />
-                              </SourcesContent>
-                            </>
-                          );
-                      }
-                    })}
-                  </Sources>
-                )}
-                <Message from={message.role} key={message.id}>
+                              ) : null;
+                            default:
+                              return null;
+                          }
+                        })}
+                      </MessageContent>
+                    </Message>
+                  </div>
+                )
+              })}
+              {status === 'streaming' && streamingMessage && !streamingMessage.content.trim() && (
+                <Message from="assistant">
                   <MessageContent>
-                    {message.parts.map((part, i) => {
-                      switch (part.type) {
-                        case 'text':
-                          return (
-                            <Response key={`${message.id}-${i}`}>
-                              {part.text}
-                            </Response>
-                          );
-                        case 'reasoning':
-                          return (
-                            <Reasoning
-                              key={`${message.id}-${i}`}
-                              className="w-full"
-                              isStreaming={status === 'streaming'}
-                            >
-                              <ReasoningTrigger />
-                              <ReasoningContent>
-                                {`${part.text || ''} `}
-                              </ReasoningContent>
-                            </Reasoning>
-                          );
-                        case 'tool-call':
-                          return part.toolCall ? (
-                            <ToolCall
-                              key={`${message.id}-${i}`}
-                              toolCall={part.toolCall}
-                              className="w-full"
-                            />
-                          ) : null;
-                        default:
-                          return null;
-                      }
-                    })}
+                    <BreathingLogo />
                   </MessageContent>
                 </Message>
-              </div>
-            )
-          })}
-          {status === 'streaming' && streamingMessage && !streamingMessage.content.trim() && (
-            <Message from="assistant">
-              <MessageContent>
-                <BreathingLogo />
-              </MessageContent>
-            </Message>
-          )}
-        </ConversationContent>
-        <ConversationScrollButton />
-      </Conversation>
+              )}
+            </ConversationContent>
+            <ConversationScrollButton />
+          </Conversation>
 
-      <div className="bg-background">
-        <PromptInput onSubmit={handleSubmit} className="max-w-4xl mx-auto w-full px-4 py-4">
-          <PromptInputTextarea
-            onChange={(e) => setInput(e.target.value)}
-            value={input}
-          />
-          <PromptInputToolbar>
-            <PromptInputTools>
-              <PromptInputButton
-                variant={webSearch ? 'default' : 'ghost'}
-                onClick={() => setWebSearch(!webSearch)}
-              >
-                <GlobeIcon size={16} />
-                <span>Search</span>
-              </PromptInputButton>
-              <PromptInputButton
-                variant={enableMCP ? 'default' : 'ghost'}
-                onClick={() => setEnableMCP(!enableMCP)}
-              >
-                <Wrench size={16} />
-                <span>Tools</span>
-              </PromptInputButton>
-              <ModelSearchableSelect
-                value={model}
-                onValueChange={setModel}
-                models={availableModels}
-                loading={modelsLoading}
-                placeholder={availableModels.length === 0 ? "No models available" : "Select model..."}
-              />
-            </PromptInputTools>
-            <PromptInputSubmit disabled={!input} status={status} />
-          </PromptInputToolbar>
-        </PromptInput>
-      </div>
+          <div className="bg-transparent px-2">
+            <ChatPromptInput
+              input={input}
+              onInputChange={setInput}
+              onSubmit={handleSubmit}
+              webSearch={webSearch}
+              enableMCP={enableMCP}
+              onWebSearchChange={setWebSearch}
+              onMCPChange={setEnableMCP}
+              model={model}
+              onModelChange={setModel}
+              availableModels={availableModels}
+              modelsLoading={modelsLoading}
+              status={status}
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 };

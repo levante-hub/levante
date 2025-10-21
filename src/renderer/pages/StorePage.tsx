@@ -11,7 +11,7 @@ const StorePage = () => {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="px-10 pt-6 pb-2">
+      <div className="max-w-4xl mx-auto space-y-6 px-4 mb-4">
         <div className="inline-flex items-center rounded-full bg-muted p-1">
           <button
             onClick={() => setViewMode('active')}

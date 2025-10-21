@@ -362,7 +362,7 @@ export class AIService {
         model: modelProvider,
         messages: convertToModelMessages(messages),
         tools,
-        system: this.getSystemPrompt(
+        system: await this.getSystemPrompt(
           webSearch,
           enableMCP,
           Object.keys(tools).length
@@ -558,7 +558,7 @@ export class AIService {
         model: modelProvider,
         messages: convertToModelMessages(messages),
         tools,
-        system: this.getSystemPrompt(
+        system: await this.getSystemPrompt(
           webSearch,
           enableMCP,
           Object.keys(tools).length
@@ -937,11 +937,11 @@ export class AIService {
     return calculatedSteps;
   }
 
-  private getSystemPrompt(
+  private async getSystemPrompt(
     webSearch: boolean,
     enableMCP: boolean,
     toolCount: number
-  ): string {
+  ): Promise<string> {
     // Add current date information
     const currentDate = new Date();
     const dateString = currentDate.toLocaleDateString('en-US', {
@@ -956,7 +956,51 @@ export class AIService {
       minute: '2-digit'
     });
 
-    let systemPrompt = `You are a helpful assistant. Today's date is ${dateString} and the current time is ${timeString}.`;
+    // Load personalization from user profile
+    const { userProfileService } = await import('./userProfileService');
+    const userProfile = await userProfileService.getProfile();
+    const personalization = userProfile.personalization;
+
+    // Base system prompt with personalization
+    let basePersonality = 'You are a helpful assistant';
+
+    if (personalization?.enabled) {
+      // Apply personality style
+      switch (personalization.personality) {
+        case 'cynic':
+          basePersonality = 'You are a critical and sarcastic assistant who questions assumptions and provides realistic, sometimes cynical perspectives';
+          break;
+        case 'robot':
+          basePersonality = 'You are an efficient and blunt assistant who prioritizes directness and clarity over politeness';
+          break;
+        case 'listener':
+          basePersonality = 'You are a thoughtful and supportive assistant who carefully considers user needs and provides empathetic responses';
+          break;
+        case 'nerd':
+          basePersonality = 'You are an exploratory and enthusiastic assistant who loves diving deep into topics with curiosity and excitement';
+          break;
+        default:
+          basePersonality = 'You are a cheerful and adaptive assistant who adjusts to user needs with a positive attitude';
+      }
+
+      // Add user context if available
+      if (personalization.nickname) {
+        basePersonality += `. The user's name is ${personalization.nickname}`;
+      }
+      if (personalization.occupation) {
+        basePersonality += ` and they work as a ${personalization.occupation}`;
+      }
+      if (personalization.aboutUser) {
+        basePersonality += `. Additional context about the user: ${personalization.aboutUser}`;
+      }
+    }
+
+    let systemPrompt = `${basePersonality}. Today's date is ${dateString} and the current time is ${timeString}.`;
+
+    // Add custom instructions if provided
+    if (personalization?.enabled && personalization.customInstructions) {
+      systemPrompt += `\n\nCUSTOM INSTRUCTIONS:\n${personalization.customInstructions}`;
+    }
 
     if (webSearch) {
       systemPrompt +=
@@ -1011,6 +1055,21 @@ sequenceDiagram
 \`\`\`
 
 Always provide diagrams when users request visual representations, flowcharts, process maps, or any kind of diagram. Be proactive in offering diagrams for complex explanations.`;
+
+    // Debug log for final system prompt
+    this.logger.aiSdk.debug('Final system prompt generated', {
+      enabled: personalization?.enabled || false,
+      personality: personalization?.personality || 'none',
+      hasNickname: !!personalization?.nickname,
+      hasOccupation: !!personalization?.occupation,
+      hasAboutUser: !!personalization?.aboutUser,
+      hasCustomInstructions: !!personalization?.customInstructions,
+      webSearch,
+      enableMCP,
+      toolCount,
+      promptLength: systemPrompt.length,
+      fullPrompt: systemPrompt
+    });
 
     return systemPrompt;
   }

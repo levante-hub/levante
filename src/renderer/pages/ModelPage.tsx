@@ -94,12 +94,7 @@ const ModelPage = () => {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div className="space-y-2">
-          <p className="text-muted-foreground">
-            Configure AI providers, manage API keys, and select models for your conversations.
-          </p>
-        </div>
+      <div className="max-w-4xl mx-auto space-y-6 px-4">
 
         {error && (
           <Alert variant="destructive">
@@ -621,9 +616,9 @@ const ModelList = ({
   // Filter models based on search query
   const filteredModels = searchQuery
     ? models.filter(m =>
-        m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        m.id.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+      m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      m.id.toLowerCase().includes(searchQuery.toLowerCase())
+    )
     : models;
 
   // Show no results message if search returns nothing

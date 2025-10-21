@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell } from "electron";
+import { app, BrowserWindow, ipcMain, shell, nativeTheme } from "electron";
 import { join } from "path";
 import { config } from "dotenv";
 import { AIService, ChatRequest } from "./services/aiService";
@@ -45,6 +45,14 @@ if (!process.env.NODE_ENV || process.env.NODE_ENV === 'production') {
 let mainWindow: BrowserWindow | null = null;
 
 function createWindow(): void {
+  // IMPORTANT: Set nativeTheme to follow system BEFORE creating window
+  nativeTheme.themeSource = 'system';
+
+  logger.core.info('NativeTheme configured', {
+    themeSource: nativeTheme.themeSource,
+    shouldUseDarkColors: nativeTheme.shouldUseDarkColors
+  });
+
   // Create the browser window
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -53,7 +61,12 @@ function createWindow(): void {
     minHeight: 600,
     show: false,
     icon: join(__dirname, "../../resources/icons/icon.png"), // App icon
-    titleBarStyle: process.platform === "darwin" ? "default" : "default",
+    // macOS: hiddenInset (hide titlebar but keep traffic lights)
+    // Windows/Linux: default (keep native titlebar for now, can use frame: false for custom titlebar)
+    titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
+    backgroundColor: '#ffffff', // White background for titlebar
+    trafficLightPosition: process.platform === "darwin" ? { x: 10, y: 10 } : undefined, // Position traffic lights (macOS only)
+    // Note: For Windows/Linux without native titlebar, set frame: false and implement custom window controls
     webPreferences: {
       // Con Electron Forge + Vite, preload.js está en __dirname directamente
       preload: join(__dirname, "preload.js"),
@@ -92,6 +105,9 @@ function createWindow(): void {
     logger.core.info('Loading from file (production build)', { filePath });
     mainWindow.loadFile(filePath);
   }
+
+  // Force light theme for window (affects titlebar on macOS)
+  nativeTheme.themeSource = 'light';
 
   // Show window when ready to prevent visual flash
   mainWindow.on("ready-to-show", () => {
@@ -199,6 +215,23 @@ ipcMain.handle("levante/app/version", () => {
 
 ipcMain.handle("levante/app/platform", () => {
   return process.platform;
+});
+
+ipcMain.handle("levante/app/theme", () => {
+  return {
+    shouldUseDarkColors: nativeTheme.shouldUseDarkColors,
+    themeSource: nativeTheme.themeSource
+  };
+});
+
+// Listen for theme changes and notify renderer
+nativeTheme.on('updated', () => {
+  if (mainWindow) {
+    mainWindow.webContents.send('levante/app/theme-changed', {
+      shouldUseDarkColors: nativeTheme.shouldUseDarkColors,
+      themeSource: nativeTheme.themeSource
+    });
+  }
 });
 
 // Initialize AI service

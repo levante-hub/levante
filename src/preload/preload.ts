@@ -110,7 +110,9 @@ export interface LevanteAPI {
   // App information
   getVersion: () => Promise<string>
   getPlatform: () => Promise<string>
-  
+  getSystemTheme: () => Promise<{ shouldUseDarkColors: boolean; themeSource: string }>
+  onSystemThemeChanged: (callback: (theme: { shouldUseDarkColors: boolean; themeSource: string }) => void) => () => void
+
   // Chat functionality
   sendMessage: (request: ChatRequest) => Promise<{ success: boolean; response: string; sources?: any[]; reasoning?: string }>
   streamChat: (request: ChatRequest, onChunk: (chunk: ChatStreamChunk) => void) => Promise<string>
@@ -239,8 +241,20 @@ export interface LevanteAPI {
 const api: LevanteAPI = {
   getVersion: () => ipcRenderer.invoke('levante/app/version'),
   getPlatform: () => ipcRenderer.invoke('levante/app/platform'),
-  
-  sendMessage: (request: ChatRequest) => 
+  getSystemTheme: () => ipcRenderer.invoke('levante/app/theme'),
+  onSystemThemeChanged: (callback) => {
+    const listener = (_event: any, theme: { shouldUseDarkColors: boolean; themeSource: string }) => {
+      callback(theme);
+    };
+    ipcRenderer.on('levante/app/theme-changed', listener);
+
+    // Return cleanup function
+    return () => {
+      ipcRenderer.removeListener('levante/app/theme-changed', listener);
+    };
+  },
+
+  sendMessage: (request: ChatRequest) =>
     ipcRenderer.invoke('levante/chat/send', request),
   
   streamChat: async (request: ChatRequest, onChunk: (chunk: ChatStreamChunk) => void) => {
