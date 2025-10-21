@@ -86,7 +86,8 @@ function App() {
 
   // Get sidebar content for current page
   const getSidebarContent = () => {
-    if (currentPage === 'chat' && typeof ChatPage.getSidebarContent === 'function') {
+    // Show ChatList sidebar in all pages
+    if (typeof ChatPage.getSidebarContent === 'function') {
       return ChatPage.getSidebarContent(
         sessions,
         currentSession?.id,
