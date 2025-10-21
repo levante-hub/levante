@@ -40,6 +40,7 @@ const ChatPageContent = () => {
   const [enableMCP, setEnableMCP] = useState(false);
   const [availableModels, setAvailableModels] = useState<Model[]>([]);
   const [modelsLoading, setModelsLoading] = useState(true);
+  const [userName, setUserName] = useState<string>('Usuario');
 
   // Using Zustand selectors for optimal performance
   const messages = useChatStore((state) => state.messages);
@@ -86,7 +87,20 @@ const ChatPageContent = () => {
   // Load available models on component mount
   useEffect(() => {
     loadAvailableModels();
+    loadUserName();
   }, []);
+
+  // Load user name from profile
+  const loadUserName = async () => {
+    try {
+      const profile = await window.levante.profile.get();
+      if (profile?.data?.personalization?.nickname) {
+        setUserName(profile.data.personalization.nickname);
+      }
+    } catch (error) {
+      logger.preferences.error('Error loading user name', { error: error instanceof Error ? error.message : error });
+    }
+  };
 
 
   const loadAvailableModels = async () => {
@@ -116,7 +130,7 @@ const ChatPageContent = () => {
         // Empty state with welcome screen and centered input
         <div className="flex-1 flex flex-col items-center justify-center px-4">
           <div className="w-full max-w-3xl flex flex-col items-center gap-8">
-            <WelcomeScreen />
+            <WelcomeScreen userName={userName} />
             <div className="w-full">
               <ChatPromptInput
                 input={input}
@@ -139,7 +153,7 @@ const ChatPageContent = () => {
         // Chat conversation with input at bottom
         <>
           <Conversation className="flex-1">
-            <ConversationContent className="max-w-3xl mx-auto p-0 pl-4 py-4">
+            <ConversationContent className="max-w-3xl mx-auto p-0 pl-4 pr-2 py-4">
               {messages.map((message) => {
                 return (
                   <div key={message.id}>

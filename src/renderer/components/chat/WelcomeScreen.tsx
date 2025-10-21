@@ -7,13 +7,13 @@ interface WelcomeScreenProps {
   className?: string;
 }
 
-export const WelcomeScreen = ({ userName = 'Oliver', className }: WelcomeScreenProps) => {
+export const WelcomeScreen = ({ userName = 'User', className }: WelcomeScreenProps) => {
   return (
     <div className={cn("flex flex-col items-center justify-center h-full", className)}>
       <div className="flex items-center gap-3 mb-2">
         <img
           src={logoSvg}
-          alt="Levante Logo"
+          alt="Levante"
           className="w-8 h-8"
           style={{ filter: 'brightness(0) saturate(50%)' }}
         />
