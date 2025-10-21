@@ -10,10 +10,14 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
-  SidebarTrigger
+  SidebarTrigger,
+  useSidebar
 } from '@/components/ui/sidebar'
-import { MessageSquare, Settings, User, Bot, Store } from 'lucide-react'
+import { MessageSquare, Settings, User, Bot, Store, Plus, PanelLeftClose, PanelLeft } from 'lucide-react'
 import { getRendererLogger } from '@/services/logger'
+import { Button } from '@/components/ui/button'
+// @ts-ignore - PNG import
+import logoIcon from '@/assets/icons/icon.png'
 
 const logger = getRendererLogger();
 
@@ -23,32 +27,44 @@ interface MainLayoutProps {
   currentPage?: string
   onPageChange?: (page: string) => void
   sidebarContent?: React.ReactNode // Custom sidebar content for specific pages
+  onNewChat?: () => void // Callback for New Chat button
 }
 
-export function MainLayout({ children, title = 'Chat', currentPage = 'chat', onPageChange, sidebarContent }: MainLayoutProps) {
-  const [version, setVersion] = useState<string>('')
-  const [platform, setPlatform] = useState<string>('')
-
-  useEffect(() => {
-    const loadAppInfo = async () => {
-      try {
-        const appVersion = await window.levante.getVersion()
-        const appPlatform = await window.levante.getPlatform()
-        setVersion(appVersion)
-        setPlatform(appPlatform)
-      } catch (error) {
-        logger.core.error('Failed to load app info in MainLayout', { error: error instanceof Error ? error.message : error })
-      }
-    }
-
-    loadAppInfo()
-  }, [])
+// Inner component that has access to useSidebar
+function MainLayoutContent({ children, title, currentPage, onPageChange, sidebarContent, onNewChat, version, platform }: MainLayoutProps & { version: string; platform: string }) {
+  const { open } = useSidebar()
 
   return (
-    <SidebarProvider>
+    <>
       <Sidebar>
-        <SidebarHeader>
-          <h2 className="text-lg font-semibold p-2">Levante</h2>
+        <SidebarHeader style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}>
+          <div className="flex flex-col gap-4 p-2 pt-0" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+            {/* Controls row - only show when sidebar is open */}
+            {open && (
+              <div className="flex items-center gap-1 justify-end pr-2 -pt-6">
+                <SidebarTrigger className="h-7 w-7 shrink-0" />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onNewChat}
+                  className="h-7 px-2 gap-1"
+                >
+                  <Plus size={14} />
+                  <span className="text-sm">New Chat</span>
+                </Button>
+              </div>
+            )}
+
+            {/* Logo and title */}
+            <div className="flex items-center gap-2">
+              <img
+                src={logoIcon}
+                alt="Levante Logo"
+                className="w-6 h-6 rounded-sm"
+              />
+              <h2 className="text-lg font-semibold">Levante</h2>
+            </div>
+          </div>
         </SidebarHeader>
         <SidebarContent>
           {sidebarContent ? (
@@ -109,16 +125,78 @@ export function MainLayout({ children, title = 'Chat', currentPage = 'chat', onP
         </SidebarFooter>
       </Sidebar>
       <SidebarInset className='rounded-l-2xl h-screen flex flex-col'>
-        <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
-          <div className="flex items-center gap-2 px-4">
-            <SidebarTrigger className="-ml-1" />
-            <h1 className="text-2xl font-bold">{title}</h1>
+        {/* Custom titlebar for macOS - draggable area with controls */}
+        <header
+          className="flex shrink-0 items-center h-12 px-2"
+          style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+        >
+          {/* Only show controls when sidebar is closed */}
+          {!open && (
+            <div
+              className="flex items-center gap-1 ml-16"
+              style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+            >
+              <SidebarTrigger className="h-7 w-7" />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onNewChat}
+                className="h-7 px-2 gap-1"
+              >
+                <Plus size={14} />
+                <span className="text-xs">New Chat</span>
+              </Button>
+            </div>
+          )}
+
+          {/* Center title */}
+          <div className={`flex-1 text-center ${!open ? '' : 'ml-16'}`}>
+            <h1 className="text-sm font-medium text-muted-foreground">{title}</h1>
           </div>
+
+          {/* Right side spacer to balance layout */}
+          {!open && <div className="w-32"></div>}
         </header>
+
         <div className="flex-1 overflow-hidden px-0 py-2">
           {children}
         </div>
       </SidebarInset>
+    </>
+  )
+}
+
+export function MainLayout({ children, title = 'Chat', currentPage = 'chat', onPageChange, sidebarContent, onNewChat }: MainLayoutProps) {
+  const [version, setVersion] = useState<string>('')
+  const [platform, setPlatform] = useState<string>('')
+
+  useEffect(() => {
+    const loadAppInfo = async () => {
+      try {
+        const appVersion = await window.levante.getVersion()
+        const appPlatform = await window.levante.getPlatform()
+        setVersion(appVersion)
+        setPlatform(appPlatform)
+      } catch (error) {
+        logger.core.error('Failed to load app info in MainLayout', { error: error instanceof Error ? error.message : error })
+      }
+    }
+
+    loadAppInfo()
+  }, [])
+
+  return (
+    <SidebarProvider>
+      <MainLayoutContent
+        children={children}
+        title={title}
+        currentPage={currentPage}
+        onPageChange={onPageChange}
+        sidebarContent={sidebarContent}
+        onNewChat={onNewChat}
+        version={version}
+        platform={platform}
+      />
     </SidebarProvider>
   )
 }

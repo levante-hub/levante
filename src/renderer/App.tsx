@@ -61,16 +61,16 @@ function App() {
 
   const getPageTitle = (page: string) => {
     switch (page) {
-      case 'chat': 
-        return currentSession?.title || 'Chat'
-      case 'settings': 
+      case 'chat':
+        return currentSession?.title || ''
+      case 'settings':
         return 'Settings'
-      case 'model': 
+      case 'model':
         return 'Model'
-      case 'store': 
+      case 'store':
         return 'Store'
-      default: 
-        return 'Chat'
+      default:
+        return ''
     }
   }
 
@@ -84,6 +84,18 @@ function App() {
     }
   }
 
+  // Handle new chat with navigation
+  const handleNewChat = () => {
+    startNewChat();
+    setCurrentPage('chat');
+  };
+
+  // Handle session load with navigation
+  const handleLoadSession = (sessionId: string) => {
+    loadSession(sessionId);
+    setCurrentPage('chat');
+  };
+
   // Get sidebar content for current page
   const getSidebarContent = () => {
     // Show ChatList sidebar in all pages
@@ -91,8 +103,8 @@ function App() {
       return ChatPage.getSidebarContent(
         sessions,
         currentSession?.id,
-        loadSession,
-        startNewChat, // Start new chat (no session creation yet)
+        handleLoadSession, // Navigate to chat when loading session
+        handleNewChat, // Navigate to chat when starting new chat
         deleteSession,
         false // loading state
       );
@@ -132,6 +144,7 @@ function App() {
       currentPage={currentPage}
       onPageChange={setCurrentPage}
       sidebarContent={getSidebarContent()}
+      onNewChat={handleNewChat}
     >
       {renderPage()}
     </MainLayout>
