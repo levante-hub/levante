@@ -1,4 +1,5 @@
-import { app, dialog } from 'electron';
+import { app, dialog, nativeImage } from 'electron';
+import { join } from 'path';
 import { getLogger } from './logging';
 
 const logger = getLogger();
@@ -18,6 +19,30 @@ interface UpdateInfo {
 class UpdateService {
   private repo = 'levante-hub/levante';
   private updateCheckInProgress = false;
+  private appIcon: Electron.NativeImage | undefined;
+
+  /**
+   * Get the app icon for dialogs
+   */
+  private getAppIcon(): Electron.NativeImage | undefined {
+    if (!this.appIcon) {
+      try {
+        // In production (packaged app), icon is in resources
+        // In development, icon is in project root
+        const iconPath = app.isPackaged
+          ? join(process.resourcesPath, 'icons', 'icon.png')
+          : join(__dirname, '../../../resources/icons/icon.png');
+
+        this.appIcon = nativeImage.createFromPath(iconPath);
+        logger.core.debug('App icon loaded', { iconPath, isEmpty: this.appIcon.isEmpty() });
+      } catch (error) {
+        logger.core.warn('Failed to load app icon for dialogs', {
+          error: error instanceof Error ? error.message : error
+        });
+      }
+    }
+    return this.appIcon;
+  }
 
   /**
    * Initialize automatic updates (production only)
@@ -69,7 +94,8 @@ class UpdateService {
           title: 'Update Check',
           message: 'Unable to check for updates',
           detail: 'Could not connect to update server. Please try again later.',
-          buttons: ['OK']
+          buttons: ['OK'],
+          icon: this.getAppIcon()
         });
         return;
       }
@@ -85,7 +111,8 @@ class UpdateService {
           detail: `Current version: ${currentVersion}\nLatest version: ${latestVersion}\n\n${latestRelease.releaseNotes || 'View release notes on GitHub'}`,
           buttons: ['Download', 'Later'],
           defaultId: 0,
-          cancelId: 1
+          cancelId: 1,
+          icon: this.getAppIcon()
         });
 
         if (response === 0) {
@@ -99,7 +126,8 @@ class UpdateService {
           title: 'No Updates Available',
           message: 'You are running the latest version',
           detail: `Current version: ${currentVersion}`,
-          buttons: ['OK']
+          buttons: ['OK'],
+          icon: this.getAppIcon()
         });
       }
     } catch (error) {
@@ -112,7 +140,8 @@ class UpdateService {
         title: 'Update Check Failed',
         message: 'An error occurred while checking for updates',
         detail: error instanceof Error ? error.message : 'Unknown error',
-        buttons: ['OK']
+        buttons: ['OK'],
+        icon: this.getAppIcon()
       });
     } finally {
       this.updateCheckInProgress = false;
