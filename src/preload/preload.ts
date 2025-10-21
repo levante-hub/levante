@@ -112,6 +112,7 @@ export interface LevanteAPI {
   getPlatform: () => Promise<string>
   getSystemTheme: () => Promise<{ shouldUseDarkColors: boolean; themeSource: string }>
   onSystemThemeChanged: (callback: (theme: { shouldUseDarkColors: boolean; themeSource: string }) => void) => () => void
+  checkForUpdates: () => Promise<{ success: boolean; error?: string }>
 
   // Chat functionality
   sendMessage: (request: ChatRequest) => Promise<{ success: boolean; response: string; sources?: any[]; reasoning?: string }>
@@ -253,6 +254,8 @@ const api: LevanteAPI = {
       ipcRenderer.removeListener('levante/app/theme-changed', listener);
     };
   },
+
+  checkForUpdates: () => ipcRenderer.invoke('levante/app/check-for-updates'),
 
   sendMessage: (request: ChatRequest) =>
     ipcRenderer.invoke('levante/chat/send', request),

@@ -14,6 +14,8 @@ import { setupProfileHandlers } from "./ipc/profileHandlers";
 import { preferencesService } from "./services/preferencesService";
 import { userProfileService } from "./services/userProfileService";
 import { getLogger, initializeLogger } from "./services/logging";
+import { createApplicationMenu } from "./menu";
+import { updateService } from "./services/updateService";
 
 // Load environment variables from .env.local and .env files
 config({ path: join(__dirname, "../../.env.local") });
@@ -24,22 +26,8 @@ const logger = getLogger();
 // Explicitly initialize logger with environment variables
 initializeLogger();
 
-// Enable auto-updates (official Electron module)
-// Only enable in production builds
-if (!process.env.NODE_ENV || process.env.NODE_ENV === 'production') {
-  // Usar require() con destructuring porque updateElectronApp es un named export
-  const { updateElectronApp } = require('update-electron-app');
-  updateElectronApp({
-    repo: 'levante-hub/levante',
-    updateInterval: '1 hour', // Check for updates every hour
-    notifyUser: true, // Show update notifications to user
-    logger: {
-      log: (...args: any[]) => logger.core.info('Auto-update:', ...args),
-      error: (...args: any[]) => logger.core.error('Auto-update error:', ...args)
-    }
-  });
-  logger.core.info('Auto-update system initialized');
-}
+// Initialize auto-updates
+updateService.initialize();
 
 // Keep a global reference of the window object
 let mainWindow: BrowserWindow | null = null;
@@ -189,6 +177,9 @@ app.whenReady().then(async () => {
 
   createWindow();
 
+  // Create application menu after window is created
+  createApplicationMenu(mainWindow);
+
   app.on("activate", function () {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
@@ -231,6 +222,22 @@ nativeTheme.on('updated', () => {
       shouldUseDarkColors: nativeTheme.shouldUseDarkColors,
       themeSource: nativeTheme.themeSource
     });
+  }
+});
+
+// Handle manual update check
+ipcMain.handle("levante/app/check-for-updates", async () => {
+  try {
+    await updateService.checkForUpdates();
+    return { success: true };
+  } catch (error) {
+    logger.core.error('Error in manual update check', {
+      error: error instanceof Error ? error.message : error
+    });
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
   }
 });
 
