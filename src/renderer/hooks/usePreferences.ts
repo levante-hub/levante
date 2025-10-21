@@ -32,35 +32,11 @@ export function usePreferences() {
   }, []);
 
   // Listen for preference changes
+  // Note: IPC listeners are not exposed in preload, so we'll rely on manual updates
+  // The theme and other preferences will update on page change or when explicitly called
   useEffect(() => {
-    const handlePreferenceChanged = (event: any, changeEvent: PreferenceChangeEvent) => {
-      console.log('[usePreferences] Preference changed:', changeEvent);
-      
-      setPreferences(prev => {
-        if (!prev) return prev;
-        
-        return {
-          ...prev,
-          [changeEvent.key]: changeEvent.value
-        };
-      });
-    };
-
-    const handlePreferenceReset = (event: any, newPreferences: UIPreferences) => {
-      console.log('[usePreferences] Preferences reset');
-      setPreferences(newPreferences);
-    };
-
-    // Register IPC listeners
-    const { ipcRenderer } = window.require('electron');
-    ipcRenderer.on('levante/preferences/changed', handlePreferenceChanged);
-    ipcRenderer.on('levante/preferences/reset', handlePreferenceReset);
-
-    // Cleanup
-    return () => {
-      ipcRenderer.removeListener('levante/preferences/changed', handlePreferenceChanged);
-      ipcRenderer.removeListener('levante/preferences/reset', handlePreferenceReset);
-    };
+    // TODO: Add IPC listeners via preload if real-time updates are needed
+    // For now, preferences are updated when explicitly set via setPreference
   }, []);
 
   // Get single preference

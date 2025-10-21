@@ -45,6 +45,14 @@ if (!process.env.NODE_ENV || process.env.NODE_ENV === 'production') {
 let mainWindow: BrowserWindow | null = null;
 
 function createWindow(): void {
+  // IMPORTANT: Set nativeTheme to follow system BEFORE creating window
+  nativeTheme.themeSource = 'system';
+
+  logger.core.info('NativeTheme configured', {
+    themeSource: nativeTheme.themeSource,
+    shouldUseDarkColors: nativeTheme.shouldUseDarkColors
+  });
+
   // Create the browser window
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -207,6 +215,23 @@ ipcMain.handle("levante/app/version", () => {
 
 ipcMain.handle("levante/app/platform", () => {
   return process.platform;
+});
+
+ipcMain.handle("levante/app/theme", () => {
+  return {
+    shouldUseDarkColors: nativeTheme.shouldUseDarkColors,
+    themeSource: nativeTheme.themeSource
+  };
+});
+
+// Listen for theme changes and notify renderer
+nativeTheme.on('updated', () => {
+  if (mainWindow) {
+    mainWindow.webContents.send('levante/app/theme-changed', {
+      shouldUseDarkColors: nativeTheme.shouldUseDarkColors,
+      themeSource: nativeTheme.themeSource
+    });
+  }
 });
 
 // Initialize AI service

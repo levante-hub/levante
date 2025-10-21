@@ -161,7 +161,7 @@ export function StoreLayout({ mode }: StoreLayoutProps) {
   }
 
   return (
-    <div className="px-10 py-6">
+    <div className="max-w-4xl mx-auto space-y-6 px-4">
       <div className="mb-6">
         <div className="flex items-start justify-between">
           <div>
@@ -210,7 +210,7 @@ export function StoreLayout({ mode }: StoreLayoutProps) {
                   {activeServers.length} active
                 </Badge>
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {/* Add New Card */}
                 <Card className="p-6 border-dashed border-2 hover:border-primary/50 transition-colors cursor-pointer">

@@ -12,7 +12,102 @@ import { logger } from '@/services/logger'
 function App() {
   const [currentPage, setCurrentPage] = useState('chat')
   const [wizardCompleted, setWizardCompleted] = useState<boolean | null>(null)
+  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system')
+
+  // Load theme from user profile
+  useEffect(() => {
+    const loadTheme = async () => {
+      try {
+        const profile = await window.levante.profile.get();
+        if (profile?.data?.theme) {
+          setTheme(profile.data.theme);
+        }
+      } catch (error) {
+        logger.core.error('Failed to load theme from profile', {
+          error: error instanceof Error ? error.message : error
+        });
+      }
+    };
+
+    loadTheme();
+  }, []);
+
+  // Listen for theme changes from settings
+  useEffect(() => {
+    const handleThemeChange = (event: CustomEvent) => {
+      const newTheme = event.detail.theme;
+      setTheme(newTheme);
+    };
+
+    window.addEventListener('theme-changed', handleThemeChange as EventListener);
+
+    return () => {
+      window.removeEventListener('theme-changed', handleThemeChange as EventListener);
+    };
+  }, []);
   
+  // Apply theme to document
+  useEffect(() => {
+    const root = document.documentElement;
+
+    const applyTheme = async () => {
+      if (!theme || theme === 'system') {
+        // For system theme, use Electron's nativeTheme for accurate detection
+        try {
+          const systemTheme = await window.levante.getSystemTheme();
+          const systemPrefersDark = systemTheme.shouldUseDarkColors;
+
+          root.classList.remove('light', 'dark');
+          root.classList.add(systemPrefersDark ? 'dark' : 'light');
+
+          logger.core.debug('Theme applied (system)', {
+            theme,
+            systemPrefersDark,
+            themeSource: systemTheme.themeSource,
+            appliedClass: systemPrefersDark ? 'dark' : 'light'
+          });
+        } catch (error) {
+          logger.core.error('Failed to get system theme', {
+            error: error instanceof Error ? error.message : error
+          });
+          // Fallback to media query
+          const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          root.classList.remove('light', 'dark');
+          root.classList.add(systemPrefersDark ? 'dark' : 'light');
+        }
+      } else {
+        root.classList.remove('light', 'dark');
+        root.classList.add(theme);
+
+        logger.core.debug('Theme applied (manual)', { theme });
+      }
+    };
+
+    applyTheme();
+  }, [theme]);
+
+  // Listen for system theme changes from Electron
+  useEffect(() => {
+    const cleanup = window.levante.onSystemThemeChanged(async (systemTheme) => {
+      if (!theme || theme === 'system') {
+        // Only apply if we're in system mode
+        const root = document.documentElement;
+        const systemPrefersDark = systemTheme.shouldUseDarkColors;
+
+        root.classList.remove('light', 'dark');
+        root.classList.add(systemPrefersDark ? 'dark' : 'light');
+
+        logger.core.info('System theme changed', {
+          shouldUseDarkColors: systemPrefersDark,
+          themeSource: systemTheme.themeSource,
+          appliedClass: systemPrefersDark ? 'dark' : 'light'
+        });
+      }
+    });
+
+    return cleanup;
+  }, [theme]);
+
   // Check wizard status on mount
   useEffect(() => {
     const checkWizard = async () => {

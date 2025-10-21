@@ -56,14 +56,19 @@ function MainLayoutContent({ children, title, currentPage, onPageChange, sidebar
             )}
 
             {/* Logo and title */}
-            <div className="flex items-center gap-2">
+            <button
+              onClick={onNewChat}
+              className="flex items-center gap-2 hover:opacity-80 transition-opacity cursor-pointer"
+              title="New Chat"
+            >
               <img
                 src={logoIcon}
                 alt="Levante Logo"
                 className="w-6 h-6 rounded-sm"
               />
               <h2 className="text-lg font-semibold">Levante</h2>
-            </div>
+            </button>
+
           </div>
         </SidebarHeader>
         <SidebarContent>

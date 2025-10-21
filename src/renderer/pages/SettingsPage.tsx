@@ -16,7 +16,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import { CheckCircle, Settings, User, ChevronDown } from 'lucide-react';
+import { CheckCircle, Settings, User, ChevronDown, Palette } from 'lucide-react';
 import { getRendererLogger } from '@/services/logger';
 import type { PersonalizationSettings } from '../../types/userProfile';
 
@@ -30,7 +30,15 @@ const PERSONALITY_OPTIONS = [
   { value: 'nerd', label: 'Nerd', description: 'Exploratory and enthusiastic' },
 ];
 
+const THEME_OPTIONS = [
+  { value: 'system', label: 'System', description: 'Follow system settings' },
+  { value: 'light', label: 'Light', description: 'Light theme' },
+  { value: 'dark', label: 'Dark', description: 'Dark theme' },
+];
+
 const SettingsPage = () => {
+  const [theme, setThemeState] = useState<'light' | 'dark' | 'system'>('system');
+
   const [maxStepsConfig, setMaxStepsConfig] = useState({
     baseSteps: 5,
     maxSteps: 20,
@@ -48,6 +56,11 @@ const SettingsPage = () => {
   });
 
   const [personalizationState, setPersonalizationState] = useState({
+    saving: false,
+    saved: false,
+  });
+
+  const [themeState, setThemeSaveState] = useState({
     saving: false,
     saved: false,
   });
@@ -73,8 +86,35 @@ const SettingsPage = () => {
       if (profile?.data?.personalization) {
         setPersonalization(profile.data.personalization);
       }
+      if (profile?.data?.theme) {
+        setThemeState(profile.data.theme);
+      }
     } catch (error) {
       logger.preferences.error('Error loading personalization settings', { error: error instanceof Error ? error.message : error });
+    }
+  };
+
+  const handleThemeChange = async (newTheme: 'light' | 'dark' | 'system') => {
+    setThemeSaveState({ saving: true, saved: false });
+    setThemeState(newTheme);
+
+    try {
+      await window.levante.profile.update({
+        theme: newTheme
+      });
+
+      setThemeSaveState({ saving: false, saved: true });
+
+      // Clear saved indicator after 3 seconds
+      setTimeout(() => {
+        setThemeSaveState({ saving: false, saved: false });
+      }, 3000);
+
+      // Dispatch event to notify App.tsx to update theme
+      window.dispatchEvent(new CustomEvent('theme-changed', { detail: { theme: newTheme } }));
+    } catch (error) {
+      logger.preferences.error('Error saving theme', { theme: newTheme, error: error instanceof Error ? error.message : error });
+      setThemeSaveState({ saving: false, saved: false });
     }
   };
 
@@ -126,7 +166,7 @@ const SettingsPage = () => {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="max-w-4xl mx-auto space-y-6 px-4">
+      <div className="max-w-4xl mx-auto space-y-6 px-4 mb-10">
         {/* Personalization Settings - First Block */}
         <Collapsible defaultOpen className="bg-card rounded-lg border">
           <div className="p-6">
@@ -289,7 +329,58 @@ const SettingsPage = () => {
           </div>
         </Collapsible>
 
-        {/* AI Configuration - Second Block */}
+        {/* Appearance - Second Block */}
+        <Collapsible className="bg-card rounded-lg border">
+          <div className="p-6">
+            <CollapsibleTrigger className="flex items-center justify-between w-full group">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <Palette className="w-5 h-5" />
+                Appearance
+              </h3>
+              <ChevronDown className="w-5 h-5 transition-transform group-data-[state=open]:rotate-180" />
+            </CollapsibleTrigger>
+
+            <CollapsibleContent className="mt-4">
+              <div className="space-y-6">
+                {/* Theme Selector */}
+                <div className="space-y-2">
+                  <Label htmlFor="theme">Theme</Label>
+                  <Select
+                    value={theme || 'system'}
+                    onValueChange={(value) => handleThemeChange(value as 'light' | 'dark' | 'system')}
+                  >
+                    <SelectTrigger id="theme">
+                      <SelectValue placeholder="Select theme" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {THEME_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{option.label}</span>
+                            <span className="text-xs text-muted-foreground">{option.description}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Choose how the app looks, or sync with your system settings
+                  </p>
+
+                  {/* Save indicator */}
+                  {themeState.saved && (
+                    <div className="flex items-center text-green-600 text-sm">
+                      <CheckCircle className="w-4 h-4 mr-1" />
+                      Theme saved successfully
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CollapsibleContent>
+          </div>
+        </Collapsible>
+
+        {/* AI Configuration - Third Block */}
         <Collapsible className="bg-card rounded-lg border">
           <div className="p-6">
             <CollapsibleTrigger className="flex items-center justify-between w-full group">

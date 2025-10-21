@@ -185,7 +185,7 @@ const ChatPageContent = () => {
                       </Sources>
                     )}
                     <Message from={message.role} key={message.id} className={cn('p-0', message.role === 'user' ? 'is-user my-6' : 'is-assistant')}>
-                      <MessageContent className={cn('', message.role === 'user' ? 'bg-muted p-2 mb-0' : 'px-2 py-0 bg-background')}>
+                      <MessageContent from={message.role} className={cn('', message.role === 'user' ? 'p-2 mb-0 dark:text-white' : 'px-2 py-0')}>
                         {message.parts.map((part, i) => {
                           switch (part.type) {
                             case 'text':
