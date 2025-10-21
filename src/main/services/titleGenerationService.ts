@@ -55,10 +55,39 @@ Examples:
         }
       ];
 
-      // Use a fast, lightweight model for title generation
+      // Get the user's currently selected model from preferences
+      const { preferencesService } = await import("./preferencesService");
+      const activeProviderId = preferencesService.get("activeProvider") as string;
+      const providers = (preferencesService.get("providers") as any[]) || [];
+
+      const activeProvider = providers.find(p => p.id === activeProviderId);
+
+      if (!activeProvider) {
+        throw new Error("No active provider configured. Please configure a provider in the Models page.");
+      }
+
+      // Get the first selected model from the active provider
+      let modelId: string | undefined;
+
+      if (activeProvider.modelSource === 'dynamic') {
+        // For dynamic providers, get first selectedModelId
+        modelId = activeProvider.selectedModelIds?.[0];
+      } else {
+        // For user-defined providers, get first selected model
+        const selectedModel = activeProvider.models?.find((m: any) => m.isSelected !== false);
+        modelId = selectedModel?.id;
+      }
+
+      if (!modelId) {
+        throw new Error("No model selected in active provider. Please select a model in the Models page.");
+      }
+
+      this.logger.aiSdk.debug("Using model for title generation", { modelId, providerId: activeProvider.id });
+
+      // Use the user's configured model for title generation
       const response = await this.aiService.sendSingleMessage({
         messages: titlePrompt,
-        model: 'openai/gpt-4o-mini', // Fast and cheap for simple tasks
+        model: modelId,
         webSearch: false
       });
 

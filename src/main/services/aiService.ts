@@ -5,9 +5,9 @@ import {
   UIMessage,
   stepCountIs,
 } from "ai";
-import { openai } from "@ai-sdk/openai";
-import { anthropic } from "@ai-sdk/anthropic";
-import { google } from "@ai-sdk/google";
+import { createOpenAI } from "@ai-sdk/openai";
+import { createAnthropic } from "@ai-sdk/anthropic";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { createGateway } from "@ai-sdk/gateway";
 import { tool } from "ai";
@@ -59,30 +59,77 @@ export class AIService {
       try {
         providers =
           (preferencesService.get("providers") as ProviderConfig[]) || [];
+
+        // Debug: Log loaded providers
+        this.logger.aiSdk.debug("Loaded providers from preferences", {
+          providerCount: providers.length,
+          providers: providers.map(p => ({
+            id: p.id,
+            type: p.type,
+            hasApiKey: !!p.apiKey,
+            apiKeyPrefix: p.apiKey?.substring(0, 10)
+          }))
+        });
       } catch (error) {
         this.logger.aiSdk.warn("No providers found in preferences, using empty array");
         providers = [];
       }
 
-      // If no providers configured, use fallback
+      // If no providers configured, throw error
       if (providers.length === 0) {
-        this.logger.aiSdk.info("No providers configured, using fallback provider");
-        return this.getFallbackProvider(modelId);
+        this.logger.aiSdk.error("No providers configured");
+        throw new Error(
+          "No AI providers configured. Please configure at least one provider in the Models page."
+        );
       }
 
       // Find which provider this model belongs to
-      const providerWithModel = providers.find((provider) =>
-        provider.models.some(
-          (model) => model.id === modelId && model.isSelected !== false
-        )
-      );
+      // For dynamic providers, check selectedModelIds (since models array is empty in storage)
+      // For user-defined providers, check models array
+      const providerWithModel = providers.find((provider) => {
+        if (provider.modelSource === 'dynamic') {
+          // Dynamic providers save only selectedModelIds
+          return provider.selectedModelIds?.includes(modelId);
+        } else {
+          // User-defined providers have full model data
+          return provider.models.some(
+            (model) => model.id === modelId && model.isSelected !== false
+          );
+        }
+      });
 
       if (!providerWithModel) {
-        this.logger.aiSdk.info("Model not found in configured providers, using fallback", { 
-          modelId 
+        // Log all available providers and their models for debugging
+        this.logger.aiSdk.error("Model not found in any configured provider", {
+          modelId,
+          totalProviders: providers.length,
+          availableProviders: providers.map(p => ({
+            id: p.id,
+            name: p.name,
+            type: p.type,
+            modelSource: p.modelSource,
+            modelCount: p.models.length,
+            selectedModels: p.modelSource === 'dynamic'
+              ? (p.selectedModelIds || [])
+              : p.models.filter(m => m.isSelected !== false).map(m => m.id)
+          }))
         });
-        return this.getFallbackProvider(modelId);
+
+        throw new Error(
+          `Model "${modelId}" not found in any configured provider. Please select the model in the Models page and ensure it is enabled.`
+        );
       }
+
+      // Log the provider that will be used
+      this.logger.aiSdk.info("Using configured provider for model", {
+        modelId,
+        providerType: providerWithModel.type,
+        providerName: providerWithModel.name,
+        providerId: providerWithModel.id,
+        hasApiKey: !!providerWithModel.apiKey,
+        hasBaseUrl: !!providerWithModel.baseUrl,
+        apiKeyPrefix: providerWithModel.apiKey?.substring(0, 10) + '...'
+      });
 
       // Configure provider based on type
       switch (providerWithModel.type) {
@@ -98,6 +145,11 @@ export class AIService {
             ? providerWithModel.baseUrl
             : providerWithModel.baseUrl.replace("/v1", "/v1/ai");
 
+          this.logger.aiSdk.debug("Creating Vercel Gateway provider", {
+            modelId,
+            gatewayApiUrl
+          });
+
           const gateway = createGateway({
             apiKey: providerWithModel.apiKey,
             baseURL: gatewayApiUrl,
@@ -111,6 +163,11 @@ export class AIService {
               `OpenRouter API key missing for provider ${providerWithModel.name}`
             );
           }
+
+          this.logger.aiSdk.debug("Creating OpenRouter provider", {
+            modelId,
+            baseURL: "https://openrouter.ai/api/v1"
+          });
 
           const openrouter = createOpenAICompatible({
             name: "openrouter",
@@ -127,103 +184,110 @@ export class AIService {
             );
           }
 
+          // Ensure the baseURL has the /v1 suffix for OpenAI compatibility
+          // Ollama, LM Studio, and other local providers use /v1/chat/completions
+          let localBaseUrl = providerWithModel.baseUrl;
+          if (!localBaseUrl.endsWith('/v1')) {
+            localBaseUrl = localBaseUrl.replace(/\/$/, '') + '/v1';
+          }
+
+          this.logger.aiSdk.debug("Creating Local provider", {
+            modelId,
+            baseURL: localBaseUrl
+          });
+
           const localProvider = createOpenAICompatible({
             name: "local",
-            baseURL: providerWithModel.baseUrl,
+            baseURL: localBaseUrl,
           });
 
           return localProvider(modelId);
 
-        case "cloud":
-          // For cloud providers, use direct SDK with environment variables
-          return this.getCloudProvider(modelId);
+        // Cloud Providers
+        case "openai":
+          if (!providerWithModel.apiKey) {
+            throw new Error(
+              `OpenAI API key missing for provider ${providerWithModel.name}`
+            );
+          }
+          this.logger.aiSdk.debug("Creating OpenAI provider", { modelId });
+          const openaiProvider = createOpenAI({
+            apiKey: providerWithModel.apiKey,
+            organization: providerWithModel.organizationId,
+          });
+          return openaiProvider(modelId);
+
+        case "anthropic":
+          if (!providerWithModel.apiKey) {
+            throw new Error(
+              `Anthropic API key missing for provider ${providerWithModel.name}`
+            );
+          }
+          this.logger.aiSdk.debug("Creating Anthropic provider", { modelId });
+          const anthropicProvider = createAnthropic({
+            apiKey: providerWithModel.apiKey,
+          });
+          return anthropicProvider(modelId);
+
+        case "google":
+          if (!providerWithModel.apiKey) {
+            throw new Error(
+              `Google AI API key missing for provider ${providerWithModel.name}`
+            );
+          }
+          this.logger.aiSdk.debug("Creating Google provider", { modelId });
+          const googleProvider = createGoogleGenerativeAI({
+            apiKey: providerWithModel.apiKey,
+          });
+          return googleProvider(modelId);
+
+        case "groq":
+          if (!providerWithModel.apiKey) {
+            throw new Error(
+              `Groq API key missing for provider ${providerWithModel.name}`
+            );
+          }
+          this.logger.aiSdk.debug("Creating Groq provider", {
+            modelId,
+            baseURL: providerWithModel.baseUrl || "https://api.groq.com/openai/v1"
+          });
+          const groq = createOpenAICompatible({
+            name: "groq",
+            apiKey: providerWithModel.apiKey,
+            baseURL: providerWithModel.baseUrl || "https://api.groq.com/openai/v1",
+          });
+          return groq(modelId);
+
+        case "xai":
+          if (!providerWithModel.apiKey) {
+            throw new Error(
+              `xAI API key missing for provider ${providerWithModel.name}`
+            );
+          }
+          this.logger.aiSdk.debug("Creating xAI provider", {
+            modelId,
+            baseURL: providerWithModel.baseUrl || "https://api.x.ai/v1"
+          });
+          const xai = createOpenAICompatible({
+            name: "xai",
+            apiKey: providerWithModel.apiKey,
+            baseURL: providerWithModel.baseUrl || "https://api.x.ai/v1",
+          });
+          return xai(modelId);
 
         default:
           throw new Error(`Unknown provider type: ${providerWithModel.type}`);
       }
     } catch (error) {
-      this.logger.aiSdk.error("Error getting model provider configuration", { 
+      this.logger.aiSdk.error("Error getting model provider configuration", {
         error: error instanceof Error ? error.message : error,
-        modelId 
+        modelId
       });
-      // Fallback to old behavior
-      return this.getFallbackProvider(modelId);
+      // Re-throw the error instead of using fallback
+      throw error;
     }
   }
 
-  private getFallbackProvider(modelId: string) {
-    if (modelId.startsWith("openai/")) {
-      if (!process.env.OPENAI_API_KEY) {
-        throw new Error(
-          "OpenAI API key is required. Please set OPENAI_API_KEY environment variable."
-        );
-      }
-      const modelName = modelId.replace("openai/", "");
-      return openai(modelName);
-    }
-
-    if (modelId.startsWith("anthropic/")) {
-      if (!process.env.ANTHROPIC_API_KEY) {
-        throw new Error(
-          "Anthropic API key is required. Please set ANTHROPIC_API_KEY environment variable."
-        );
-      }
-      const modelName = modelId.replace("anthropic/", "");
-      return anthropic(modelName);
-    }
-
-    if (modelId.startsWith("google/")) {
-      if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
-        throw new Error(
-          "Google API key is required. Please set GOOGLE_GENERATIVE_AI_API_KEY environment variable."
-        );
-      }
-      const modelName = modelId.replace("google/", "");
-      return google(modelName);
-    }
-
-    // Default fallback
-    if (!process.env.OPENAI_API_KEY) {
-      throw new Error(
-        "OpenAI API key is required as fallback. Please set OPENAI_API_KEY environment variable."
-      );
-    }
-    return openai("gpt-4o-mini");
-  }
-
-  private getCloudProvider(modelId: string) {
-    if (modelId.startsWith("openai/")) {
-      if (!process.env.OPENAI_API_KEY) {
-        throw new Error(
-          "OpenAI API key is required. Please set OPENAI_API_KEY environment variable."
-        );
-      }
-      const modelName = modelId.replace("openai/", "");
-      return openai(modelName);
-    }
-
-    if (modelId.startsWith("anthropic/")) {
-      if (!process.env.ANTHROPIC_API_KEY) {
-        throw new Error(
-          "Anthropic API key is required. Please set ANTHROPIC_API_KEY environment variable."
-        );
-      }
-      const modelName = modelId.replace("anthropic/", "");
-      return anthropic(modelName);
-    }
-
-    if (modelId.startsWith("google/")) {
-      if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
-        throw new Error(
-          "Google API key is required. Please set GOOGLE_GENERATIVE_AI_API_KEY environment variable."
-        );
-      }
-      const modelName = modelId.replace("google/", "");
-      return google(modelName);
-    }
-
-    throw new Error(`Unknown cloud provider for model: ${modelId}`);
-  }
 
 
   async *streamChat(
@@ -310,9 +374,18 @@ export class AIService {
       for await (const chunk of result.fullStream) {
         //Log all chunks
         if (chunk.type !== "text-delta") {
-          this.logger.aiSdk.debug("AI Stream chunk received", { 
-            type: chunk.type, 
-            chunk 
+          this.logger.aiSdk.debug("AI Stream chunk received", {
+            type: chunk.type,
+            chunk
+          });
+        }
+
+        // Log the actual model used when we receive finish-step
+        if (chunk.type === "finish-step" && chunk.response) {
+          this.logger.aiSdk.info("Model used in AI request", {
+            requestedModelId: model,
+            actualModelId: chunk.response.modelId,
+            providerMetadata: chunk.response.headers
           });
         }
 

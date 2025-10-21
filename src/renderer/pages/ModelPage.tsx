@@ -1,13 +1,12 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, CheckCircle, XCircle, ExternalLink, RefreshCw } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, ExternalLink, RefreshCw, Search } from 'lucide-react';
 import { useModelStore } from '@/stores/modelStore';
 import type { ProviderConfig, Model } from '../../types/models';
 
@@ -27,6 +26,8 @@ const ModelPage = () => {
     setModelSelections,
     clearMessages
   } = useModelStore();
+
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     initialize();
@@ -72,7 +73,11 @@ const ModelPage = () => {
         return <GatewayConfig provider={provider} />;
       case 'local':
         return <LocalConfig provider={provider} />;
-      case 'cloud':
+      case 'openai':
+      case 'anthropic':
+      case 'google':
+      case 'groq':
+      case 'xai':
         return <CloudConfig provider={provider} />;
       default:
         return <div>Unknown provider type</div>;
@@ -110,36 +115,49 @@ const ModelPage = () => {
           </Alert>
         )}
 
+        {/* Provider Selection & Configuration Section */}
         <Card>
-          <CardHeader className='pb-2'>
-            <CardTitle>Active Provider</CardTitle>
+          <CardHeader className='pb-4'>
+            <CardTitle>Provider Configuration</CardTitle>
             <CardDescription>
-              Select the AI provider to use for new conversations
+              Select and configure your AI provider
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-6">
+            {/* Provider Selector */}
             <div className="space-y-2">
-              <div>
-                <Label htmlFor="provider-select"></Label>
-                <Select value={activeProvider?.id || ''} onValueChange={handleProviderChange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a provider" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {providers.map((provider) => (
-                      <SelectItem key={provider.id} value={provider.id}>
-                        <div className="flex items-center gap-2">
-                          <span>{provider.name}</span>
-                          {provider.apiKey && <Badge variant="secondary" className="text-xs">Configured</Badge>}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <Label htmlFor="provider-select">Active Provider</Label>
+              <Select value={activeProvider?.id || ''} onValueChange={handleProviderChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a provider" />
+                </SelectTrigger>
+                <SelectContent>
+                  {providers.map((provider) => (
+                    <SelectItem key={provider.id} value={provider.id}>
+                      <div className="flex items-center gap-2">
+                        <span>{provider.name}</span>
+                        {provider.apiKey && <Badge variant="secondary" className="text-xs">Configured</Badge>}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-              {activeProvider && (
-                <div className="text-sm text-muted-foreground">
+            {/* Provider-specific configuration */}
+            {activeProvider ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 pb-2 border-b">
+                  <Badge>Active</Badge>
+                  <span className="text-sm font-medium">{activeProvider.name}</span>
+                  <span className="text-xs text-muted-foreground ml-auto">
+                    {getProviderDescription(activeProvider.type)}
+                  </span>
+                </div>
+                {renderProviderConfig(activeProvider)}
+
+                {/* Provider stats */}
+                <div className="text-sm text-muted-foreground space-y-1 pt-2 border-t">
                   <p>
                     <strong>Models available:</strong> {activeProvider.models.filter(m => m.isAvailable).length}
                   </p>
@@ -152,95 +170,87 @@ const ModelPage = () => {
                     </p>
                   )}
                 </div>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                Please select a provider above to configure
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        <Tabs defaultValue="configuration" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="configuration">Configuration</TabsTrigger>
-            <TabsTrigger value="models">Models</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="configuration" className="space-y-4">
-            {activeProvider ? (
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="flex items-center gap-2">
-                        {activeProvider.name}
-                        <Badge>Active</Badge>
-                      </CardTitle>
-                      <CardDescription>
-                        {getProviderDescription(activeProvider.type)}
-                      </CardDescription>
-                    </div>
+        {/* Models Section */}
+        {activeProvider && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Available Models</CardTitle>
+                  <CardDescription>
+                    Models from {activeProvider.name}
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  {activeProvider.modelSource === 'dynamic' && (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleSelectAll}
+                        disabled={syncing}
+                      >
+                        Select All
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleDeselectAll}
+                        disabled={syncing}
+                      >
+                        Deselect All
+                      </Button>
+                    </>
+                  )}
+                  {activeProvider.modelSource === 'dynamic' && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => syncProviderModels(activeProvider.id)}
+                      disabled={syncing}
+                    >
+                      <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+                      Sync Models
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {activeProvider.models.filter(m => m.isAvailable).length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="mb-4">
+                    <RefreshCw className="w-12 h-12 mx-auto text-muted-foreground opacity-50" />
                   </div>
-                </CardHeader>
-                <CardContent>
-                  {renderProviderConfig(activeProvider)}
-                </CardContent>
-              </Card>
-            ) : (
-              <Card>
-                <CardContent>
-                  <p className="text-muted-foreground text-center py-8">
-                    No active provider selected. Please select a provider above.
+                  <h3 className="text-lg font-semibold mb-2">No models available</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    {activeProvider.modelSource === 'dynamic'
+                      ? activeProvider.apiKey
+                        ? 'Click "Sync Models" to load available models from the provider.'
+                        : 'Configure your API key above to sync models.'
+                      : 'This provider uses user-defined models. Add models manually.'}
                   </p>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-
-          <TabsContent value="models" className="space-y-4">
-            {activeProvider && (
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle>Available Models</CardTitle>
-                      <CardDescription>
-                        Models from {activeProvider.name}
-                      </CardDescription>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {activeProvider.modelSource === 'dynamic' && (
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleSelectAll}
-                            disabled={syncing}
-                          >
-                            Select All
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleDeselectAll}
-                            disabled={syncing}
-                          >
-                            Deselect All
-                          </Button>
-                        </>
-                      )}
-                      {activeProvider.modelSource === 'dynamic' && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => syncProviderModels(activeProvider.id)}
-                          disabled={syncing}
-                        >
-                          <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-                          Sync Models
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
+                  {activeProvider.modelSource === 'dynamic' && activeProvider.apiKey && (
+                    <Button
+                      onClick={() => syncProviderModels(activeProvider.id)}
+                      disabled={syncing}
+                    >
+                      <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+                      Sync Models Now
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <>
                   {activeProvider.modelSource === 'dynamic' && (
                     <div className="mb-4 p-3 bg-muted rounded-lg">
                       <div className="flex items-center justify-between text-sm">
@@ -255,16 +265,31 @@ const ModelPage = () => {
                       </div>
                     </div>
                   )}
+
+                  {/* Search input */}
+                  <div className="mb-4">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search models by name..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                  </div>
+
                   <ModelList
                     models={activeProvider.models.filter(m => m.isAvailable)}
                     showSelection={activeProvider.modelSource === 'dynamic'}
                     onModelToggle={handleModelToggle}
+                    searchQuery={searchQuery}
                   />
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-        </Tabs>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
@@ -389,35 +414,187 @@ const GatewayConfig = ({ provider }: { provider: ProviderConfig }) => {
 };
 
 const LocalConfig = ({ provider }: { provider: ProviderConfig }) => {
+  const { updateProvider, syncProviderModels, syncing } = useModelStore();
+  const [baseUrl, setBaseUrl] = React.useState(provider.baseUrl || 'http://localhost:11434');
+
+  // Sync local state when provider changes
+  React.useEffect(() => {
+    setBaseUrl(provider.baseUrl || 'http://localhost:11434');
+  }, [provider.baseUrl]);
+
+  const handleSave = async () => {
+    await updateProvider(provider.id, { baseUrl });
+    // Trigger sync after saving
+    if (baseUrl) {
+      syncProviderModels(provider.id);
+    }
+  };
+
+  const handleSync = () => {
+    syncProviderModels(provider.id);
+  };
+
   return (
     <div className="space-y-4">
-      <Alert>
-        <AlertDescription>
-          Local provider configuration will be implemented in Phase 4.
-          This will allow you to connect to Ollama, LM Studio, and other local AI services.
-        </AlertDescription>
-      </Alert>
+      <div className="space-y-2">
+        <Label htmlFor="local-url">Base URL</Label>
+        <div className="flex gap-2">
+          <Input
+            id="local-url"
+            type="url"
+            placeholder="http://localhost:11434"
+            value={baseUrl}
+            onChange={(e) => setBaseUrl(e.target.value)}
+          />
+          <Button onClick={handleSave}>
+            Save
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Default ports: Ollama (11434), LM Studio (1234), LocalAI (8080)
+        </p>
+      </div>
+
+      {provider.baseUrl && (
+        <Button onClick={handleSync} disabled={syncing} variant="outline">
+          <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+          Discover Models
+        </Button>
+      )}
     </div>
   );
 };
 
 const CloudConfig = ({ provider }: { provider: ProviderConfig }) => {
+  const { updateProvider, syncProviderModels, syncing } = useModelStore();
+  const [apiKey, setApiKey] = React.useState(provider.apiKey || '');
+  const [organizationId, setOrganizationId] = React.useState(provider.organizationId || '');
+  const [projectId, setProjectId] = React.useState(provider.projectId || '');
+
+  // Sync local state when provider changes
+  React.useEffect(() => {
+    setApiKey(provider.apiKey || '');
+    setOrganizationId(provider.organizationId || '');
+    setProjectId(provider.projectId || '');
+  }, [provider.apiKey, provider.organizationId, provider.projectId]);
+
+  const handleSave = async () => {
+    const updates: any = { apiKey };
+    if (organizationId) updates.organizationId = organizationId;
+    if (projectId) updates.projectId = projectId;
+    await updateProvider(provider.id, updates);
+
+    // Auto-sync for dynamic providers after saving API key
+    if (apiKey && provider.modelSource === 'dynamic') {
+      syncProviderModels(provider.id);
+    }
+  };
+
+  const handleSync = () => {
+    syncProviderModels(provider.id);
+  };
+
+  // Provider-specific configuration
+  const getProviderConfig = () => {
+    switch (provider.type) {
+      case 'openai':
+        return {
+          apiKeyLabel: 'OpenAI API Key',
+          apiKeyPlaceholder: 'sk-...',
+          apiKeyHelpLink: 'https://platform.openai.com/api-keys',
+          apiKeyHelpText: 'Get your API key from OpenAI Platform',
+          showOrganizationId: true,
+        };
+      case 'anthropic':
+        return {
+          apiKeyLabel: 'Anthropic API Key',
+          apiKeyPlaceholder: 'sk-ant-...',
+          apiKeyHelpLink: 'https://console.anthropic.com/settings/keys',
+          apiKeyHelpText: 'Get your API key from Anthropic Console',
+          showProjectId: false,
+        };
+      case 'google':
+        return {
+          apiKeyLabel: 'Google AI API Key',
+          apiKeyPlaceholder: 'AIza...',
+          apiKeyHelpLink: 'https://aistudio.google.com/app/apikey',
+          apiKeyHelpText: 'Get your API key from Google AI Studio',
+          showProjectId: false,
+        };
+      case 'groq':
+        return {
+          apiKeyLabel: 'Groq API Key',
+          apiKeyPlaceholder: 'gsk_...',
+          apiKeyHelpLink: 'https://console.groq.com/keys',
+          apiKeyHelpText: 'Get your API key from Groq Console',
+          showProjectId: false,
+        };
+      case 'xai':
+        return {
+          apiKeyLabel: 'xAI API Key',
+          apiKeyPlaceholder: 'xai-...',
+          apiKeyHelpLink: 'https://console.x.ai',
+          apiKeyHelpText: 'Get your API key from xAI Console',
+          showProjectId: false,
+        };
+      default:
+        return {
+          apiKeyLabel: 'API Key',
+          apiKeyPlaceholder: 'Enter API key...',
+          apiKeyHelpLink: '#',
+          apiKeyHelpText: 'Configure your API key',
+          showProjectId: false,
+        };
+    }
+  };
+
+  const config = getProviderConfig();
+
   return (
     <div className="space-y-4">
-      <Alert>
-        <AlertDescription>
-          Cloud provider management will be implemented in Phase 4.
-          This will allow you to configure direct connections to OpenAI, Anthropic, Google, and other providers.
-        </AlertDescription>
-      </Alert>
-      <div className="text-sm text-muted-foreground">
-        <p>Currently using default models:</p>
-        <ul className="list-disc list-inside mt-2">
-          {provider.models.slice(0, 3).map(model => (
-            <li key={model.id}>{model.name}</li>
-          ))}
-        </ul>
+      {/* API Key */}
+      <div className="space-y-2">
+        <Label htmlFor={`${provider.id}-api-key`}>{config.apiKeyLabel}</Label>
+        <div className="flex gap-2">
+          <Input
+            id={`${provider.id}-api-key`}
+            type="password"
+            placeholder={config.apiKeyPlaceholder}
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+          />
+          <Button onClick={handleSave}>Save</Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {config.apiKeyHelpText}.{' '}
+          <a
+            href={config.apiKeyHelpLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline"
+          >
+            Get your key <ExternalLink className="w-3 h-3 inline" />
+          </a>
+        </p>
       </div>
+
+      {/* Organization ID (OpenAI only) */}
+      {config.showOrganizationId && (
+        <div className="space-y-2">
+          <Label htmlFor={`${provider.id}-org-id`}>Organization ID (Optional)</Label>
+          <Input
+            id={`${provider.id}-org-id`}
+            type="text"
+            placeholder="org-..."
+            value={organizationId}
+            onChange={(e) => setOrganizationId(e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">
+            For users in multiple organizations
+          </p>
+        </div>
+      )}
+
     </div>
   );
 };
@@ -425,11 +602,13 @@ const CloudConfig = ({ provider }: { provider: ProviderConfig }) => {
 const ModelList = ({
   models,
   showSelection = false,
-  onModelToggle
+  onModelToggle,
+  searchQuery = ''
 }: {
   models: Model[];
   showSelection?: boolean;
   onModelToggle?: (modelId: string, selected: boolean) => void;
+  searchQuery?: string;
 }) => {
   if (models.length === 0) {
     return (
@@ -439,45 +618,95 @@ const ModelList = ({
     );
   }
 
+  // Filter models based on search query
+  const filteredModels = searchQuery
+    ? models.filter(m =>
+        m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        m.id.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : models;
+
+  // Show no results message if search returns nothing
+  if (searchQuery && filteredModels.length === 0) {
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        No models found matching "{searchQuery}"
+      </div>
+    );
+  }
+
+  // Separate selected and unselected models
+  const selectedModels = filteredModels.filter(m => m.isSelected !== false);
+  const unselectedModels = filteredModels.filter(m => m.isSelected === false);
+
+  const renderModel = (model: Model) => (
+    <div key={model.id} className="border rounded-lg p-3">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-3">
+          {showSelection && onModelToggle && (
+            <input
+              type="checkbox"
+              checked={model.isSelected ?? true}
+              onChange={(e) => onModelToggle(model.id, e.target.checked)}
+              className="w-4 h-4 rounded border-gray-300"
+            />
+          )}
+          <h4 className="font-medium">{model.name}</h4>
+        </div>
+        <div className="flex gap-2">
+          {model.capabilities.map(cap => (
+            <Badge key={cap} variant="outline" className="text-xs">
+              {cap}
+            </Badge>
+          ))}
+        </div>
+      </div>
+      <div className="text-sm text-muted-foreground space-y-1">
+        <p>Context Length: {model.contextLength.toLocaleString()} tokens</p>
+        {model.pricing && (
+          <p>
+            Pricing: ${model.pricing.input}/M input, ${model.pricing.output}/M output
+          </p>
+        )}
+      </div>
+    </div>
+  );
+
   return (
-    <div className="grid gap-3">
-      {models.map((model) => (
-        <div key={model.id} className="border rounded-lg p-3">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-3">
-              {showSelection && onModelToggle && (
-                <input
-                  type="checkbox"
-                  checked={model.isSelected ?? true}
-                  onChange={(e) => onModelToggle(model.id, e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300"
-                />
-              )}
-              <h4 className="font-medium">{model.name}</h4>
-            </div>
-            <div className="flex gap-2">
-              {!model.isSelected && showSelection && (
-                <Badge variant="secondary" className="text-xs">
-                  Hidden
-                </Badge>
-              )}
-              {model.capabilities.map(cap => (
-                <Badge key={cap} variant="outline" className="text-xs">
-                  {cap}
-                </Badge>
-              ))}
-            </div>
+    <div className="space-y-6">
+      {/* Selected models section */}
+      {selectedModels.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-foreground">
+              Selected Models ({selectedModels.length})
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              These models appear in chat
+            </p>
           </div>
-          <div className="text-sm text-muted-foreground space-y-1">
-            <p>Context Length: {model.contextLength.toLocaleString()} tokens</p>
-            {model.pricing && (
-              <p>
-                Pricing: ${model.pricing.input}/M input, ${model.pricing.output}/M output
-              </p>
-            )}
+          <div className="grid gap-3">
+            {selectedModels.map(renderModel)}
           </div>
         </div>
-      ))}
+      )}
+
+      {/* Unselected models section */}
+      {unselectedModels.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-muted-foreground">
+              Available Models ({unselectedModels.length})
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Select to use in chat
+            </p>
+          </div>
+          <div className="grid gap-3 opacity-60">
+            {unselectedModels.map(renderModel)}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -490,8 +719,16 @@ const getProviderDescription = (type: ProviderConfig['type']) => {
       return 'Vercel AI Gateway for unified model access';
     case 'local':
       return 'Local AI models (Ollama, LM Studio, etc.)';
-    case 'cloud':
-      return 'Direct cloud provider integrations';
+    case 'openai':
+      return 'Direct integration with OpenAI GPT models';
+    case 'anthropic':
+      return 'Direct integration with Anthropic Claude models';
+    case 'google':
+      return 'Direct integration with Google Gemini models';
+    case 'groq':
+      return 'Ultra-fast inference with Groq LPU™ Inference Engine';
+    case 'xai':
+      return 'Access to Grok models from xAI';
     default:
       return '';
   }
