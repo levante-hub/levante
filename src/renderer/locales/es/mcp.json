@@ -6,12 +6,16 @@
     "no_servers": "No hay servidores MCP activos",
     "switch_to_store": "Cambia a la pestaña Tienda para configurar nuevas integraciones",
     "add_custom": "Añadir Integración Personalizada",
-    "edit_json": "Editar .mcp.json directamente"
+    "edit_json": "Editar .mcp.json directamente",
+    "connected_servers": "Servidores Conectados",
+    "active_count": "{{count}} activos",
+    "loading": "Cargando servidores MCP..."
   },
   "store": {
     "title": "Tienda MCP",
     "description": "Descubre y configura nuevas integraciones MCP",
-    "available": "{{count}} disponibles"
+    "available": "{{count}} disponibles",
+    "available_integrations": "Integraciones Disponibles"
   },
   "server": {
     "configure": "Configurar",
@@ -19,7 +23,9 @@
     "add_to_active": "Añadir a Activos",
     "already_added": "Ya Añadido",
     "active": "Activo",
-    "disabled": "Deshabilitado"
+    "disabled": "Deshabilitado",
+    "custom_description": "Integración de servidor MCP personalizada",
+    "unknown": "Desconocido"
   },
   "connection": {
     "connected": "{{count}} conectados",
@@ -60,6 +66,17 @@
     "deleted": "Servidor eliminado exitosamente",
     "saved": "Configuración guardada y aplicada exitosamente",
     "refreshed": "Configuración actualizada exitosamente",
-    "error": "Error al guardar la configuración"
+    "error": "Error al guardar la configuración",
+    "refresh_failed": "Error al actualizar la configuración",
+    "add_failed": "Error al añadir servidor",
+    "delete_failed": "Error al eliminar servidor",
+    "some_failed": "Algunos servidores no se pudieron conectar: {{servers}}"
+  },
+  "dialog": {
+    "delete_title": "¿Eliminar Servidor MCP?",
+    "delete_description": "¿Estás seguro de que quieres eliminar <strong>{{name}}</strong>?",
+    "delete_warning": "Esto eliminará el servidor de tu archivo de configuración. Esta acción no se puede deshacer.",
+    "cancel": "Cancelar",
+    "delete": "Eliminar"
   }
 }

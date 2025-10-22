@@ -6,12 +6,16 @@
     "no_servers": "No active MCP servers",
     "switch_to_store": "Switch to the Store tab to configure new integrations",
     "add_custom": "Add Custom Integration",
-    "edit_json": "Edit .mcp.json directly"
+    "edit_json": "Edit .mcp.json directly",
+    "connected_servers": "Connected Servers",
+    "active_count": "{{count}} active",
+    "loading": "Loading MCP servers..."
   },
   "store": {
     "title": "MCP Store",
     "description": "Discover and configure new MCP integrations",
-    "available": "{{count}} available"
+    "available": "{{count}} available",
+    "available_integrations": "Available Integrations"
   },
   "server": {
     "configure": "Configure",
@@ -19,7 +23,9 @@
     "add_to_active": "Add to Active",
     "already_added": "Already Added",
     "active": "Active",
-    "disabled": "Disabled"
+    "disabled": "Disabled",
+    "custom_description": "Custom MCP server integration",
+    "unknown": "Unknown"
   },
   "connection": {
     "connected": "{{count}} connected",
@@ -60,6 +66,17 @@
     "deleted": "Server deleted successfully",
     "saved": "Configuration saved and applied successfully",
     "refreshed": "Configuration refreshed successfully",
-    "error": "Failed to save configuration"
+    "error": "Failed to save configuration",
+    "refresh_failed": "Failed to refresh configuration",
+    "add_failed": "Failed to add server",
+    "delete_failed": "Failed to delete server",
+    "some_failed": "Some servers failed to connect: {{servers}}"
+  },
+  "dialog": {
+    "delete_title": "Delete MCP Server?",
+    "delete_description": "Are you sure you want to delete <strong>{{name}}</strong>?",
+    "delete_warning": "This will remove the server from your configuration file. This action cannot be undone.",
+    "cancel": "Cancel",
+    "delete": "Delete"
   }
 }
