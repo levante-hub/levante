@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/collapsible';
 import { CheckCircle, Settings, User, ChevronDown, Palette } from 'lucide-react';
 import { getRendererLogger } from '@/services/logger';
+import { useTranslation } from 'react-i18next';
 import type { PersonalizationSettings } from '../../types/userProfile';
 
 const logger = getRendererLogger();
@@ -37,7 +38,9 @@ const THEME_OPTIONS = [
 ];
 
 const SettingsPage = () => {
+  const { t, i18n } = useTranslation(['settings', 'common']);
   const [theme, setThemeState] = useState<'light' | 'dark' | 'system'>('system');
+  const [language, setLanguage] = useState<'en' | 'es'>('en');
 
   const [maxStepsConfig, setMaxStepsConfig] = useState({
     baseSteps: 5,
@@ -89,6 +92,10 @@ const SettingsPage = () => {
       if (profile?.data?.theme) {
         setThemeState(profile.data.theme);
       }
+      if (profile?.data?.language) {
+        setLanguage(profile.data.language);
+        i18n.changeLanguage(profile.data.language);
+      }
     } catch (error) {
       logger.preferences.error('Error loading personalization settings', { error: error instanceof Error ? error.message : error });
     }
@@ -115,6 +122,22 @@ const SettingsPage = () => {
     } catch (error) {
       logger.preferences.error('Error saving theme', { theme: newTheme, error: error instanceof Error ? error.message : error });
       setThemeSaveState({ saving: false, saved: false });
+    }
+  };
+
+  const handleLanguageChange = async (newLanguage: 'en' | 'es') => {
+    setLanguage(newLanguage);
+
+    try {
+      await window.levante.profile.update({
+        language: newLanguage
+      });
+
+      // Show restart dialog
+      // TODO: Implement restart dialog and app.restart() IPC handler
+      logger.preferences.info('Language changed, restart required', { language: newLanguage });
+    } catch (error) {
+      logger.preferences.error('Error saving language', { language: newLanguage, error: error instanceof Error ? error.message : error });
     }
   };
 
@@ -173,7 +196,7 @@ const SettingsPage = () => {
             <CollapsibleTrigger className="flex items-center justify-between w-full group">
               <h3 className="text-lg font-semibold flex items-center gap-2">
                 <User className="w-5 h-5" />
-                Personalization
+                {t('settings:sections.personalization')}
               </h3>
               <ChevronDown className="w-5 h-5 transition-transform group-data-[state=open]:rotate-180" />
             </CollapsibleTrigger>
@@ -335,43 +358,77 @@ const SettingsPage = () => {
             <CollapsibleTrigger className="flex items-center justify-between w-full group">
               <h3 className="text-lg font-semibold flex items-center gap-2">
                 <Palette className="w-5 h-5" />
-                Appearance
+                {t('settings:sections.appearance')}
               </h3>
               <ChevronDown className="w-5 h-5 transition-transform group-data-[state=open]:rotate-180" />
             </CollapsibleTrigger>
 
             <CollapsibleContent className="mt-4">
               <div className="space-y-6">
+                {/* Language Selector */}
+                <div className="space-y-2">
+                  <Label htmlFor="language">{t('settings:language.label')}</Label>
+                  <Select
+                    value={language}
+                    onValueChange={(value) => handleLanguageChange(value as 'en' | 'es')}
+                  >
+                    <SelectTrigger id="language">
+                      <SelectValue placeholder={t('settings:language.label')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="en">
+                        <span className="font-medium">{t('settings:language.options.en')}</span>
+                      </SelectItem>
+                      <SelectItem value="es">
+                        <span className="font-medium">{t('settings:language.options.es')}</span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {t('settings:language.description')}
+                  </p>
+                  <p className="text-xs text-amber-600">
+                    ⚠️ {t('settings:language.requires_restart')}
+                  </p>
+                </div>
+
                 {/* Theme Selector */}
                 <div className="space-y-2">
-                  <Label htmlFor="theme">Theme</Label>
+                  <Label htmlFor="theme">{t('settings:theme.label')}</Label>
                   <Select
                     value={theme || 'system'}
                     onValueChange={(value) => handleThemeChange(value as 'light' | 'dark' | 'system')}
                   >
                     <SelectTrigger id="theme">
-                      <SelectValue placeholder="Select theme" />
+                      <SelectValue placeholder={t('settings:theme.label')} />
                     </SelectTrigger>
                     <SelectContent>
-                      {THEME_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          <div className="flex flex-col">
-                            <span className="font-medium">{option.label}</span>
-                            <span className="text-xs text-muted-foreground">{option.description}</span>
-                          </div>
-                        </SelectItem>
-                      ))}
+                      <SelectItem value="system">
+                        <div className="flex flex-col">
+                          <span className="font-medium">{t('settings:theme.options.system')}</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="light">
+                        <div className="flex flex-col">
+                          <span className="font-medium">{t('settings:theme.options.light')}</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="dark">
+                        <div className="flex flex-col">
+                          <span className="font-medium">{t('settings:theme.options.dark')}</span>
+                        </div>
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
-                    Choose how the app looks, or sync with your system settings
+                    {t('settings:theme.description')}
                   </p>
 
                   {/* Save indicator */}
                   {themeState.saved && (
                     <div className="flex items-center text-green-600 text-sm">
                       <CheckCircle className="w-4 h-4 mr-1" />
-                      Theme saved successfully
+                      {t('common:status.saved')}
                     </div>
                   )}
                 </div>
@@ -386,7 +443,7 @@ const SettingsPage = () => {
             <CollapsibleTrigger className="flex items-center justify-between w-full group">
               <h3 className="text-lg font-semibold flex items-center gap-2">
                 <Settings className="w-5 h-5" />
-                AI Configuration
+                {t('settings:sections.ai_configuration')}
               </h3>
               <ChevronDown className="w-5 h-5 transition-transform group-data-[state=open]:rotate-180" />
             </CollapsibleTrigger>
