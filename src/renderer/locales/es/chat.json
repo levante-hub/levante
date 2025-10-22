@@ -8,7 +8,12 @@
   "model_selector": {
     "label": "Seleccionar modelo...",
     "no_models": "No hay modelos disponibles",
-    "configure": "Configurar modelos en la página de Modelos"
+    "configure": "Configurar modelos en la página de Modelos",
+    "loading": "Cargando...",
+    "search_placeholder": "Buscar modelos...",
+    "no_models_found": "No se encontraron modelos.",
+    "context": "{{count}} contexto",
+    "context_k": "{{count}}k contexto"
   },
   "message": {
     "user": "Tú",
