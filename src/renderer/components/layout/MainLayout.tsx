@@ -50,9 +50,10 @@ function MainLayoutContent({ children, title, currentPage, onPageChange, sidebar
                   size="sm"
                   onClick={onNewChat}
                   className="h-7 px-2 gap-1"
+                  title={t('actions.new_chat')}
                 >
                   <Plus size={14} />
-                  <span className="text-sm">{t('actions.add')}</span>
+                  <span className="text-sm">{t('actions.new_chat')}</span>
                 </Button>
               </div>
             )}
@@ -61,14 +62,14 @@ function MainLayoutContent({ children, title, currentPage, onPageChange, sidebar
             <button
               onClick={onNewChat}
               className="flex items-center gap-2 hover:opacity-80 transition-opacity cursor-pointer"
-              title="New Chat"
+              title={t('actions.new_chat')}
             >
               <img
                 src={logoIcon}
-                alt="Levante Logo"
+                alt={t('app.logo_alt')}
                 className="w-6 h-6 rounded-sm"
               />
-              <h2 className="text-lg font-semibold">Levante</h2>
+              <h2 className="text-lg font-semibold">{t('app.name')}</h2>
             </button>
 
           </div>
@@ -149,9 +150,10 @@ function MainLayoutContent({ children, title, currentPage, onPageChange, sidebar
                 size="sm"
                 onClick={onNewChat}
                 className="h-7 px-2 gap-1"
+                title={t('actions.new_chat')}
               >
                 <Plus size={14} />
-                <span className="text-xs">{t('actions.add')}</span>
+                <span className="text-xs">{t('actions.new_chat')}</span>
               </Button>
             </div>
           )}

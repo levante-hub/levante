@@ -1,7 +1,8 @@
 {
   "app": {
     "name": "Levante",
-    "tagline": "Tu compañero de IA"
+    "tagline": "Tu compañero de IA",
+    "logo_alt": "Logo de Levante"
   },
   "actions": {
     "save": "Guardar",
@@ -15,6 +16,7 @@
     "continue": "Continuar",
     "finish": "Finalizar",
     "add": "Añadir",
+    "new_chat": "Nuevo Chat",
     "remove": "Quitar",
     "refresh": "Actualizar",
     "search": "Buscar",

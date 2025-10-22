@@ -1,7 +1,8 @@
 {
   "app": {
     "name": "Levante",
-    "tagline": "Your AI companion"
+    "tagline": "Your AI companion",
+    "logo_alt": "Levante Logo"
   },
   "actions": {
     "save": "Save",
@@ -15,6 +16,7 @@
     "continue": "Continue",
     "finish": "Finish",
     "add": "Add",
+    "new_chat": "New Chat",
     "remove": "Remove",
     "refresh": "Refresh",
     "search": "Search",

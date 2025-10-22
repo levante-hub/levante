@@ -8,30 +8,36 @@ import { OnboardingWizard } from '@/pages/OnboardingWizard'
 import { useChatStore, initializeChatStore } from '@/stores/chatStore'
 import { modelService } from '@/services/modelService'
 import { logger } from '@/services/logger'
+import { useTranslation } from 'react-i18next'
 import '@/i18n/config' // Initialize i18n
 
 function App() {
   const [currentPage, setCurrentPage] = useState('chat')
   const [wizardCompleted, setWizardCompleted] = useState<boolean | null>(null)
   const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system')
+  const { i18n } = useTranslation()
 
-  // Load theme from user profile
+  // Load theme and language from user profile
   useEffect(() => {
-    const loadTheme = async () => {
+    const loadUserPreferences = async () => {
       try {
         const profile = await window.levante.profile.get();
         if (profile?.data?.theme) {
           setTheme(profile.data.theme);
         }
+        if (profile?.data?.language) {
+          i18n.changeLanguage(profile.data.language);
+          logger.core.info('Language loaded from profile', { language: profile.data.language });
+        }
       } catch (error) {
-        logger.core.error('Failed to load theme from profile', {
+        logger.core.error('Failed to load user preferences from profile', {
           error: error instanceof Error ? error.message : error
         });
       }
     };
 
-    loadTheme();
-  }, []);
+    loadUserPreferences();
+  }, [i18n]);
 
   // Listen for theme changes from settings
   useEffect(() => {
