@@ -16,46 +16,87 @@
   },
   "theme": {
     "label": "Theme",
-    "description": "Select color theme",
+    "description": "Choose how the app looks, or sync with your system settings",
     "options": {
       "light": "Light",
       "dark": "Dark",
       "system": "System"
-    }
+    },
+    "saved": "Theme saved successfully"
   },
-  "personality": {
-    "label": "Personality",
-    "description": "Choose AI personality",
-    "options": {
-      "professional": "Professional",
-      "casual": "Casual",
-      "creative": "Creative",
-      "technical": "Technical"
-    }
+  "personalization": {
+    "enable_customization": {
+      "label": "Enable customization",
+      "description": "Customize how AI responds to you"
+    },
+    "personality": {
+      "label": "AI Personality",
+      "description": "Set the style and tone AI uses when responding",
+      "options": {
+        "default": {
+          "label": "Default",
+          "description": "Cheerful and adaptive"
+        },
+        "cynic": {
+          "label": "Cynic",
+          "description": "Critical and sarcastic"
+        },
+        "robot": {
+          "label": "Robot",
+          "description": "Efficient and blunt"
+        },
+        "listener": {
+          "label": "Listener",
+          "description": "Thoughtful and supportive"
+        },
+        "nerd": {
+          "label": "Nerd",
+          "description": "Exploratory and enthusiastic"
+        }
+      },
+      "placeholder": "Select personality"
+    },
+    "custom_instructions": {
+      "label": "Custom instructions",
+      "placeholder": "Additional behavior, style, and tone preferences",
+      "description": "Provide additional context about how you want the AI to behave"
+    },
+    "about_you": {
+      "title": "About you",
+      "nickname": {
+        "label": "Nickname",
+        "placeholder": "What should AI call you?"
+      },
+      "occupation": {
+        "label": "Occupation",
+        "placeholder": "e.g., Software Engineer"
+      },
+      "more": {
+        "label": "More about you",
+        "placeholder": "Share additional context about yourself that might help AI provide better responses"
+      }
+    },
+    "save_button": "Save Personalization",
+    "saving": "Saving...",
+    "saved": "Saved successfully"
   },
-  "default_mode": {
-    "label": "Default Mode",
-    "description": "Mode for new chats",
-    "options": {
-      "agent": "Agent",
-      "chat": "Chat"
-    }
-  },
-  "default_location": {
-    "label": "Default Location",
-    "description": "Where to open new chats",
-    "options": {
-      "pane": "Pane",
-      "tab": "Tab"
-    }
-  },
-  "text_size": {
-    "label": "Text Size",
-    "description": "Adjust the text size of Chat messages",
-    "options": {
-      "small": "Small",
-      "default": "Default",
-      "large": "Large"
+  "ai_config": {
+    "title": "Multi-Step Tool Execution Limits",
+    "description": "Configure how many steps the AI can take when using tools. The actual step count is calculated dynamically based on the number of available tools.",
+    "base_steps": {
+      "label": "Base Steps",
+      "description": "Minimum steps allowed (default: 5)"
+    },
+    "max_steps": {
+      "label": "Maximum Steps",
+      "description": "Maximum steps allowed (default: 20)"
+    },
+    "save_button": "Save Configuration",
+    "how_it_works": {
+      "title": "How it works:",
+      "formula": "Formula: Base Steps + (Number of Tools ÷ 5) × 2",
+      "example": "With 24 tools: {{baseSteps}} + (24 ÷ 5) × 2 = {{result}} steps",
+      "note": "Prevents infinite loops while allowing complex operations"
     }
   }
 }
