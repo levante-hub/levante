@@ -158,20 +158,15 @@ export class AIService {
           return gateway(modelId);
 
         case "openrouter":
-          if (!providerWithModel.apiKey) {
-            throw new Error(
-              `OpenRouter API key missing for provider ${providerWithModel.name}`
-            );
-          }
-
           this.logger.aiSdk.debug("Creating OpenRouter provider", {
             modelId,
-            baseURL: "https://openrouter.ai/api/v1"
+            baseURL: "https://openrouter.ai/api/v1",
+            hasApiKey: !!providerWithModel.apiKey
           });
 
           const openrouter = createOpenAICompatible({
             name: "openrouter",
-            apiKey: providerWithModel.apiKey,
+            apiKey: providerWithModel.apiKey || "OPENROUTER_API_KEY", // OpenRouter allows usage without API key for some models
             baseURL: "https://openrouter.ai/api/v1",
           });
 
