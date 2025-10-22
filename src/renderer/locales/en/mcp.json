@@ -94,5 +94,28 @@
     "delete_warning": "This will remove the server from your configuration file. This action cannot be undone.",
     "cancel": "Cancel",
     "delete": "Delete"
+  },
+  "import_export": {
+    "config_button": "Config",
+    "refreshing": "Refreshing...",
+    "exporting": "Exporting...",
+    "importing": "Importing...",
+    "export": "Export Config",
+    "import": "Import Config",
+    "dialog_title": "Import MCP Configuration",
+    "file_label": "Configuration File",
+    "error_title": "Import Error",
+    "preview_title": "Import Preview",
+    "preview_description": "This configuration contains <strong>{{count}} server(s)</strong>.",
+    "conflicts_title": "Configuration Conflicts",
+    "conflicts_description": "The following servers will be overwritten: {{servers}}",
+    "servers_list": "Servers to import",
+    "will_overwrite": "will overwrite",
+    "export_success": "Configuration exported successfully!",
+    "export_error": "Failed to export configuration",
+    "import_success": "Configuration imported successfully!",
+    "import_error": "Failed to import configuration",
+    "invalid_format": "Invalid configuration format: missing or invalid mcpServers",
+    "parse_error": "Failed to parse configuration file"
   }
 }

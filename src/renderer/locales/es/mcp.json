@@ -94,5 +94,28 @@
     "delete_warning": "Esto eliminará el servidor de tu archivo de configuración. Esta acción no se puede deshacer.",
     "cancel": "Cancelar",
     "delete": "Eliminar"
+  },
+  "import_export": {
+    "config_button": "Configuración",
+    "refreshing": "Actualizando...",
+    "exporting": "Exportando...",
+    "importing": "Importando...",
+    "export": "Exportar Configuración",
+    "import": "Importar Configuración",
+    "dialog_title": "Importar Configuración MCP",
+    "file_label": "Archivo de Configuración",
+    "error_title": "Error de Importación",
+    "preview_title": "Vista Previa de Importación",
+    "preview_description": "Esta configuración contiene <strong>{{count}} servidor(es)</strong>.",
+    "conflicts_title": "Conflictos de Configuración",
+    "conflicts_description": "Los siguientes servidores serán sobrescritos: {{servers}}",
+    "servers_list": "Servidores a importar",
+    "will_overwrite": "será sobrescrito",
+    "export_success": "¡Configuración exportada exitosamente!",
+    "export_error": "Error al exportar la configuración",
+    "import_success": "¡Configuración importada exitosamente!",
+    "import_error": "Error al importar la configuración",
+    "invalid_format": "Formato de configuración inválido: falta o es inválido mcpServers",
+    "parse_error": "Error al analizar el archivo de configuración"
   }
 }

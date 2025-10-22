@@ -29,6 +29,7 @@ import {
 import { useMCPStore } from '@/stores/mcpStore';
 import { toast } from 'sonner';
 import { getRendererLogger } from '@/services/logger';
+import { useTranslation } from 'react-i18next';
 
 const logger = getRendererLogger();
 
@@ -39,6 +40,7 @@ interface ImportExportProps {
 }
 
 export function ImportExport({ variant = 'dropdown', onRefresh, isRefreshing = false }: ImportExportProps) {
+  const { t } = useTranslation('mcp');
   const { exportConfiguration, importConfiguration, activeServers } = useMCPStore();
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -70,11 +72,11 @@ export function ImportExport({ variant = 'dropdown', onRefresh, isRefreshing = f
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      
-      toast.success('Configuration exported successfully!');
+
+      toast.success(t('import_export.export_success'));
     } catch (error) {
       logger.mcp.error('MCP configuration export failed', { error: error instanceof Error ? error.message : error });
-      toast.error('Failed to export configuration');
+      toast.error(t('import_export.export_error'));
     } finally {
       setIsExporting(false);
     }
@@ -93,12 +95,12 @@ export function ImportExport({ variant = 'dropdown', onRefresh, isRefreshing = f
       
       // Validate configuration structure
       if (!config.mcpServers || typeof config.mcpServers !== 'object') {
-        throw new Error('Invalid configuration format: missing or invalid mcpServers');
+        throw new Error(t('import_export.invalid_format'));
       }
 
       setImportPreview(config);
     } catch (error) {
-      setImportError(error instanceof Error ? error.message : 'Failed to parse configuration file');
+      setImportError(error instanceof Error ? error.message : t('import_export.parse_error'));
       setImportPreview(null);
     }
   };
@@ -110,11 +112,11 @@ export function ImportExport({ variant = 'dropdown', onRefresh, isRefreshing = f
     
     try {
       await importConfiguration(importPreview);
-      toast.success('Configuration imported successfully!');
+      toast.success(t('import_export.import_success'));
       handleCloseImportDialog();
     } catch (error) {
       logger.mcp.error('MCP configuration import failed', { serverCount: getImportServerCount(), error: error instanceof Error ? error.message : error });
-      toast.error('Failed to import configuration');
+      toast.error(t('import_export.import_error'));
     } finally {
       setIsImporting(false);
     }
@@ -146,7 +148,7 @@ export function ImportExport({ variant = 'dropdown', onRefresh, isRefreshing = f
           <DropdownMenuTrigger asChild>
             <Button variant="outline" className="gap-2">
               <Settings className="w-4 h-4" />
-              Config
+              {t('import_export.config_button')}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -156,7 +158,7 @@ export function ImportExport({ variant = 'dropdown', onRefresh, isRefreshing = f
                 disabled={isRefreshing}
               >
                 <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-                {isRefreshing ? 'Refreshing...' : 'Refresh Configuration'}
+                {isRefreshing ? t('import_export.refreshing') : t('actions.refresh')}
               </DropdownMenuItem>
             )}
             <DropdownMenuItem
@@ -164,14 +166,14 @@ export function ImportExport({ variant = 'dropdown', onRefresh, isRefreshing = f
               disabled={isExporting || activeServers.length === 0}
             >
               <Download className="w-4 h-4 mr-2" />
-              {isExporting ? 'Exporting...' : 'Export Config'}
+              {isExporting ? t('import_export.exporting') : t('import_export.export')}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => setShowImportDialog(true)}
               disabled={isImporting}
             >
               <Upload className="w-4 h-4 mr-2" />
-              Import Config
+              {t('import_export.import')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -182,14 +184,14 @@ export function ImportExport({ variant = 'dropdown', onRefresh, isRefreshing = f
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Upload className="w-5 h-5" />
-                Import MCP Configuration
+                {t('import_export.dialog_title')}
               </DialogTitle>
             </DialogHeader>
             
             <div className="space-y-4">
               {/* File Selection */}
               <div className="space-y-2">
-                <Label htmlFor="config-file">Configuration File</Label>
+                <Label htmlFor="config-file">{t('import_export.file_label')}</Label>
                 <Input
                   id="config-file"
                   type="file"
@@ -202,7 +204,7 @@ export function ImportExport({ variant = 'dropdown', onRefresh, isRefreshing = f
               {importError && (
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Import Error</AlertTitle>
+                  <AlertTitle>{t('import_export.error_title')}</AlertTitle>
                   <AlertDescription>{importError}</AlertDescription>
                 </Alert>
               )}
@@ -212,9 +214,9 @@ export function ImportExport({ variant = 'dropdown', onRefresh, isRefreshing = f
                 <div className="space-y-3">
                   <Alert>
                     <Info className="h-4 w-4" />
-                    <AlertTitle>Import Preview</AlertTitle>
+                    <AlertTitle>{t('import_export.preview_title')}</AlertTitle>
                     <AlertDescription>
-                      This configuration contains <strong>{getImportServerCount()} server(s)</strong>.
+                      {t('import_export.preview_description', { count: getImportServerCount() })}
                     </AlertDescription>
                   </Alert>
 
@@ -222,23 +224,23 @@ export function ImportExport({ variant = 'dropdown', onRefresh, isRefreshing = f
                   {getConflictingServers().length > 0 && (
                     <Alert variant="destructive">
                       <AlertCircle className="h-4 w-4" />
-                      <AlertTitle>Configuration Conflicts</AlertTitle>
+                      <AlertTitle>{t('import_export.conflicts_title')}</AlertTitle>
                       <AlertDescription>
-                        The following servers will be overwritten: {getConflictingServers().join(', ')}
+                        {t('import_export.conflicts_description', { servers: getConflictingServers().join(', ') })}
                       </AlertDescription>
                     </Alert>
                   )}
 
                   {/* Server List */}
                   <div className="max-h-32 overflow-y-auto bg-muted p-3 rounded-md">
-                    <h4 className="text-sm font-medium mb-2">Servers to import:</h4>
+                    <h4 className="text-sm font-medium mb-2">{t('import_export.servers_list')}:</h4>
                     <ul className="text-xs space-y-1">
                       {Object.keys(importPreview.mcpServers).map(serverId => (
                         <li key={serverId} className="flex items-center gap-2">
                           <FileText className="w-3 h-3" />
                           {serverId}
                           {getConflictingServers().includes(serverId) && (
-                            <span className="text-red-500">(will overwrite)</span>
+                            <span className="text-red-500">({t('import_export.will_overwrite')})</span>
                           )}
                         </li>
                       ))}
@@ -247,24 +249,24 @@ export function ImportExport({ variant = 'dropdown', onRefresh, isRefreshing = f
                 </div>
               )}
             </div>
-            
+
             <DialogFooter className="gap-2">
               <Button variant="outline" onClick={handleCloseImportDialog}>
-                Cancel
+                {t('dialog.cancel')}
               </Button>
-              <Button 
+              <Button
                 onClick={handleImport}
                 disabled={!importPreview || isImporting}
               >
                 {isImporting ? (
                   <>
                     <Upload className="w-4 h-4 animate-pulse mr-2" />
-                    Importing...
+                    {t('import_export.importing')}
                   </>
                 ) : (
                   <>
                     <CheckCircle className="w-4 h-4 mr-2" />
-                    Import
+                    {t('import_export.import')}
                   </>
                 )}
               </Button>
@@ -279,22 +281,22 @@ export function ImportExport({ variant = 'dropdown', onRefresh, isRefreshing = f
     return (
       <>
         <div className="flex gap-2">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={handleExport}
             disabled={isExporting || activeServers.length === 0}
           >
             <Download className="w-4 h-4 mr-2" />
-            {isExporting ? 'Exporting...' : 'Export Config'}
+            {isExporting ? t('import_export.exporting') : t('import_export.export')}
           </Button>
-          
-          <Button 
-            variant="outline" 
+
+          <Button
+            variant="outline"
             onClick={() => setShowImportDialog(true)}
             disabled={isImporting}
           >
             <Upload className="w-4 h-4 mr-2" />
-            Import Config
+            {t('import_export.import')}
           </Button>
         </div>
 
@@ -304,14 +306,14 @@ export function ImportExport({ variant = 'dropdown', onRefresh, isRefreshing = f
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Upload className="w-5 h-5" />
-                Import MCP Configuration
+                {t('import_export.dialog_title')}
               </DialogTitle>
             </DialogHeader>
             
             <div className="space-y-4">
               {/* File Selection */}
               <div className="space-y-2">
-                <Label htmlFor="config-file">Configuration File</Label>
+                <Label htmlFor="config-file">{t('import_export.file_label')}</Label>
                 <Input
                   id="config-file"
                   type="file"
@@ -324,7 +326,7 @@ export function ImportExport({ variant = 'dropdown', onRefresh, isRefreshing = f
               {importError && (
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Import Error</AlertTitle>
+                  <AlertTitle>{t('import_export.error_title')}</AlertTitle>
                   <AlertDescription>{importError}</AlertDescription>
                 </Alert>
               )}
@@ -334,9 +336,9 @@ export function ImportExport({ variant = 'dropdown', onRefresh, isRefreshing = f
                 <div className="space-y-3">
                   <Alert>
                     <Info className="h-4 w-4" />
-                    <AlertTitle>Import Preview</AlertTitle>
+                    <AlertTitle>{t('import_export.preview_title')}</AlertTitle>
                     <AlertDescription>
-                      This configuration contains <strong>{getImportServerCount()} server(s)</strong>.
+                      {t('import_export.preview_description', { count: getImportServerCount() })}
                     </AlertDescription>
                   </Alert>
 
@@ -344,23 +346,23 @@ export function ImportExport({ variant = 'dropdown', onRefresh, isRefreshing = f
                   {getConflictingServers().length > 0 && (
                     <Alert variant="destructive">
                       <AlertCircle className="h-4 w-4" />
-                      <AlertTitle>Configuration Conflicts</AlertTitle>
+                      <AlertTitle>{t('import_export.conflicts_title')}</AlertTitle>
                       <AlertDescription>
-                        The following servers will be overwritten: {getConflictingServers().join(', ')}
+                        {t('import_export.conflicts_description', { servers: getConflictingServers().join(', ') })}
                       </AlertDescription>
                     </Alert>
                   )}
 
                   {/* Server List */}
                   <div className="max-h-32 overflow-y-auto bg-muted p-3 rounded-md">
-                    <h4 className="text-sm font-medium mb-2">Servers to import:</h4>
+                    <h4 className="text-sm font-medium mb-2">{t('import_export.servers_list')}:</h4>
                     <ul className="text-xs space-y-1">
                       {Object.keys(importPreview.mcpServers).map(serverId => (
                         <li key={serverId} className="flex items-center gap-2">
                           <FileText className="w-3 h-3" />
                           {serverId}
                           {getConflictingServers().includes(serverId) && (
-                            <span className="text-red-500">(will overwrite)</span>
+                            <span className="text-red-500">({t('import_export.will_overwrite')})</span>
                           )}
                         </li>
                       ))}
@@ -369,24 +371,24 @@ export function ImportExport({ variant = 'dropdown', onRefresh, isRefreshing = f
                 </div>
               )}
             </div>
-            
+
             <DialogFooter className="gap-2">
               <Button variant="outline" onClick={handleCloseImportDialog}>
-                Cancel
+                {t('dialog.cancel')}
               </Button>
-              <Button 
+              <Button
                 onClick={handleImport}
                 disabled={!importPreview || isImporting}
               >
                 {isImporting ? (
                   <>
                     <Upload className="w-4 h-4 animate-pulse mr-2" />
-                    Importing...
+                    {t('import_export.importing')}
                   </>
                 ) : (
                   <>
                     <CheckCircle className="w-4 h-4 mr-2" />
-                    Import
+                    {t('import_export.import')}
                   </>
                 )}
               </Button>
