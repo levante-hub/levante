@@ -70,6 +70,33 @@
       "failed_message": "Connection test failed. Please check your configuration.",
       "error_message": "Connection test failed with an unexpected error."
     },
+    "add_tabs": {
+      "automatic": "Automatic",
+      "custom": "Custom"
+    },
+    "automatic": {
+      "title": "Automatic MCP Configuration",
+      "description": "AI-powered configuration from text or URL",
+      "textarea_label": "Paste MCP configuration:",
+      "textarea_placeholder": "Paste MCP configuration from:\n• GitHub URL (e.g., https://github.com/org/mcp-server)\n• Installation command (e.g., npx @org/mcp-server)\n• Documentation text or README section",
+      "security_warning": "⚠️  Do not paste API keys, tokens, or passwords. AI will extract configuration only.",
+      "extract_button": "Extract Configuration",
+      "extracting": "Extracting configuration...",
+      "phase_analyzing": "Analyzing text...",
+      "phase_security": "Checking for sensitive data...",
+      "phase_extracting": "Extracting configuration with AI...",
+      "phase_validating": "Validating configuration...",
+      "phase_complete": "Configuration extracted",
+      "preview_title": "Preview Configuration",
+      "preview_name": "Server Name",
+      "preview_command": "Command",
+      "preview_env": "Environment Variables",
+      "add_button": "Add MCP Server",
+      "extraction_failed": "Could not extract configuration",
+      "error_empty_input": "Please paste some configuration text",
+      "edit_input": "Edit Input",
+      "use_custom_tab": "Use Custom Tab"
+    },
     "save": "Save & Apply"
   },
   "actions": {
