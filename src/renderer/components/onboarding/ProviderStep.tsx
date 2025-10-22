@@ -211,18 +211,18 @@ export function ProviderStep({
             </div>
 
             {validationStatus === 'valid' && (
-              <Alert className="border-green-500/50 bg-green-500/10">
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
-                <AlertDescription className="text-green-600">
+              <Alert className="border-green-500/50 bg-green-500/10 dark:bg-green-500/20">
+                <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                <AlertDescription className="text-green-700 dark:text-green-300">
                   {t('provider.validation_success')}
                 </AlertDescription>
               </Alert>
             )}
 
             {validationStatus === 'invalid' && (
-              <Alert variant="destructive">
+              <Alert variant="destructive" className="dark:border-red-500/50 dark:bg-red-500/10">
                 <XCircle className="h-4 w-4" />
-                <AlertDescription>{validationError}</AlertDescription>
+                <AlertDescription className="dark:text-red-300">{validationError}</AlertDescription>
               </Alert>
             )}
           </>
