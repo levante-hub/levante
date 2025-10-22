@@ -31,8 +31,8 @@ const PROVIDERS = [
     id: 'openrouter',
     name: 'OpenRouter (Recommended)',
     description: '100+ models with a single API key',
-    requiresKey: false,
-    signupUrl: 'https://openrouter.ai',
+    requiresKey: true,
+    signupUrl: 'https://openrouter.ai/keys',
   },
   {
     id: 'gateway',
@@ -85,10 +85,8 @@ export function ProviderStep({
   const { t } = useTranslation('wizard');
   const provider = PROVIDERS.find((p) => p.id === selectedProvider);
 
-  const showApiKeyField =
-    provider && (provider.requiresKey || selectedProvider === 'openrouter');
+  const showApiKeyField = provider?.requiresKey;
   const showEndpointField = provider?.requiresEndpoint;
-  const isOptionalKey = selectedProvider === 'openrouter';
 
   return (
     <div className="space-y-6">
@@ -128,9 +126,7 @@ export function ProviderStep({
             {showApiKeyField && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="apiKey">
-                    {t('provider.api_key')} {isOptionalKey && t('provider.optional_recommended')}
-                  </Label>
+                  <Label htmlFor="apiKey">{t('provider.api_key')}</Label>
                   {provider?.signupUrl && (
                     <a
                       href={provider.signupUrl}
@@ -146,9 +142,7 @@ export function ProviderStep({
                 <Input
                   id="apiKey"
                   type="password"
-                  placeholder={
-                    isOptionalKey ? t('provider.optional') : t('provider.enter_api_key')
-                  }
+                  placeholder={t('provider.enter_api_key')}
                   value={apiKey}
                   onChange={(e) => onApiKeyChange(e.target.value)}
                   className="font-mono text-sm"
