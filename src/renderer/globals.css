@@ -91,8 +91,8 @@
     --destructive: 348 63% 50%;     /* Red for destructive actions */
     --destructive-foreground: 60 7% 93%; /* #edecec */
 
-    --border: 38 16% 13%;           /* #26241e - Border color */
-    --input: 40 14% 11%;            /* #201e18 - Input background */
+    --border: 38 16% 25%;           /* Lighter border - more visible */
+    --input: 38 16% 25%;            /* Lighter input border - more visible */
     --ring: 60 7% 93%;              /* #edecec - Focus ring */
 
     --chart-1: 220 70% 50%;
