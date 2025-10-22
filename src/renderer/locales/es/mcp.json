@@ -86,7 +86,14 @@
       "missing_type": "Falta el campo requerido: type",
       "missing_command": "Falta el campo requerido: command (para transporte stdio)",
       "missing_baseurl": "Falta el campo requerido: baseUrl (para transporte http/sse)",
-      "invalid_json": "Sintaxis JSON inválida"
+      "invalid_json": "Sintaxis JSON inválida",
+      "missing_mcpservers": "Falta o es inválido el campo \"mcpServers\" (debe ser un objeto)",
+      "invalid_server_config": "Configuración inválida para el servidor \"{{serverId}}\"",
+      "invalid_transport": "Servidor \"{{serverId}}\": falta o es inválido el campo \"transport\" o \"type\"",
+      "invalid_server_id": "Servidor \"{{serverId}}\": el ID debe contener solo caracteres alfanuméricos, guiones y guiones bajos",
+      "invalid_disabled": "Campo \"disabled\" inválido (debe ser un objeto)",
+      "invalid_disabled_server": "Configuración inválida para el servidor deshabilitado \"{{serverId}}\"",
+      "invalid_disabled_transport": "Servidor deshabilitado \"{{serverId}}\": falta o es inválido el campo \"transport\" o \"type\""
     },
     "preview": {
       "title": "Vista Previa de Configuración",
@@ -101,7 +108,12 @@
       "failed_message": "Prueba de conexión fallida. Por favor verifica tu configuración.",
       "error_message": "Prueba de conexión fallida con un error inesperado."
     },
-    "save": "Guardar y Aplicar"
+    "save": "Guardar y Aplicar",
+    "full_editor": {
+      "panel_title": "Añadir Integración MCP",
+      "title": "Configuración Completa de MCP (.mcp.json)",
+      "load_failed": "Error al cargar la configuración"
+    }
   },
   "actions": {
     "refresh": "Actualizar Configuración",
