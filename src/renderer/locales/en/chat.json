@@ -1,0 +1,28 @@
+{
+  "title": "Chat",
+  "input": {
+    "placeholder": "Type a message...",
+    "send": "Send",
+    "stop": "Stop"
+  },
+  "model_selector": {
+    "label": "Select Model",
+    "no_models": "No models available",
+    "configure": "Configure models in Models page"
+  },
+  "message": {
+    "user": "You",
+    "assistant": "Assistant",
+    "streaming": "Thinking...",
+    "error": "Failed to send message"
+  },
+  "empty_state": {
+    "title": "Start a conversation",
+    "description": "Select a model and start chatting"
+  },
+  "actions": {
+    "copy": "Copy",
+    "regenerate": "Regenerate",
+    "edit": "Edit"
+  }
+}

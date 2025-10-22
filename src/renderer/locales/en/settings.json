@@ -1,0 +1,61 @@
+{
+  "title": "Settings",
+  "sections": {
+    "personalization": "Personalization",
+    "appearance": "Appearance",
+    "ai_configuration": "AI Configuration"
+  },
+  "language": {
+    "label": "Language",
+    "description": "Choose your preferred language",
+    "requires_restart": "Requires app restart",
+    "options": {
+      "en": "English",
+      "es": "Español"
+    }
+  },
+  "theme": {
+    "label": "Theme",
+    "description": "Select color theme",
+    "options": {
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
+    }
+  },
+  "personality": {
+    "label": "Personality",
+    "description": "Choose AI personality",
+    "options": {
+      "professional": "Professional",
+      "casual": "Casual",
+      "creative": "Creative",
+      "technical": "Technical"
+    }
+  },
+  "default_mode": {
+    "label": "Default Mode",
+    "description": "Mode for new chats",
+    "options": {
+      "agent": "Agent",
+      "chat": "Chat"
+    }
+  },
+  "default_location": {
+    "label": "Default Location",
+    "description": "Where to open new chats",
+    "options": {
+      "pane": "Pane",
+      "tab": "Tab"
+    }
+  },
+  "text_size": {
+    "label": "Text Size",
+    "description": "Adjust the text size of Chat messages",
+    "options": {
+      "small": "Small",
+      "default": "Default",
+      "large": "Large"
+    }
+  }
+}

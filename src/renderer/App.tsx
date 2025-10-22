@@ -8,6 +8,7 @@ import { OnboardingWizard } from '@/pages/OnboardingWizard'
 import { useChatStore, initializeChatStore } from '@/stores/chatStore'
 import { modelService } from '@/services/modelService'
 import { logger } from '@/services/logger'
+import '@/i18n/config' // Initialize i18n
 
 function App() {
   const [currentPage, setCurrentPage] = useState('chat')

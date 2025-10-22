@@ -1,0 +1,29 @@
+{
+  "network": {
+    "connection_failed": "Connection failed",
+    "timeout": "Request timed out",
+    "no_internet": "No internet connection",
+    "server_error": "Server error"
+  },
+  "api": {
+    "invalid_key": "Invalid API key",
+    "rate_limit": "Rate limit exceeded",
+    "quota_exceeded": "Quota exceeded",
+    "unauthorized": "Unauthorized access"
+  },
+  "database": {
+    "read_error": "Failed to read from database",
+    "write_error": "Failed to write to database",
+    "migration_error": "Database migration failed"
+  },
+  "validation": {
+    "required_field": "This field is required",
+    "invalid_format": "Invalid format",
+    "invalid_url": "Invalid URL"
+  },
+  "general": {
+    "unknown_error": "An unknown error occurred",
+    "try_again": "Please try again",
+    "contact_support": "If the problem persists, contact support"
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "title": "Tienda MCP",
+  "active": {
+    "title": "MCPs Activos",
+    "description": "Gestiona tus servidores MCP conectados",
+    "no_servers": "No hay servidores MCP activos",
+    "switch_to_store": "Cambia a la pestaña Tienda para configurar nuevas integraciones",
+    "add_custom": "Añadir Integración Personalizada",
+    "edit_json": "Editar .mcp.json directamente"
+  },
+  "store": {
+    "title": "Tienda MCP",
+    "description": "Descubre y configura nuevas integraciones MCP",
+    "available": "{{count}} disponibles"
+  },
+  "server": {
+    "configure": "Configurar",
+    "delete": "Eliminar servidor",
+    "add_to_active": "Añadir a Activos",
+    "already_added": "Ya Añadido",
+    "active": "Activo",
+    "disabled": "Deshabilitado"
+  },
+  "connection": {
+    "connected": "{{count}} conectados",
+    "total": "de {{count}} en total",
+    "status": {
+      "connected": "Conectado",
+      "disconnected": "Desconectado",
+      "connecting": "Conectando...",
+      "error": "Error"
+    }
+  },
+  "config": {
+    "title": "Editar Configuración MCP",
+    "loading": "Cargando configuración...",
+    "validation": {
+      "valid": "La configuración es válida",
+      "invalid": "Corrige los errores de JSON para ver la vista previa"
+    },
+    "preview": {
+      "title": "Vista Previa de Configuración",
+      "active_servers": "Servidores Activos",
+      "startup_note": "Estos servidores se conectarán al iniciar"
+    },
+    "test": {
+      "connection": "Probar Conexión",
+      "success": "Conexión exitosa",
+      "failed": "Conexión fallida"
+    },
+    "save": "Guardar y Aplicar"
+  },
+  "actions": {
+    "refresh": "Actualizar Configuración",
+    "import": "Importar",
+    "export": "Exportar"
+  },
+  "messages": {
+    "added": "{{name}} añadido a MCPs Activos",
+    "deleted": "Servidor eliminado exitosamente",
+    "saved": "Configuración guardada y aplicada exitosamente",
+    "refreshed": "Configuración actualizada exitosamente",
+    "error": "Error al guardar la configuración"
+  }
+}

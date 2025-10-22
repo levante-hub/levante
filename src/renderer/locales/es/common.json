@@ -1,0 +1,46 @@
+{
+  "app": {
+    "name": "Levante",
+    "tagline": "Tu compañero de IA"
+  },
+  "actions": {
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "confirm": "Confirmar",
+    "close": "Cerrar",
+    "back": "Atrás",
+    "next": "Siguiente",
+    "continue": "Continuar",
+    "finish": "Finalizar",
+    "add": "Añadir",
+    "remove": "Quitar",
+    "refresh": "Actualizar",
+    "search": "Buscar",
+    "clear": "Limpiar",
+    "copy": "Copiar",
+    "paste": "Pegar",
+    "select_all": "Seleccionar todo",
+    "deselect_all": "Deseleccionar todo"
+  },
+  "navigation": {
+    "chat": "Chat",
+    "models": "Modelos",
+    "settings": "Configuración",
+    "mcp": "Tienda MCP",
+    "active_mcps": "MCPs Activos"
+  },
+  "status": {
+    "loading": "Cargando...",
+    "saving": "Guardando...",
+    "saved": "Guardado",
+    "error": "Error",
+    "success": "Éxito",
+    "connecting": "Conectando...",
+    "connected": "Conectado",
+    "disconnected": "Desconectado",
+    "syncing": "Sincronizando...",
+    "synced": "Sincronizado"
+  }
+}

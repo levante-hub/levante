@@ -1,0 +1,35 @@
+{
+  "language": {
+    "title": "Elige tu idioma",
+    "title_bilingual": "Choose your language / Elige tu idioma",
+    "description": "Selecciona tu idioma preferido para Levante",
+    "detected": "Detectado de tu sistema",
+    "change_later": "Puedes cambiar esto más tarde en Configuración"
+  },
+  "welcome": {
+    "title": "Bienvenido a Levante",
+    "description": "Tu compañero de IA amigable",
+    "get_started": "Comencemos"
+  },
+  "directory": {
+    "title": "Configuración de Directorio",
+    "description": "Elige dónde Levante almacenará tus datos",
+    "default": "Ubicación predeterminada",
+    "custom": "Ubicación personalizada",
+    "browse": "Examinar..."
+  },
+  "mcp": {
+    "title": "Integración MCP",
+    "description": "Model Context Protocol permite a Levante acceder a herramientas y datos externos",
+    "skip": "Omitir por ahora",
+    "configure": "Configurar MCP"
+  },
+  "completion": {
+    "title": "¡Todo listo!",
+    "description": "Levante está listo para usar",
+    "start": "Comenzar a Chatear"
+  },
+  "steps": {
+    "step": "Paso {{current}} de {{total}}"
+  }
+}

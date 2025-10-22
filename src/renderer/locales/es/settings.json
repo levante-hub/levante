@@ -1,0 +1,61 @@
+{
+  "title": "Configuración",
+  "sections": {
+    "personalization": "Personalización",
+    "appearance": "Apariencia",
+    "ai_configuration": "Configuración de IA"
+  },
+  "language": {
+    "label": "Idioma",
+    "description": "Elige tu idioma preferido",
+    "requires_restart": "Requiere reiniciar la aplicación",
+    "options": {
+      "en": "English",
+      "es": "Español"
+    }
+  },
+  "theme": {
+    "label": "Tema",
+    "description": "Selecciona el tema de color",
+    "options": {
+      "light": "Claro",
+      "dark": "Oscuro",
+      "system": "Sistema"
+    }
+  },
+  "personality": {
+    "label": "Personalidad",
+    "description": "Elige la personalidad de la IA",
+    "options": {
+      "professional": "Profesional",
+      "casual": "Casual",
+      "creative": "Creativo",
+      "technical": "Técnico"
+    }
+  },
+  "default_mode": {
+    "label": "Modo Predeterminado",
+    "description": "Modo para chats nuevos",
+    "options": {
+      "agent": "Agente",
+      "chat": "Chat"
+    }
+  },
+  "default_location": {
+    "label": "Ubicación Predeterminada",
+    "description": "Dónde abrir chats nuevos",
+    "options": {
+      "pane": "Panel",
+      "tab": "Pestaña"
+    }
+  },
+  "text_size": {
+    "label": "Tamaño de Texto",
+    "description": "Ajusta el tamaño de texto de los mensajes del Chat",
+    "options": {
+      "small": "Pequeño",
+      "default": "Predeterminado",
+      "large": "Grande"
+    }
+  }
+}

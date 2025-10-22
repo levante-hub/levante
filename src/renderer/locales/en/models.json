@@ -1,0 +1,57 @@
+{
+  "title": "Models",
+  "provider_config": {
+    "title": "Provider Configuration",
+    "description": "Select and configure your AI provider",
+    "active_provider": "Active Provider",
+    "select_provider": "Select a provider",
+    "configured": "Configured"
+  },
+  "provider_types": {
+    "openrouter": "Access to 100+ AI models through OpenRouter API",
+    "vercel_gateway": "Vercel AI Gateway for unified model access",
+    "local": "Local AI models (Ollama, LM Studio, etc.)",
+    "openai": "Direct integration with OpenAI GPT models",
+    "anthropic": "Direct integration with Anthropic Claude models",
+    "google": "Direct integration with Google Gemini models",
+    "groq": "Ultra-fast inference with Groq LPU™ Inference Engine",
+    "xai": "Access to Grok models from xAI"
+  },
+  "api_key": {
+    "label": "API Key",
+    "optional": "API key is optional for model listing but required for inference",
+    "get_key": "Get your key"
+  },
+  "base_url": {
+    "label": "Base URL"
+  },
+  "organization_id": {
+    "label": "Organization ID (Optional)",
+    "description": "For users in multiple organizations"
+  },
+  "models": {
+    "title": "Available Models",
+    "from": "Models from {{provider}}",
+    "sync": "Sync Models",
+    "select_all": "Select All",
+    "deselect_all": "Deselect All",
+    "selected": "Selected: {{count}} of {{total}} models",
+    "only_selected": "Only selected models appear in chat",
+    "no_models": "No models available",
+    "sync_prompt": "Click \"Sync Models\" to load available models from the provider",
+    "configure_key": "Configure your API key above to sync models",
+    "user_defined": "This provider uses user-defined models. Add models manually"
+  },
+  "model_info": {
+    "context_length": "Context Length: {{length}} tokens",
+    "pricing": "Pricing: ${{input}}/M input, ${{output}}/M output",
+    "capabilities": "Capabilities"
+  },
+  "stats": {
+    "available": "Models available: {{count}}",
+    "source": "Model source: {{source}}",
+    "source_dynamic": "Fetched automatically",
+    "source_user": "User-defined",
+    "last_sync": "Last sync: {{date}}"
+  }
+}

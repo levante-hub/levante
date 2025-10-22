@@ -1,0 +1,65 @@
+{
+  "title": "MCP Store",
+  "active": {
+    "title": "Active MCPs",
+    "description": "Manage your connected MCP servers",
+    "no_servers": "No active MCP servers",
+    "switch_to_store": "Switch to the Store tab to configure new integrations",
+    "add_custom": "Add Custom Integration",
+    "edit_json": "Edit .mcp.json directly"
+  },
+  "store": {
+    "title": "MCP Store",
+    "description": "Discover and configure new MCP integrations",
+    "available": "{{count}} available"
+  },
+  "server": {
+    "configure": "Configure",
+    "delete": "Delete server",
+    "add_to_active": "Add to Active",
+    "already_added": "Already Added",
+    "active": "Active",
+    "disabled": "Disabled"
+  },
+  "connection": {
+    "connected": "{{count}} connected",
+    "total": "of {{count}} total",
+    "status": {
+      "connected": "Connected",
+      "disconnected": "Disconnected",
+      "connecting": "Connecting...",
+      "error": "Error"
+    }
+  },
+  "config": {
+    "title": "Edit MCP Configuration",
+    "loading": "Loading configuration...",
+    "validation": {
+      "valid": "Configuration is valid",
+      "invalid": "Fix JSON errors to see preview"
+    },
+    "preview": {
+      "title": "Configuration Preview",
+      "active_servers": "Active Servers",
+      "startup_note": "These servers will be connected on startup"
+    },
+    "test": {
+      "connection": "Test Connection",
+      "success": "Connection successful",
+      "failed": "Connection failed"
+    },
+    "save": "Save & Apply"
+  },
+  "actions": {
+    "refresh": "Refresh Configuration",
+    "import": "Import",
+    "export": "Export"
+  },
+  "messages": {
+    "added": "{{name}} added to Active MCPs",
+    "deleted": "Server deleted successfully",
+    "saved": "Configuration saved and applied successfully",
+    "refreshed": "Configuration refreshed successfully",
+    "error": "Failed to save configuration"
+  }
+}

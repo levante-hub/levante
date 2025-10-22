@@ -1,0 +1,29 @@
+{
+  "network": {
+    "connection_failed": "Conexión fallida",
+    "timeout": "Tiempo de espera agotado",
+    "no_internet": "Sin conexión a internet",
+    "server_error": "Error del servidor"
+  },
+  "api": {
+    "invalid_key": "Clave de API inválida",
+    "rate_limit": "Límite de velocidad excedido",
+    "quota_exceeded": "Cuota excedida",
+    "unauthorized": "Acceso no autorizado"
+  },
+  "database": {
+    "read_error": "Error al leer de la base de datos",
+    "write_error": "Error al escribir en la base de datos",
+    "migration_error": "Error en la migración de la base de datos"
+  },
+  "validation": {
+    "required_field": "Este campo es requerido",
+    "invalid_format": "Formato inválido",
+    "invalid_url": "URL inválida"
+  },
+  "general": {
+    "unknown_error": "Ocurrió un error desconocido",
+    "try_again": "Por favor, inténtalo de nuevo",
+    "contact_support": "Si el problema persiste, contacta a soporte"
+  }
+}

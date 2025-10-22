@@ -1,0 +1,28 @@
+{
+  "title": "Chat",
+  "input": {
+    "placeholder": "Escribe un mensaje...",
+    "send": "Enviar",
+    "stop": "Detener"
+  },
+  "model_selector": {
+    "label": "Seleccionar Modelo",
+    "no_models": "No hay modelos disponibles",
+    "configure": "Configurar modelos en la página de Modelos"
+  },
+  "message": {
+    "user": "Tú",
+    "assistant": "Asistente",
+    "streaming": "Pensando...",
+    "error": "Error al enviar el mensaje"
+  },
+  "empty_state": {
+    "title": "Iniciar una conversación",
+    "description": "Selecciona un modelo y comienza a chatear"
+  },
+  "actions": {
+    "copy": "Copiar",
+    "regenerate": "Regenerar",
+    "edit": "Editar"
+  }
+}
