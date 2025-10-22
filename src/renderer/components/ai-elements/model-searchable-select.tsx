@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 import { Check, ChevronsUpDown, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import type { Model } from '../../../types/models';
+import { useTranslation } from 'react-i18next';
 
 export interface ModelSearchableSelectProps {
   value?: string;
@@ -33,9 +34,10 @@ export const ModelSearchableSelect = ({
   onValueChange,
   models,
   loading = false,
-  placeholder = "Select model...",
+  placeholder,
   className,
 }: ModelSearchableSelectProps) => {
+  const { t } = useTranslation('chat');
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
 
@@ -95,12 +97,12 @@ export const ModelSearchableSelect = ({
           {loading ? (
             <div className="flex items-center">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Loading...
+              {t('model_selector.loading')}
             </div>
           ) : selectedModel ? (
             <span className="truncate">{selectedModel.name}</span>
           ) : (
-            <span className="truncate">{placeholder}</span>
+            <span className="truncate">{placeholder || t('model_selector.label')}</span>
           )}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
@@ -108,12 +110,12 @@ export const ModelSearchableSelect = ({
       <PopoverContent className="w-[300px] p-0" align="start">
         <Command>
           <CommandInput
-            placeholder="Search models..."
+            placeholder={t('model_selector.search_placeholder')}
             value={search}
             onValueChange={setSearch}
           />
           <CommandList>
-            <CommandEmpty>No models found.</CommandEmpty>
+            <CommandEmpty>{t('model_selector.no_models_found')}</CommandEmpty>
             {Object.entries(groupedModels).map(([provider, providerModels]) => (
               <CommandGroup key={provider} heading={provider.charAt(0).toUpperCase() + provider.slice(1)}>
                 {providerModels.map((model) => (
@@ -137,8 +139,8 @@ export const ModelSearchableSelect = ({
                       {model.contextLength && (
                         <span className="text-xs text-muted-foreground">
                           {model.contextLength >= 1000
-                            ? `${Math.round(model.contextLength / 1000)}k context`
-                            : `${model.contextLength} context`
+                            ? t('model_selector.context_k', { count: Math.round(model.contextLength / 1000) })
+                            : t('model_selector.context', { count: model.contextLength })
                           }
                         </span>
                       )}

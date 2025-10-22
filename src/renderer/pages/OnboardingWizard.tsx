@@ -1,14 +1,17 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { WizardStep } from '@/components/onboarding/WizardStep';
+import { LanguageStep } from '@/components/onboarding/LanguageStep';
 import { WelcomeStep } from '@/components/onboarding/WelcomeStep';
 import { McpStep } from '@/components/onboarding/McpStep';
 import { ProviderStep } from '@/components/onboarding/ProviderStep';
 import { DirectoryStep } from '@/components/onboarding/DirectoryStep';
 import { CompletionStep } from '@/components/onboarding/CompletionStep';
 import { useModelStore } from '@/stores/modelStore';
+import { detectSystemLanguage } from '@/i18n/languageDetector';
 import type { ProviderValidationConfig } from '../../types/wizard';
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 6;
 
 const PROVIDER_NAMES: Record<string, string> = {
   openrouter: 'OpenRouter',
@@ -25,6 +28,11 @@ interface OnboardingWizardProps {
 
 export function OnboardingWizard({ onComplete }: OnboardingWizardProps = {}) {
   const { updateProvider, setActiveProvider, syncProviderModels } = useModelStore();
+  const { i18n } = useTranslation();
+
+  // Language step state
+  const [detectedLanguage, setDetectedLanguage] = useState('en');
+  const [selectedLanguage, setSelectedLanguage] = useState('en');
 
   // Wizard state
   const [currentStep, setCurrentStep] = useState(1);
@@ -38,27 +46,42 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps = {}) {
   >('idle');
   const [validationError, setValidationError] = useState('');
 
+  // Detect system language on mount
+  useEffect(() => {
+    const detected = detectSystemLanguage();
+    setDetectedLanguage(detected);
+    setSelectedLanguage(detected);
+    i18n.changeLanguage(detected);
+  }, [i18n]);
+
   const handleNext = async () => {
-    // Special handling for provider step - must validate before proceeding
-    if (currentStep === 3 && validationStatus !== 'valid') {
+    // Step 1 (Language): Save language selection
+    if (currentStep === 1) {
+      try {
+        await window.levante.profile.update({ language: selectedLanguage });
+        i18n.changeLanguage(selectedLanguage);
+        await window.levante.wizard.start();
+      } catch (error) {
+        console.error('Failed to save language or start wizard:', error);
+      }
+    }
+
+    // Step 4 (Provider): Must validate before proceeding
+    if (currentStep === 4 && validationStatus !== 'valid') {
       return;
     }
 
     if (currentStep < TOTAL_STEPS) {
       setCurrentStep(currentStep + 1);
-
-      // Mark wizard as in progress on first next
-      if (currentStep === 1) {
-        try {
-          await window.levante.wizard.start();
-        } catch (error) {
-          console.error('Failed to mark wizard as in progress:', error);
-        }
-      }
     } else {
       // Complete wizard and navigate to chat
       await handleComplete();
     }
+  };
+
+  const handleLanguageChange = (language: string) => {
+    setSelectedLanguage(language);
+    i18n.changeLanguage(language);
   };
 
   const handleBack = () => {
@@ -172,8 +195,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps = {}) {
   };
 
   const isNextDisabled = () => {
-    // Step 3 (Provider) requires validation
-    if (currentStep === 3) {
+    // Step 4 (Provider) requires validation
+    if (currentStep === 4) {
       return !selectedProvider || validationStatus !== 'valid';
     }
     return false;
@@ -188,9 +211,16 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps = {}) {
       nextLabel={getNextButtonLabel()}
       nextDisabled={isNextDisabled()}
     >
-      {currentStep === 1 && <WelcomeStep />}
-      {currentStep === 2 && <McpStep />}
-      {currentStep === 3 && (
+      {currentStep === 1 && (
+        <LanguageStep
+          selectedLanguage={selectedLanguage}
+          detectedLanguage={detectedLanguage}
+          onLanguageChange={handleLanguageChange}
+        />
+      )}
+      {currentStep === 2 && <WelcomeStep />}
+      {currentStep === 3 && <McpStep />}
+      {currentStep === 4 && (
         <ProviderStep
           selectedProvider={selectedProvider}
           apiKey={apiKey}
@@ -203,8 +233,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps = {}) {
           onValidate={handleValidateProvider}
         />
       )}
-      {currentStep === 4 && <DirectoryStep />}
-      {currentStep === 5 && (
+      {currentStep === 5 && <DirectoryStep />}
+      {currentStep === 6 && (
         <CompletionStep
           providerName={PROVIDER_NAMES[selectedProvider] || selectedProvider}
         />

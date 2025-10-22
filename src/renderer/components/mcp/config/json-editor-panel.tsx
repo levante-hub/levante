@@ -7,6 +7,7 @@ import { Loader2, AlertCircle } from 'lucide-react';
 import { useMCPStore } from '@/stores/mcpStore';
 import { MCPServerConfig, MCPTool } from '@/types/mcp';
 import { MCPServerPreview } from './mcp-server-preview';
+import { useTranslation } from 'react-i18next';
 
 interface JSONEditorPanelProps {
   serverId: string | null;
@@ -15,6 +16,7 @@ interface JSONEditorPanelProps {
 }
 
 export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelProps) {
+  const { t } = useTranslation('mcp');
   const { getServerById, getRegistryEntryById, updateServer, addServer, connectionStatus } = useMCPStore();
 
   const [jsonText, setJsonText] = useState('');
@@ -89,7 +91,7 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
     try {
       const result = await window.levante.mcp.listTools(serverId);
       if (result.success && result.data) {
-        setTestResult({ success: true, message: 'Server is connected' });
+        setTestResult({ success: true, message: t('config.test.success') });
         setTools(result.data);
       } else {
         setTestResult(null);
@@ -109,25 +111,25 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
 
       // For custom new servers, require name field
       if (isCustomNewServer && !parsed.name) {
-        return { valid: false, error: 'Missing required field: name' };
+        return { valid: false, error: t('config.validation.missing_name') };
       }
 
       // Validate required fields
       if (!parsed.type) {
-        return { valid: false, error: 'Missing required field: type' };
+        return { valid: false, error: t('config.validation.missing_type') };
       }
 
       if (parsed.type === 'stdio' && !parsed.command) {
-        return { valid: false, error: 'Missing required field: command (for stdio transport)' };
+        return { valid: false, error: t('config.validation.missing_command') };
       }
 
       if ((parsed.type === 'http' || parsed.type === 'sse') && !parsed.baseUrl) {
-        return { valid: false, error: 'Missing required field: baseUrl (for http/sse transport)' };
+        return { valid: false, error: t('config.validation.missing_baseurl') };
       }
 
       return { valid: true, data: parsed };
     } catch (error) {
-      return { valid: false, error: 'Invalid JSON syntax' };
+      return { valid: false, error: t('config.validation.invalid_json') };
     }
   };
 
@@ -168,8 +170,8 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
       setTestResult({
         success: result.success,
         message: result.success
-          ? 'Connection test successful! Server is responding correctly.'
-          : result.error || 'Connection test failed. Please check your configuration.'
+          ? t('config.test.success_message')
+          : result.error || t('config.test.failed_message')
       });
 
       // Set tools from the result
@@ -179,7 +181,7 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
     } catch (error) {
       setTestResult({
         success: false,
-        message: 'Connection test failed with an unexpected error.'
+        message: t('config.test.error_message')
       });
     } finally {
       setIsTestingConnection(false);
@@ -228,7 +230,7 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
 
       onClose();
     } catch (error) {
-      setJsonError('Failed to save server configuration');
+      setJsonError(t('config.save_error'));
     } finally {
       setIsSaving(false);
     }
@@ -236,7 +238,7 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
 
   const validation = validateJSON(jsonText);
   const serverName = isCustomNewServer
-    ? (validation.valid && validation.data?.name ? validation.data.name : 'New Custom Server')
+    ? (validation.valid && validation.data?.name ? validation.data.name : t('config.new_server_name'))
     : (registryEntry?.name || serverId || 'MCP Server');
 
   return (
@@ -244,7 +246,7 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
       <SheetContent side="right" className="w-[900px] sm:max-w-[90vw] overflow-y-auto">
         <SheetHeader>
           <SheetTitle>
-            {isNewServer ? 'Configure' : 'Edit'} {serverName}
+            {isNewServer ? t('config.configure') : t('config.edit')} {serverName}
           </SheetTitle>
         </SheetHeader>
 
@@ -254,13 +256,13 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-medium mb-2 block">
-                  Server Configuration (JSON)
+                  {t('config.json_label')}
                 </label>
                 <Textarea
                   value={jsonText}
                   onChange={(e) => handleJSONChange(e.target.value)}
                   className="font-mono text-sm min-h-[500px]"
-                  placeholder="Enter JSON configuration..."
+                  placeholder={t('config.json_placeholder')}
                 />
               </div>
 
@@ -276,7 +278,7 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
             {/* Right Column: Server Preview */}
             <div>
               <label className="text-sm font-medium mb-2 block">
-                Server Preview
+                {t('config.preview_label')}
               </label>
               <MCPServerPreview
                 serverName={serverName}
@@ -297,7 +299,7 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
             onClick={onClose}
             disabled={isSaving}
           >
-            Cancel
+            {t('dialog.cancel')}
           </Button>
           <Button
             onClick={handleSave}
@@ -306,10 +308,10 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
             {isSaving ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                Saving...
+                {t('config.saving')}
               </>
             ) : (
-              'Save'
+              t('config.save')
             )}
           </Button>
         </SheetFooter>

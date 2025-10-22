@@ -160,7 +160,7 @@ export class AIService {
         case "openrouter":
           if (!providerWithModel.apiKey) {
             throw new Error(
-              `OpenRouter API key missing for provider ${providerWithModel.name}`
+              `OpenRouter API key is required. Get your free API key at https://openrouter.ai/keys`
             );
           }
 

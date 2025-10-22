@@ -1,0 +1,121 @@
+{
+  "title": "Tienda",
+  "active": {
+    "title": "MCPs Activos",
+    "description": "Gestiona tus servidores MCP conectados",
+    "no_servers": "No hay servidores MCP activos",
+    "switch_to_store": "Cambia a la pestaña Tienda para configurar nuevas integraciones",
+    "add_custom": "Añadir Integración Personalizada",
+    "edit_json": "Editar .mcp.json directamente",
+    "connected_servers": "Servidores Conectados",
+    "active_count": "{{count}} activos",
+    "loading": "Cargando servidores MCP..."
+  },
+  "store": {
+    "title": "Tienda",
+    "description": "Descubre y configura nuevas integraciones MCP",
+    "available": "{{count}} disponibles",
+    "available_integrations": "Integraciones Disponibles"
+  },
+  "server": {
+    "configure": "Configurar",
+    "delete": "Eliminar servidor",
+    "add_to_active": "Añadir a Activos",
+    "already_added": "Ya Añadido",
+    "active": "Activo",
+    "disabled": "Deshabilitado",
+    "custom_description": "Integración de servidor MCP personalizada",
+    "unknown": "Desconocido"
+  },
+  "connection": {
+    "connected": "{{count}} conectados",
+    "total": "de {{count}} en total",
+    "status": {
+      "connected": "Conectado",
+      "disconnected": "Desconectado",
+      "connecting": "Conectando...",
+      "error": "Error"
+    }
+  },
+  "config": {
+    "title": "Editar Configuración MCP",
+    "configure": "Configurar",
+    "edit": "Editar",
+    "loading": "Cargando configuración...",
+    "json_label": "Configuración del Servidor (JSON)",
+    "json_placeholder": "Introduce la configuración JSON...",
+    "preview_label": "Vista Previa del Servidor",
+    "new_server_name": "Nuevo Servidor Personalizado",
+    "save_error": "Error al guardar la configuración del servidor",
+    "saving": "Guardando...",
+    "validation": {
+      "valid": "La configuración es válida",
+      "invalid": "Corrige los errores de JSON para ver la vista previa",
+      "missing_name": "Falta el campo requerido: name",
+      "missing_type": "Falta el campo requerido: type",
+      "missing_command": "Falta el campo requerido: command (para transporte stdio)",
+      "missing_baseurl": "Falta el campo requerido: baseUrl (para transporte http/sse)",
+      "invalid_json": "Sintaxis JSON inválida"
+    },
+    "preview": {
+      "title": "Vista Previa de Configuración",
+      "active_servers": "Servidores Activos",
+      "startup_note": "Estos servidores se conectarán al iniciar"
+    },
+    "test": {
+      "connection": "Probar Conexión",
+      "success": "Conexión exitosa",
+      "failed": "Conexión fallida",
+      "success_message": "¡Prueba de conexión exitosa! El servidor responde correctamente.",
+      "failed_message": "Prueba de conexión fallida. Por favor verifica tu configuración.",
+      "error_message": "Prueba de conexión fallida con un error inesperado."
+    },
+    "save": "Guardar y Aplicar"
+  },
+  "actions": {
+    "refresh": "Actualizar Configuración",
+    "import": "Importar",
+    "export": "Exportar"
+  },
+  "messages": {
+    "added": "{{name}} añadido a MCPs Activos",
+    "deleted": "Servidor eliminado exitosamente",
+    "saved": "Configuración guardada y aplicada exitosamente",
+    "refreshed": "Configuración actualizada exitosamente",
+    "error": "Error al guardar la configuración",
+    "refresh_failed": "Error al actualizar la configuración",
+    "add_failed": "Error al añadir servidor",
+    "delete_failed": "Error al eliminar servidor",
+    "some_failed": "Algunos servidores no se pudieron conectar: {{servers}}"
+  },
+  "dialog": {
+    "delete_title": "¿Eliminar Servidor MCP?",
+    "delete_description": "¿Estás seguro de que quieres eliminar <strong>{{name}}</strong>?",
+    "delete_warning": "Esto eliminará el servidor de tu archivo de configuración. Esta acción no se puede deshacer.",
+    "cancel": "Cancelar",
+    "delete": "Eliminar"
+  },
+  "import_export": {
+    "config_button": "Configuración",
+    "refreshing": "Actualizando...",
+    "exporting": "Exportando...",
+    "importing": "Importando...",
+    "export": "Exportar Configuración",
+    "import": "Importar Configuración",
+    "dialog_title": "Importar Configuración MCP",
+    "file_label": "Archivo de Configuración",
+    "error_title": "Error de Importación",
+    "preview_title": "Vista Previa de Importación",
+    "preview_description": "Esta configuración contiene <strong>{{count}} servidor(es)</strong>.",
+    "conflicts_title": "Conflictos de Configuración",
+    "conflicts_description": "Los siguientes servidores serán sobrescritos: {{servers}}",
+    "servers_list": "Servidores a importar",
+    "will_overwrite": "será sobrescrito",
+    "export_success": "¡Configuración exportada exitosamente!",
+    "export_error": "Error al exportar la configuración",
+    "import_success": "¡Configuración importada exitosamente!",
+    "import_error": "Error al importar la configuración",
+    "invalid_format": "Formato de configuración inválido: falta o es inválido mcpServers",
+    "parse_error": "Error al analizar el archivo de configuración"
+  }
+}

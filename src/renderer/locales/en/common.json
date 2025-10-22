@@ -1,0 +1,48 @@
+{
+  "app": {
+    "name": "Levante",
+    "tagline": "Your AI companion",
+    "logo_alt": "Levante Logo"
+  },
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "confirm": "Confirm",
+    "close": "Close",
+    "back": "Back",
+    "next": "Next",
+    "continue": "Continue",
+    "finish": "Finish",
+    "add": "Add",
+    "new_chat": "New Chat",
+    "remove": "Remove",
+    "refresh": "Refresh",
+    "search": "Search",
+    "clear": "Clear",
+    "copy": "Copy",
+    "paste": "Paste",
+    "select_all": "Select All",
+    "deselect_all": "Deselect All"
+  },
+  "navigation": {
+    "chat": "Chat",
+    "models": "Models",
+    "settings": "Settings",
+    "mcp": "MCP Store",
+    "active_mcps": "Active MCPs"
+  },
+  "status": {
+    "loading": "Loading...",
+    "saving": "Saving...",
+    "saved": "Saved",
+    "error": "Error",
+    "success": "Success",
+    "connecting": "Connecting...",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "syncing": "Syncing...",
+    "synced": "Synced"
+  }
+}

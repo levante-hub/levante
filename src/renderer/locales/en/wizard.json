@@ -1,0 +1,118 @@
+{
+  "language": {
+    "title": "Choose your language",
+    "title_bilingual": "Choose your language / Elige tu idioma",
+    "description": "Select your preferred language for Levante",
+    "detected": "Detected from your system",
+    "change_later": "You can change this later in Settings"
+  },
+  "welcome": {
+    "title": "Welcome to Levante",
+    "subtitle": "Your Personal, Secure, and Free AI Assistant",
+    "description": "Levante brings AI closer to everyone—not just technical users. We focus on:",
+    "features": {
+      "privacy": {
+        "title": "Privacy First",
+        "description": "All conversations stay on your device"
+      },
+      "multi_provider": {
+        "title": "Multi-Provider Access",
+        "description": "Choose from 100+ AI models"
+      },
+      "local_storage": {
+        "title": "Local Storage",
+        "description": "No cloud sync, no tracking"
+      },
+      "mcp_support": {
+        "title": "MCP Support",
+        "description": "Extend AI with powerful tools"
+      }
+    },
+    "get_started": "Let's get you set up in just a few steps!"
+  },
+  "mcp": {
+    "title": "What is MCP (Model Context Protocol)?",
+    "subtitle": "MCP lets AI models interact with your tools and data—with your explicit permission.",
+    "diagram": {
+      "ai_model": "AI Model",
+      "mcp_tools": "MCP Tools",
+      "your_data": "Your Data"
+    },
+    "examples": {
+      "title": "Examples of what MCP can do:",
+      "read_files": "Read files from your computer",
+      "web_search": "Search the web for current information",
+      "execute_commands": "Execute commands (with your permission)"
+    },
+    "control": {
+      "title": "You're always in control:",
+      "consent": "One-click consent for each tool",
+      "audit_trail": "Complete audit trail of actions",
+      "sandboxed": "Sandboxed execution for safety"
+    },
+    "footer": "Levante was built to make MCP accessible and transparent."
+  },
+  "provider": {
+    "title": "Choose Your AI Provider",
+    "subtitle": "Select a provider to access AI models. You can add more later in Settings.",
+    "label": "Provider",
+    "placeholder": "Select a provider",
+    "api_key": "API Key",
+    "optional_recommended": "(optional but recommended)",
+    "optional": "Optional",
+    "enter_api_key": "Enter your API key",
+    "get_api_key": "Get your API key",
+    "endpoint": "Endpoint",
+    "endpoint_description": "Default Ollama endpoint. Make sure your local server is running.",
+    "base_url_optional": "Base URL (optional)",
+    "test_connection": "Test Connection",
+    "testing_connection": "Testing Connection...",
+    "connection_verified": "Connection Verified",
+    "validation_success": "API key validated successfully! You can proceed to the next step.",
+    "select_to_continue": "Select a provider to continue"
+  },
+  "directory": {
+    "title": "Your Data Location",
+    "subtitle": "All Levante data is stored locally in your home directory",
+    "files": {
+      "user_profile": "Your profile and settings",
+      "ui_preferences": "UI preferences",
+      "chat_history": "Chat history and conversations",
+      "mcp_servers": "MCP server configurations"
+    },
+    "why_title": "Why this location?",
+    "reasons": {
+      "easy_access": "Easy to find and access",
+      "simple_backup": "Simple to back up",
+      "portable": "Portable between installations"
+    },
+    "privacy_guarantee": "<strong>Privacy guarantee:</strong> No cloud sync, no telemetry. Everything stays on your device.",
+    "open_button": "Open Directory",
+    "tip": "Tip: Bookmark this folder for easy access to your data"
+  },
+  "completion": {
+    "title": "Ready to Start!",
+    "subtitle": "You've successfully configured Levante with",
+    "whats_next": "What's next?",
+    "steps": {
+      "select_models": "Select models from your provider (we've pre-selected popular ones)",
+      "start_chatting": "Start chatting with AI",
+      "explore_mcp": "Explore MCP tools in the Tools menu",
+      "customize_settings": "Customize settings to your preference"
+    },
+    "tips": {
+      "switch_providers": {
+        "title": "Switch providers anytime",
+        "location": "in Settings → Models"
+      },
+      "add_providers": {
+        "title": "Add more providers",
+        "description": "for access to different models"
+      }
+    },
+    "ready_message": "Ready to experience AI, your way?"
+  },
+  "steps": {
+    "step": "Step {{current}} of {{total}}"
+  }
+}

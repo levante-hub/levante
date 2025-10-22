@@ -1,0 +1,66 @@
+{
+  "title": "Chat",
+  "input": {
+    "placeholder": "Escribe un mensaje...",
+    "send": "Enviar",
+    "stop": "Detener"
+  },
+  "model_selector": {
+    "label": "Seleccionar modelo...",
+    "no_models": "No hay modelos disponibles",
+    "configure": "Configurar modelos en la página de Modelos",
+    "loading": "Cargando...",
+    "search_placeholder": "Buscar modelos...",
+    "no_models_found": "No se encontraron modelos.",
+    "context": "{{count}} contexto",
+    "context_k": "{{count}}k contexto"
+  },
+  "message": {
+    "user": "Tú",
+    "assistant": "Asistente",
+    "streaming": "Pensando...",
+    "error": "Error al enviar el mensaje"
+  },
+  "empty_state": {
+    "title": "Iniciar una conversación",
+    "description": "Selecciona un modelo y comienza a chatear"
+  },
+  "welcome": {
+    "greeting": "¿Qué tal tu día, {{userName}}?",
+    "greeting_default": "¿Qué tal tu día?",
+    "default_user_name": "Usuario"
+  },
+  "actions": {
+    "copy": "Copiar",
+    "regenerate": "Regenerar",
+    "edit": "Editar"
+  },
+  "chat_list": {
+    "new_chat": "Nuevo Chat",
+    "search_placeholder": "Buscar chats...",
+    "loading": "Cargando chats...",
+    "no_chats": "Aún no hay chats",
+    "no_results": "No se encontraron chats",
+    "groups": {
+      "today": "Hoy",
+      "yesterday": "Ayer",
+      "this_week": "Esta Semana",
+      "this_month": "Este Mes",
+      "older": "Más Antiguos"
+    }
+  },
+  "tools_menu": {
+    "button_label": "Configuración",
+    "title": "Búsqueda y herramientas",
+    "search_placeholder": "Buscar en el menú",
+    "no_results": "No se encontraron herramientas",
+    "web_search": {
+      "label": "Búsqueda web",
+      "keywords": ["web", "búsqueda", "search", "internet"]
+    },
+    "mcp_tools": {
+      "label": "Herramientas (MCP)",
+      "keywords": ["tools", "herramientas", "mcp"]
+    }
+  }
+}

@@ -49,6 +49,13 @@ export interface UserProfile {
    * - "dark": Dark theme
    */
   theme?: 'light' | 'dark' | 'system';
+
+  /**
+   * Language preference
+   * - "en": English
+   * - "es": Español (Spanish)
+   */
+  language?: 'en' | 'es';
 }
 
 /**

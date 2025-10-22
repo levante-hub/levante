@@ -274,7 +274,7 @@ export function FullJSONEditorPanel({ isOpen, onClose }: FullJSONEditorPanelProp
                   <>
                     {/* Active Servers List */}
                     {Object.keys(previewData.mcpServers).length > 0 && (
-                      <Card>
+                      <Card className="border-none">
                         <CardHeader>
                           <CardTitle className="text-lg">Active Servers</CardTitle>
                           <CardDescription>
@@ -309,7 +309,7 @@ export function FullJSONEditorPanel({ isOpen, onClose }: FullJSONEditorPanelProp
                     )}
                   </>
                 ) : (
-                  <Card>
+                  <Card className="border-none">
                     <CardContent className="pt-6">
                       <div className="text-center text-muted-foreground">
                         <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />

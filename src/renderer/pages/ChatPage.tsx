@@ -12,6 +12,7 @@ import { StreamingProvider, useStreamingContext } from '@/contexts/StreamingCont
 import { ChatList } from '@/components/chat/ChatList';
 import { WelcomeScreen } from '@/components/chat/WelcomeScreen';
 import { ChatPromptInput } from '@/components/chat/ChatPromptInput';
+import { useTranslation } from 'react-i18next';
 import {
   Source,
   Sources,
@@ -34,13 +35,14 @@ const logger = getRendererLogger();
 
 
 const ChatPageContent = () => {
+  const { t } = useTranslation('chat');
   const [input, setInput] = useState('');
   const [model, setModel] = useState<string>('');
   const [webSearch, setWebSearch] = useState(false);
   const [enableMCP, setEnableMCP] = useState(false);
   const [availableModels, setAvailableModels] = useState<Model[]>([]);
   const [modelsLoading, setModelsLoading] = useState(true);
-  const [userName, setUserName] = useState<string>('Usuario');
+  const [userName, setUserName] = useState<string>(t('welcome.default_user_name'));
 
   // Using Zustand selectors for optimal performance
   const messages = useChatStore((state) => state.messages);

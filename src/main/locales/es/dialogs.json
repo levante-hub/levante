@@ -1,0 +1,62 @@
+{
+  "update": {
+    "available": {
+      "title": "Actualización Disponible",
+      "message": "Una nueva versión de Levante ({{version}}) está disponible. ¿Deseas descargarla ahora?",
+      "detail": "Versión actual: {{currentVersion}}",
+      "buttons": {
+        "download": "Descargar",
+        "later": "Más Tarde",
+        "skip": "Omitir Esta Versión"
+      }
+    },
+    "downloading": {
+      "title": "Descargando Actualización",
+      "message": "Descargando Levante {{version}}...",
+      "progress": "{{percent}}% completado"
+    },
+    "downloaded": {
+      "title": "Actualización Lista",
+      "message": "Levante {{version}} se ha descargado y está listo para instalar.",
+      "detail": "La aplicación se reiniciará para aplicar la actualización.",
+      "buttons": {
+        "restart": "Reiniciar Ahora",
+        "later": "Más Tarde"
+      }
+    },
+    "error": {
+      "title": "Error de Actualización",
+      "message": "Ocurrió un error al buscar actualizaciones.",
+      "detail": "{{error}}",
+      "button": "OK"
+    },
+    "not_available": {
+      "title": "No Hay Actualizaciones Disponibles",
+      "message": "Estás usando la última versión de Levante ({{version}}).",
+      "button": "OK"
+    }
+  },
+  "restart": {
+    "title": "Reinicio Requerido",
+    "message": "El idioma cambiará a {{language}} después de reiniciar.",
+    "detail": "¿Deseas reiniciar la aplicación ahora?",
+    "buttons": {
+      "restart": "Reiniciar Ahora",
+      "later": "Más Tarde"
+    }
+  },
+  "error": {
+    "title": "Error",
+    "message": "Ocurrió un error",
+    "button": "OK"
+  },
+  "confirm": {
+    "title": "Confirmar",
+    "message": "¿Estás seguro?",
+    "buttons": {
+      "yes": "Sí",
+      "no": "No",
+      "cancel": "Cancelar"
+    }
+  }
+}

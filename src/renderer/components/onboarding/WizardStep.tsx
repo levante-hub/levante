@@ -28,7 +28,13 @@ export function WizardStep({
 }: WizardStepProps) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-2xl">
+      {/* Draggable area for macOS - top bar */}
+      <div
+        className="fixed top-0 left-0 right-0 h-12 z-50"
+        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+      />
+
+      <Card className="w-full max-w-2xl border-none">
         {showProgress && (
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
@@ -49,9 +55,11 @@ export function WizardStep({
           </CardHeader>
         )}
 
-        <CardContent className="pt-6">{children}</CardContent>
+        <CardContent className="pt-6" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+          {children}
+        </CardContent>
 
-        <CardFooter className="flex justify-between pt-6">
+        <CardFooter className="flex justify-between pt-6" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           <Button
             variant="outline"
             onClick={onBack}

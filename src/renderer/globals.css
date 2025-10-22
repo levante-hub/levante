@@ -66,34 +66,34 @@
   }
 
   .dark {
-    /* Cursor-inspired warm dark theme */
-    --background: 36 23% 7%;        /* #14120b - Main background */
-    --foreground: 60 7% 93%;        /* #edecec - Main text */
+    /* Cool gray theme - neutral dark mode */
+    --background: 0 0% 11.8%;       /* #1E1E1E - Main background (BG input) */
+    --foreground: 0 0% 88%;         /* #E0E0E0 - Main text */
 
-    --card: 40 18% 10%;             /* #1b1913 - Card background */
-    --card-foreground: 60 7% 93%;   /* #edecec - Card text */
+    --card: 0 0% 15.3%;             /* #272727 - Card background (BG Boton) */
+    --card-foreground: 0 0% 88%;    /* #E0E0E0 - Card text */
 
-    --popover: 40 18% 10%;          /* #1b1913 - Popover background */
-    --popover-foreground: 60 7% 93%; /* #edecec - Popover text */
+    --popover: 0 0% 15.3%;          /* #272727 - Popover background */
+    --popover-foreground: 0 0% 88%; /* #E0E0E0 - Popover text */
 
-    --primary: 60 7% 93%;           /* #edecec - Primary (text-like) */
-    --primary-foreground: 36 23% 7%; /* #14120b - Primary foreground */
+    --primary: 0 0% 88%;            /* #E0E0E0 - Primary (text-like) */
+    --primary-foreground: 0 0% 11.8%; /* #1E1E1E - Primary foreground */
 
-    --secondary: 38 16% 25%;        /* Lighter for user messages - better contrast */
-    --secondary-foreground: 60 7% 93%; /* #edecec - Secondary text */
+    --secondary: 0 0% 18.4%;        /* #2F2F2F - Lighter for user messages (BG Boton secundario) */
+    --secondary-foreground: 0 0% 88%; /* #E0E0E0 - Secondary text */
 
-    --muted: 38 16% 13%;            /* #26241e - Muted background */
-    --muted-foreground: 40 5% 84%;  /* #d7d6d5 - Muted text */
+    --muted: 0 0% 15.3%;            /* #272727 - Muted background */
+    --muted-foreground: 0 0% 65%;   /* #A6A6A6 - Muted text */
 
-    --accent: 40 14% 11%;           /* #201e18 - Accent/hover */
-    --accent-foreground: 60 7% 93%; /* #edecec - Accent text */
+    --accent: 0 0% 18.4%;           /* #2F2F2F - Accent/hover */
+    --accent-foreground: 0 0% 88%;  /* #E0E0E0 - Accent text */
 
-    --destructive: 348 63% 50%;     /* Red for destructive actions */
-    --destructive-foreground: 60 7% 93%; /* #edecec */
+    --destructive: 0 62.8% 30.6%;   /* Red for destructive actions */
+    --destructive-foreground: 0 0% 88%; /* #E0E0E0 */
 
-    --border: 38 16% 25%;           /* Lighter border - more visible */
-    --input: 38 16% 25%;            /* Lighter input border - more visible */
-    --ring: 60 7% 93%;              /* #edecec - Focus ring */
+    --border: 0 0% 30%;             /* #4D4D4D - Border general (más claro) */
+    --input: 0 0% 30%;              /* #4D4D4D - Input border (más visible) */
+    --ring: 0 0% 88%;               /* #E0E0E0 - Focus ring */
 
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
@@ -101,14 +101,14 @@
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
 
-    --sidebar-background: 40 18% 10%;   /* #1b1913 */
-    --sidebar-foreground: 60 7% 93%;    /* #edecec */
-    --sidebar-primary: 60 7% 93%;       /* #edecec */
-    --sidebar-primary-foreground: 36 23% 7%; /* #14120b */
-    --sidebar-accent: 40 14% 11%;       /* #201e18 - hover */
-    --sidebar-accent-foreground: 60 7% 93%; /* #edecec */
-    --sidebar-border: 38 16% 13%;       /* #26241e */
-    --sidebar-ring: 60 7% 93%;          /* #edecec */
+    --sidebar-background: 0 0% 7.8%;    /* #141414 - Sidebar background */
+    --sidebar-foreground: 0 0% 88%;     /* #E0E0E0 */
+    --sidebar-primary: 0 0% 88%;        /* #E0E0E0 */
+    --sidebar-primary-foreground: 0 0% 7.8%; /* #141414 */
+    --sidebar-accent: 0 0% 15.3%;       /* #272727 - hover */
+    --sidebar-accent-foreground: 0 0% 88%; /* #E0E0E0 */
+    --sidebar-border: 0 0% 15.3%;       /* #272727 */
+    --sidebar-ring: 0 0% 88%;           /* #E0E0E0 */
   }
 }
 
@@ -132,11 +132,11 @@
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background: hsl(38 16% 25%);  /* Más claro y visible */
+  background: hsl(0 0% 26.7%);  /* #444444 - Más claro y visible */
 }
 
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: hsl(38 16% 35%);  /* Aún más claro on hover */
+  background: hsl(0 0% 35%);    /* Aún más claro on hover */
 }
 
 /* Firefox scrollbar */
@@ -146,7 +146,7 @@
 }
 
 .dark * {
-  scrollbar-color: hsl(38 16% 25%) transparent;
+  scrollbar-color: hsl(0 0% 26.7%) transparent;
 }
 
 /* Electron window dragging */

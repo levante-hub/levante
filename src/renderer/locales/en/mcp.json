@@ -1,0 +1,121 @@
+{
+  "title": "MCP Store",
+  "active": {
+    "title": "Active MCPs",
+    "description": "Manage your connected MCP servers",
+    "no_servers": "No active MCP servers",
+    "switch_to_store": "Switch to the Store tab to configure new integrations",
+    "add_custom": "Add Custom Integration",
+    "edit_json": "Edit .mcp.json directly",
+    "connected_servers": "Connected Servers",
+    "active_count": "{{count}} active",
+    "loading": "Loading MCP servers..."
+  },
+  "store": {
+    "title": "MCP Store",
+    "description": "Discover and configure new MCP integrations",
+    "available": "{{count}} available",
+    "available_integrations": "Available Integrations"
+  },
+  "server": {
+    "configure": "Configure",
+    "delete": "Delete server",
+    "add_to_active": "Add to Active",
+    "already_added": "Already Added",
+    "active": "Active",
+    "disabled": "Disabled",
+    "custom_description": "Custom MCP server integration",
+    "unknown": "Unknown"
+  },
+  "connection": {
+    "connected": "{{count}} connected",
+    "total": "of {{count}} total",
+    "status": {
+      "connected": "Connected",
+      "disconnected": "Disconnected",
+      "connecting": "Connecting...",
+      "error": "Error"
+    }
+  },
+  "config": {
+    "title": "Edit MCP Configuration",
+    "configure": "Configure",
+    "edit": "Edit",
+    "loading": "Loading configuration...",
+    "json_label": "Server Configuration (JSON)",
+    "json_placeholder": "Enter JSON configuration...",
+    "preview_label": "Server Preview",
+    "new_server_name": "New Custom Server",
+    "save_error": "Failed to save server configuration",
+    "saving": "Saving...",
+    "validation": {
+      "valid": "Configuration is valid",
+      "invalid": "Fix JSON errors to see preview",
+      "missing_name": "Missing required field: name",
+      "missing_type": "Missing required field: type",
+      "missing_command": "Missing required field: command (for stdio transport)",
+      "missing_baseurl": "Missing required field: baseUrl (for http/sse transport)",
+      "invalid_json": "Invalid JSON syntax"
+    },
+    "preview": {
+      "title": "Configuration Preview",
+      "active_servers": "Active Servers",
+      "startup_note": "These servers will be connected on startup"
+    },
+    "test": {
+      "connection": "Test Connection",
+      "success": "Connection successful",
+      "failed": "Connection failed",
+      "success_message": "Connection test successful! Server is responding correctly.",
+      "failed_message": "Connection test failed. Please check your configuration.",
+      "error_message": "Connection test failed with an unexpected error."
+    },
+    "save": "Save & Apply"
+  },
+  "actions": {
+    "refresh": "Refresh Configuration",
+    "import": "Import",
+    "export": "Export"
+  },
+  "messages": {
+    "added": "{{name}} added to Active MCPs",
+    "deleted": "Server deleted successfully",
+    "saved": "Configuration saved and applied successfully",
+    "refreshed": "Configuration refreshed successfully",
+    "error": "Failed to save configuration",
+    "refresh_failed": "Failed to refresh configuration",
+    "add_failed": "Failed to add server",
+    "delete_failed": "Failed to delete server",
+    "some_failed": "Some servers failed to connect: {{servers}}"
+  },
+  "dialog": {
+    "delete_title": "Delete MCP Server?",
+    "delete_description": "Are you sure you want to delete <strong>{{name}}</strong>?",
+    "delete_warning": "This will remove the server from your configuration file. This action cannot be undone.",
+    "cancel": "Cancel",
+    "delete": "Delete"
+  },
+  "import_export": {
+    "config_button": "Config",
+    "refreshing": "Refreshing...",
+    "exporting": "Exporting...",
+    "importing": "Importing...",
+    "export": "Export Config",
+    "import": "Import Config",
+    "dialog_title": "Import MCP Configuration",
+    "file_label": "Configuration File",
+    "error_title": "Import Error",
+    "preview_title": "Import Preview",
+    "preview_description": "This configuration contains <strong>{{count}} server(s)</strong>.",
+    "conflicts_title": "Configuration Conflicts",
+    "conflicts_description": "The following servers will be overwritten: {{servers}}",
+    "servers_list": "Servers to import",
+    "will_overwrite": "will overwrite",
+    "export_success": "Configuration exported successfully!",
+    "export_error": "Failed to export configuration",
+    "import_success": "Configuration imported successfully!",
+    "import_error": "Failed to import configuration",
+    "invalid_format": "Invalid configuration format: missing or invalid mcpServers",
+    "parse_error": "Failed to parse configuration file"
+  }
+}

@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Folder, Database, Settings, FileText, Info } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 export function DirectoryStep() {
+  const { t } = useTranslation('wizard');
   const [directoryPath, setDirectoryPath] = useState('');
   const [directoryInfo, setDirectoryInfo] = useState<{
     exists: boolean;
@@ -41,10 +43,10 @@ export function DirectoryStep() {
     <div className="space-y-6">
       <div className="text-center">
         <h2 className="text-2xl font-bold tracking-tight">
-          Your Data Location
+          {t('directory.title')}
         </h2>
         <p className="mt-2 text-muted-foreground">
-          All Levante data is stored locally in your home directory
+          {t('directory.subtitle')}
         </p>
       </div>
 
@@ -60,57 +62,54 @@ export function DirectoryStep() {
               <FileText className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
               <div>
                 <span className="font-mono text-xs">user-profile.json</span>
-                <span className="text-muted-foreground"> - Your profile and settings</span>
+                <span className="text-muted-foreground"> - {t('directory.files.user_profile')}</span>
               </div>
             </div>
             <div className="flex items-start gap-2 text-sm">
               <Settings className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
               <div>
                 <span className="font-mono text-xs">ui-preferences.json</span>
-                <span className="text-muted-foreground"> - UI preferences</span>
+                <span className="text-muted-foreground"> - {t('directory.files.ui_preferences')}</span>
               </div>
             </div>
             <div className="flex items-start gap-2 text-sm">
               <Database className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
               <div>
                 <span className="font-mono text-xs">levante.db</span>
-                <span className="text-muted-foreground"> - Chat history and conversations</span>
+                <span className="text-muted-foreground"> - {t('directory.files.chat_history')}</span>
               </div>
             </div>
             <div className="flex items-start gap-2 text-sm">
               <Folder className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
               <div>
                 <span className="font-mono text-xs">mcp-servers/</span>
-                <span className="text-muted-foreground"> - MCP server configurations</span>
+                <span className="text-muted-foreground"> - {t('directory.files.mcp_servers')}</span>
               </div>
             </div>
           </div>
         </div>
 
         <div className="space-y-3">
-          <h3 className="font-semibold text-sm">Why this location?</h3>
+          <h3 className="font-semibold text-sm">{t('directory.why_title')}</h3>
           <ul className="space-y-2 text-sm text-muted-foreground">
             <li className="flex items-start gap-2">
               <span className="text-primary">•</span>
-              <span>Easy to find and access</span>
+              <span>{t('directory.reasons.easy_access')}</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-primary">•</span>
-              <span>Simple to back up</span>
+              <span>{t('directory.reasons.simple_backup')}</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-primary">•</span>
-              <span>Portable between installations</span>
+              <span>{t('directory.reasons.portable')}</span>
             </li>
           </ul>
         </div>
 
         <Alert>
           <Info className="h-4 w-4" />
-          <AlertDescription>
-            <strong>Privacy guarantee:</strong> No cloud sync, no telemetry.
-            Everything stays on your device.
-          </AlertDescription>
+          <AlertDescription dangerouslySetInnerHTML={{ __html: t('directory.privacy_guarantee') }} />
         </Alert>
 
         {directoryInfo && directoryInfo.exists && (
@@ -121,13 +120,13 @@ export function DirectoryStep() {
               className="gap-2"
             >
               <Folder className="h-4 w-4" />
-              Open Directory
+              {t('directory.open_button')}
             </Button>
           </div>
         )}
 
         <p className="text-center text-xs text-muted-foreground pt-2">
-          Tip: Bookmark this folder for easy access to your data
+          {t('directory.tip')}
         </p>
       </div>
     </div>

@@ -9,6 +9,7 @@ import {
   WifiOff
 } from 'lucide-react';
 import { MCPConnectionStatus } from '@/types/mcp';
+import { useTranslation } from 'react-i18next';
 
 interface ConnectionStatusProps {
   serverId: string;
@@ -19,12 +20,12 @@ interface ConnectionStatusProps {
   variant?: 'badge' | 'indicator' | 'full';
 }
 
-const statusConfig = {
+const getStatusConfig = (t: any) => ({
   connected: {
     color: 'text-green-500',
     bgColor: 'bg-green-100',
     icon: CheckCircle,
-    label: 'Connected',
+    label: t('connection.status.connected'),
     badgeVariant: 'default' as const,
     dotColor: 'bg-green-500'
   },
@@ -32,7 +33,7 @@ const statusConfig = {
     color: 'text-yellow-500',
     bgColor: 'bg-yellow-100',
     icon: Loader2,
-    label: 'Connecting...',
+    label: t('connection.status.connecting'),
     badgeVariant: 'secondary' as const,
     dotColor: 'bg-yellow-500'
   },
@@ -40,7 +41,7 @@ const statusConfig = {
     color: 'text-gray-500',
     bgColor: 'bg-gray-100',
     icon: XCircle,
-    label: 'Disconnected',
+    label: t('connection.status.disconnected'),
     badgeVariant: 'outline' as const,
     dotColor: 'bg-gray-500'
   },
@@ -48,11 +49,11 @@ const statusConfig = {
     color: 'text-red-500',
     bgColor: 'bg-red-100',
     icon: AlertCircle,
-    label: 'Error',
+    label: t('connection.status.error'),
     badgeVariant: 'destructive' as const,
     dotColor: 'bg-red-500'
   }
-};
+});
 
 const sizeConfig = {
   sm: { icon: 'w-3 h-3', dot: 'w-2 h-2', text: 'text-xs' },
@@ -68,6 +69,8 @@ export function ConnectionStatus({
   showLabel = true,
   variant = 'full'
 }: ConnectionStatusProps) {
+  const { t } = useTranslation('mcp');
+  const statusConfig = getStatusConfig(t);
   const config = statusConfig[status];
   const sizes = sizeConfig[size];
   const IconComponent = config.icon;
@@ -137,6 +140,7 @@ interface NetworkStatusProps {
 }
 
 export function NetworkStatus({ connectedCount, totalCount, size = 'md' }: NetworkStatusProps) {
+  const { t } = useTranslation('mcp');
   const sizes = sizeConfig[size];
   const hasConnected = connectedCount > 0;
   const allConnected = connectedCount === totalCount && totalCount > 0;
@@ -152,10 +156,10 @@ export function NetworkStatus({ connectedCount, totalCount, size = 'md' }: Netwo
       </div>
       <div className="flex flex-col">
         <span className={`${sizes.text} font-medium`}>
-          {connectedCount} of {totalCount}
+          {t('connection.connected', { count: connectedCount })} {t('connection.total', { count: totalCount })}
         </span>
         <span className="text-xs text-muted-foreground">
-          Connected
+          {t('connection.status.connected')}
         </span>
       </div>
     </div>
