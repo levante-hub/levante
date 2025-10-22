@@ -88,6 +88,14 @@ export function ProviderStep({
   const showApiKeyField = provider?.requiresKey;
   const showEndpointField = provider?.requiresEndpoint;
 
+  // Check if required fields are filled
+  const canValidate = () => {
+    if (!selectedProvider) return false;
+    if (provider?.requiresKey && !apiKey) return false;
+    if (provider?.requiresEndpoint && !endpoint) return false;
+    return true;
+  };
+
   return (
     <div className="space-y-6">
       <div className="text-center">
@@ -184,7 +192,7 @@ export function ProviderStep({
             <div className="pt-2">
               <Button
                 onClick={onValidate}
-                disabled={validationStatus === 'validating'}
+                disabled={validationStatus === 'validating' || !canValidate()}
                 className="w-full"
                 variant={validationStatus === 'valid' ? 'default' : 'outline'}
               >
