@@ -55,9 +55,7 @@ export function AutomaticMCPConfig({ serverId, onClose, onSwitchToCustom }: Auto
       setPhase('extracting');
       setProgress(60);
 
-      // TODO: Implement IPC handler for extraction
-      // const result = await window.levante.mcp.extractConfig(inputText);
-      const result = { success: false, error: 'Not implemented yet' };
+      const result = await window.levante.mcp.extractConfig(inputText);
 
       if (!result.success || !result.data) {
         throw new Error(result.error || t('config.automatic.extraction_failed'));

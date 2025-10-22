@@ -202,6 +202,8 @@ export interface LevanteAPI {
     unhealthyServers: () => Promise<{ success: boolean; data?: string[]; error?: string }>
     serverHealth: (serverId: string) => Promise<{ success: boolean; data?: MCPServerHealth; error?: string }>
     resetServerHealth: (serverId: string) => Promise<{ success: boolean; error?: string }>
+    extractConfig: (text: string) => Promise<{ success: boolean; data?: any; error?: string; suggestion?: string }>
+    checkStructuredOutputSupport: () => Promise<{ success: boolean; data?: { supported: boolean; currentModel: string; currentProvider: string; supportedModels: any[] }; error?: string }>
   }
 
   // Logger functionality
@@ -499,8 +501,14 @@ const api: LevanteAPI = {
     serverHealth: (serverId: string) => 
       ipcRenderer.invoke('levante/mcp/server-health', serverId),
     
-    resetServerHealth: (serverId: string) => 
-      ipcRenderer.invoke('levante/mcp/reset-server-health', serverId)
+    resetServerHealth: (serverId: string) =>
+      ipcRenderer.invoke('levante/mcp/reset-server-health', serverId),
+
+    extractConfig: (text: string) =>
+      ipcRenderer.invoke('levante/mcp/extract-config', text),
+
+    checkStructuredOutputSupport: () =>
+      ipcRenderer.invoke('levante/mcp/check-structured-output-support')
   },
 
   // Logger API
