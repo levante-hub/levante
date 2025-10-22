@@ -6,7 +6,7 @@
     "stop": "Stop"
   },
   "model_selector": {
-    "label": "Select Model",
+    "label": "Select model...",
     "no_models": "No models available",
     "configure": "Configure models in Models page"
   },
@@ -24,5 +24,19 @@
     "copy": "Copy",
     "regenerate": "Regenerate",
     "edit": "Edit"
+  },
+  "chat_list": {
+    "new_chat": "New Chat",
+    "search_placeholder": "Search chats...",
+    "loading": "Loading chats...",
+    "no_chats": "No chats yet",
+    "no_results": "No chats found",
+    "groups": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "this_week": "This Week",
+      "this_month": "This Month",
+      "older": "Older"
+    }
   }
 }
