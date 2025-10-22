@@ -55,7 +55,14 @@
       "missing_type": "Missing required field: type",
       "missing_command": "Missing required field: command (for stdio transport)",
       "missing_baseurl": "Missing required field: baseUrl (for http/sse transport)",
-      "invalid_json": "Invalid JSON syntax"
+      "invalid_json": "Invalid JSON syntax",
+      "missing_mcpservers": "Missing or invalid \"mcpServers\" field (must be an object)",
+      "invalid_server_config": "Invalid configuration for server \"{{serverId}}\"",
+      "invalid_transport": "Server \"{{serverId}}\": missing or invalid \"transport\" or \"type\" field",
+      "invalid_server_id": "Server \"{{serverId}}\": ID must contain only alphanumeric characters, hyphens, and underscores",
+      "invalid_disabled": "Invalid \"disabled\" field (must be an object)",
+      "invalid_disabled_server": "Invalid configuration for disabled server \"{{serverId}}\"",
+      "invalid_disabled_transport": "Disabled server \"{{serverId}}\": missing or invalid \"transport\" or \"type\" field"
     },
     "preview": {
       "title": "Configuration Preview",
@@ -97,7 +104,12 @@
       "edit_input": "Edit Input",
       "use_custom_tab": "Use Custom Tab"
     },
-    "save": "Save & Apply"
+    "save": "Save & Apply",
+    "full_editor": {
+      "panel_title": "Add MCP Integration",
+      "title": "Complete MCP Configuration (.mcp.json)",
+      "load_failed": "Failed to load configuration"
+    }
   },
   "actions": {
     "refresh": "Refresh Configuration",
