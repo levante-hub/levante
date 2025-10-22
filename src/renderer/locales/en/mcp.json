@@ -67,7 +67,8 @@
     "preview": {
       "title": "Configuration Preview",
       "active_servers": "Active Servers",
-      "startup_note": "These servers will be connected on startup"
+      "startup_note": "These servers will be connected on startup",
+      "no_servers": "No MCP servers configured yet"
     },
     "test": {
       "connection": "Test Connection",
@@ -102,7 +103,14 @@
       "extraction_failed": "Could not extract configuration",
       "error_empty_input": "Please paste some configuration text",
       "edit_input": "Edit Input",
-      "use_custom_tab": "Use Custom Tab"
+      "use_custom_tab": "Use Custom Tab",
+      "preview_empty": "Configure a server to see preview",
+      "preview_field_name": "Name",
+      "preview_field_type": "Transport Type",
+      "preview_field_command": "Command",
+      "preview_field_args": "Arguments",
+      "preview_field_baseurl": "Base URL",
+      "preview_field_env": "Environment Variables"
     },
     "save": "Save & Apply",
     "full_editor": {

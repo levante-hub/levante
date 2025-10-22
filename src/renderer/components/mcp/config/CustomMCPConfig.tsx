@@ -12,9 +12,10 @@ interface CustomMCPConfigProps {
   serverId: string | null;
   onClose: () => void;
   initialConfig?: Partial<MCPServerConfig>;
+  onConfigChange?: (config: any | null) => void;
 }
 
-export function CustomMCPConfig({ serverId, onClose, initialConfig }: CustomMCPConfigProps) {
+export function CustomMCPConfig({ serverId, onClose, initialConfig, onConfigChange }: CustomMCPConfigProps) {
   const { t } = useTranslation('mcp');
   const { getServerById, getRegistryEntryById, updateServer, addServer, connectionStatus } = useMCPStore();
 
@@ -141,6 +142,18 @@ export function CustomMCPConfig({ serverId, onClose, initialConfig }: CustomMCPC
     setJsonError(validation.error || null);
   };
 
+  // Notify parent of config changes
+  useEffect(() => {
+    if (!onConfigChange) return;
+
+    const validation = validateJSON(jsonText);
+    if (validation.valid && validation.data) {
+      onConfigChange(validation.data);
+    } else {
+      onConfigChange(null);
+    }
+  }, [jsonText]); // Remove onConfigChange from dependencies
+
   const handleTestConnection = async () => {
     const validation = validateJSON(jsonText);
     if (!validation.valid || !validation.data) {
@@ -242,45 +255,27 @@ export function CustomMCPConfig({ serverId, onClose, initialConfig }: CustomMCPC
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-6">
-        {/* Left Column: JSON Editor */}
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium mb-2 block">
-              {t('config.json_label')}
-            </label>
-            <Textarea
-              value={jsonText}
-              onChange={(e) => handleJSONChange(e.target.value)}
-              className="font-mono text-sm min-h-[500px]"
-              placeholder={t('config.json_placeholder')}
-            />
-          </div>
-
-          {/* Validation Error */}
-          {jsonError && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{jsonError}</AlertDescription>
-            </Alert>
-          )}
-        </div>
-
-        {/* Right Column: Server Preview */}
+      {/* JSON Editor */}
+      <div className="space-y-4">
         <div>
           <label className="text-sm font-medium mb-2 block">
-            {t('config.preview_label')}
+            {t('config.json_label')}
           </label>
-          <MCPServerPreview
-            serverName={serverName}
-            isValidJSON={validation.valid}
-            testResult={testResult}
-            tools={tools}
-            isTestingConnection={isTestingConnection}
-            isLoadingTools={isLoadingTools}
-            onTestConnection={handleTestConnection}
+          <Textarea
+            value={jsonText}
+            onChange={(e) => handleJSONChange(e.target.value)}
+            className="font-mono text-sm min-h-[400px] resize-y"
+            placeholder={t('config.json_placeholder')}
           />
         </div>
+
+        {/* Validation Error */}
+        {jsonError && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{jsonError}</AlertDescription>
+          </Alert>
+        )}
       </div>
 
       {/* Actions */}

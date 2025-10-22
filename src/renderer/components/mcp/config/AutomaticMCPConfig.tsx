@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -11,6 +11,7 @@ interface AutomaticMCPConfigProps {
   serverId: string | null;
   onClose: () => void;
   onSwitchToCustom: (partialConfig?: any) => void;
+  onConfigChange?: (config: any | null) => void;
 }
 
 type ExtractionPhase = 'idle' | 'analyzing' | 'security' | 'extracting' | 'validating' | 'complete' | 'error';
@@ -25,7 +26,7 @@ interface ExtractedConfig {
   headers?: Record<string, string>;
 }
 
-export function AutomaticMCPConfig({ serverId, onClose, onSwitchToCustom }: AutomaticMCPConfigProps) {
+export function AutomaticMCPConfig({ serverId, onClose, onSwitchToCustom, onConfigChange }: AutomaticMCPConfigProps) {
   const { t } = useTranslation('mcp');
 
   const [inputText, setInputText] = useState('');
@@ -33,7 +34,26 @@ export function AutomaticMCPConfig({ serverId, onClose, onSwitchToCustom }: Auto
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [extractedConfig, setExtractedConfig] = useState<ExtractedConfig | null>(null);
-  const [showPreview, setShowPreview] = useState(false);
+
+  // Notify parent of config changes
+  useEffect(() => {
+    if (!onConfigChange) return;
+
+    if (extractedConfig) {
+      onConfigChange({
+        id: extractedConfig.name,
+        name: extractedConfig.name,
+        transport: extractedConfig.type,
+        command: extractedConfig.command,
+        args: extractedConfig.args,
+        env: extractedConfig.env,
+        baseUrl: extractedConfig.baseUrl,
+        headers: extractedConfig.headers,
+      });
+    } else {
+      onConfigChange(null);
+    }
+  }, [extractedConfig]); // Remove onConfigChange from dependencies
 
   const handleExtract = async () => {
     if (!inputText.trim()) {
@@ -72,7 +92,6 @@ export function AutomaticMCPConfig({ serverId, onClose, onSwitchToCustom }: Auto
       setPhase('complete');
       setProgress(100);
       setExtractedConfig(result.data);
-      setShowPreview(true);
 
     } catch (err) {
       setPhase('error');
@@ -225,50 +244,6 @@ export function AutomaticMCPConfig({ serverId, onClose, onSwitchToCustom }: Auto
             </div>
           </AlertDescription>
         </Alert>
-      )}
-
-      {/* Preview (Collapsed by default) */}
-      {phase === 'complete' && extractedConfig && (
-        <div className="space-y-3 border rounded-lg p-4">
-          <button
-            onClick={() => setShowPreview(!showPreview)}
-            className="flex items-center gap-2 text-sm font-medium w-full text-left hover:text-primary transition-colors"
-          >
-            <span>{showPreview ? '▾' : '▸'}</span>
-            {t('config.automatic.preview_title')}
-          </button>
-
-          {showPreview && (
-            <div className="space-y-3 pt-3 border-t">
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">
-                  {t('config.automatic.preview_name')}
-                </p>
-                <p className="text-sm font-mono">{extractedConfig.name}</p>
-              </div>
-
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">
-                  {t('config.automatic.preview_command')}
-                </p>
-                <p className="text-sm font-mono">
-                  {extractedConfig.command} {extractedConfig.args?.join(' ')}
-                </p>
-              </div>
-
-              {extractedConfig.env && Object.keys(extractedConfig.env).length > 0 && (
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">
-                    {t('config.automatic.preview_env')}
-                  </p>
-                  <pre className="text-xs font-mono bg-muted p-2 rounded">
-                    {JSON.stringify(extractedConfig.env, null, 2)}
-                  </pre>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
       )}
 
       {/* Actions */}

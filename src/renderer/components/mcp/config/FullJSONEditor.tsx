@@ -3,12 +3,9 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, AlertCircle, CheckCircle } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useMCPStore } from '@/stores/mcpStore';
 import { toast } from 'sonner';
-import { MCPServerPreview } from './mcp-server-preview';
 import { useTranslation } from 'react-i18next';
-import type { MCPTool, MCPServerConfig } from '@/types/mcp';
 
 interface MCPConfiguration {
   mcpServers: Record<string, any>;
@@ -17,9 +14,10 @@ interface MCPConfiguration {
 
 interface FullJSONEditorProps {
   onClose: () => void;
+  onConfigChange?: (config: any | null) => void;
 }
 
-export function FullJSONEditor({ onClose }: FullJSONEditorProps) {
+export function FullJSONEditor({ onClose, onConfigChange }: FullJSONEditorProps) {
   const { t } = useTranslation('mcp');
   const { loadActiveServers, refreshConnectionStatus } = useMCPStore();
 
@@ -27,15 +25,22 @@ export function FullJSONEditor({ onClose }: FullJSONEditorProps) {
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingInitial, setIsLoadingInitial] = useState(false);
-  const [serverTests, setServerTests] = useState<Record<string, {
-    testing: boolean;
-    result: { success: boolean; message: string } | null;
-    tools: MCPTool[];
-  }>>({});
 
   useEffect(() => {
     loadInitialConfiguration();
   }, []);
+
+  // Notify parent of config changes (send full configuration for preview)
+  useEffect(() => {
+    if (!onConfigChange) return;
+
+    const validation = validateJSON(jsonText);
+    if (validation.valid && validation.data) {
+      onConfigChange(validation.data);
+    } else {
+      onConfigChange(null);
+    }
+  }, [jsonText]); // Remove onConfigChange from dependencies to avoid infinite loop
 
   const loadInitialConfiguration = async () => {
     setIsLoadingInitial(true);
@@ -125,55 +130,6 @@ export function FullJSONEditor({ onClose }: FullJSONEditorProps) {
     setJsonText(text);
     const validation = validateJSON(text);
     setJsonError(validation.error || null);
-
-    // Reset test states when JSON changes
-    setServerTests({});
-  };
-
-  const handleTestServer = async (serverId: string, serverConfig: any) => {
-    // Start testing
-    setServerTests(prev => ({
-      ...prev,
-      [serverId]: { testing: true, result: null, tools: [] }
-    }));
-
-    try {
-      const testConfig: MCPServerConfig = {
-        id: `test-${serverId}-${Date.now()}`,
-        name: serverConfig.name || serverId,
-        transport: serverConfig.transport || serverConfig.type,
-        command: serverConfig.command,
-        args: serverConfig.args || [],
-        env: serverConfig.env || {},
-        baseUrl: serverConfig.baseUrl || serverConfig.url,
-        headers: serverConfig.headers
-      };
-
-      const result = await window.levante.mcp.testConnection(testConfig);
-
-      setServerTests(prev => ({
-        ...prev,
-        [serverId]: {
-          testing: false,
-          result: {
-            success: result.success,
-            message: result.success
-              ? t('config.test.success_message')
-              : result.error || t('config.test.failed_message')
-          },
-          tools: result.data || []
-        }
-      }));
-    } catch (error) {
-      setServerTests(prev => ({
-        ...prev,
-        [serverId]: {
-          testing: false,
-          result: { success: false, message: (error as Error).message || t('config.test.error_message') },
-          tools: []
-        }
-      }));
-    }
   };
 
   const handleSave = async () => {
@@ -214,7 +170,6 @@ export function FullJSONEditor({ onClose }: FullJSONEditorProps) {
   };
 
   const validation = validateJSON(jsonText);
-  const previewData = validation.valid && validation.data ? validation.data : null;
 
   if (isLoadingInitial) {
     return (
@@ -227,93 +182,35 @@ export function FullJSONEditor({ onClose }: FullJSONEditorProps) {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-6">
-        {/* Left Column: JSON Editor */}
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium mb-2 block">
-              {t('config.full_editor.title')}
-            </label>
-            <Textarea
-              value={jsonText}
-              onChange={(e) => handleJSONChange(e.target.value)}
-              className="font-mono text-sm min-h-[500px]"
-              placeholder={t('config.json_placeholder')}
-            />
-          </div>
-
-          {/* Validation Error */}
-          {jsonError && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{jsonError}</AlertDescription>
-            </Alert>
-          )}
-
-          {/* Success indicator */}
-          {validation.valid && !jsonError && (
-            <Alert className="border-green-200 bg-green-50 text-green-800">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <AlertDescription>{t('config.validation.valid')}</AlertDescription>
-            </Alert>
-          )}
-        </div>
-
-        {/* Right Column: Preview */}
-        <div className="space-y-4">
+      {/* JSON Editor */}
+      <div className="space-y-4">
+        <div>
           <label className="text-sm font-medium mb-2 block">
-            {t('config.preview_label')}
+            {t('config.full_editor.title')}
           </label>
-
-          {previewData ? (
-            <>
-              {/* Active Servers List */}
-              {Object.keys(previewData.mcpServers).length > 0 && (
-                <Card className="border-none">
-                  <CardHeader>
-                    <CardTitle className="text-lg">{t('config.preview.active_servers')}</CardTitle>
-                    <CardDescription>
-                      {t('config.preview.startup_note')}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {Object.entries(previewData.mcpServers).map(([id, config]: [string, any]) => {
-                        const testState = serverTests[id] || {
-                          testing: false,
-                          result: null,
-                          tools: []
-                        };
-
-                        return (
-                          <MCPServerPreview
-                            key={id}
-                            serverName={config.name || id}
-                            isValidJSON={true}
-                            testResult={testState.result}
-                            tools={testState.tools}
-                            isTestingConnection={testState.testing}
-                            isLoadingTools={testState.testing}
-                            onTestConnection={() => handleTestServer(id, config)}
-                          />
-                        );
-                      })}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </>
-          ) : (
-            <Card className="border-none">
-              <CardContent className="pt-6">
-                <div className="text-center text-muted-foreground">
-                  <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">{t('config.validation.invalid')}</p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          <Textarea
+            value={jsonText}
+            onChange={(e) => handleJSONChange(e.target.value)}
+            className="font-mono text-sm min-h-[400px] resize-y"
+            placeholder={t('config.json_placeholder')}
+          />
         </div>
+
+        {/* Validation Error */}
+        {jsonError && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{jsonError}</AlertDescription>
+          </Alert>
+        )}
+
+        {/* Success indicator */}
+        {validation.valid && !jsonError && (
+          <Alert className="border-green-200 bg-green-50 text-green-800">
+            <CheckCircle className="h-4 w-4 text-green-600" />
+            <AlertDescription>{t('config.validation.valid')}</AlertDescription>
+          </Alert>
+        )}
       </div>
 
       {/* Action Buttons */}

@@ -77,7 +77,14 @@
       "model_suggestion": "Cambia a uno de estos modelos compatibles:",
       "extracting": "Extrayendo...",
       "add_failed": "Error al añadir el servidor",
-      "add_success": "Servidor añadido exitosamente"
+      "add_success": "Servidor añadido exitosamente",
+      "preview_empty": "Configura un servidor para ver la vista previa",
+      "preview_field_name": "Nombre",
+      "preview_field_type": "Tipo de Transporte",
+      "preview_field_command": "Comando",
+      "preview_field_args": "Argumentos",
+      "preview_field_baseurl": "URL Base",
+      "preview_field_env": "Variables de Entorno"
     },
     "validation": {
       "valid": "La configuración es válida",
@@ -98,7 +105,8 @@
     "preview": {
       "title": "Vista Previa de Configuración",
       "active_servers": "Servidores Activos",
-      "startup_note": "Estos servidores se conectarán al iniciar"
+      "startup_note": "Estos servidores se conectarán al iniciar",
+      "no_servers": "No hay servidores MCP configurados aún"
     },
     "test": {
       "connection": "Probar Conexión",
