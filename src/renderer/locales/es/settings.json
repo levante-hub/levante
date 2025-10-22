@@ -1,0 +1,102 @@
+{
+  "title": "Configuración",
+  "sections": {
+    "personalization": "Personalización",
+    "appearance": "Apariencia",
+    "ai_configuration": "Configuración de IA"
+  },
+  "language": {
+    "label": "Idioma",
+    "description": "Elige tu idioma preferido",
+    "requires_restart": "Requiere reiniciar la aplicación",
+    "options": {
+      "en": "English",
+      "es": "Español"
+    }
+  },
+  "theme": {
+    "label": "Tema",
+    "description": "Elige cómo se ve la aplicación, o sincroniza con la configuración de tu sistema",
+    "options": {
+      "light": "Claro",
+      "dark": "Oscuro",
+      "system": "Sistema"
+    },
+    "saved": "Tema guardado exitosamente"
+  },
+  "personalization": {
+    "enable_customization": {
+      "label": "Habilitar personalización",
+      "description": "Personaliza cómo la IA te responde"
+    },
+    "personality": {
+      "label": "Personalidad de la IA",
+      "description": "Establece el estilo y tono que la IA usa al responder",
+      "options": {
+        "default": {
+          "label": "Predeterminado",
+          "description": "Alegre y adaptable"
+        },
+        "cynic": {
+          "label": "Cínico",
+          "description": "Crítico y sarcástico"
+        },
+        "robot": {
+          "label": "Robot",
+          "description": "Eficiente y directo"
+        },
+        "listener": {
+          "label": "Oyente",
+          "description": "Reflexivo y comprensivo"
+        },
+        "nerd": {
+          "label": "Nerd",
+          "description": "Exploratorio y entusiasta"
+        }
+      },
+      "placeholder": "Seleccionar personalidad"
+    },
+    "custom_instructions": {
+      "label": "Instrucciones personalizadas",
+      "placeholder": "Preferencias adicionales de comportamiento, estilo y tono",
+      "description": "Proporciona contexto adicional sobre cómo quieres que se comporte la IA"
+    },
+    "about_you": {
+      "title": "Acerca de ti",
+      "nickname": {
+        "label": "Apodo",
+        "placeholder": "¿Cómo debería llamarte la IA?"
+      },
+      "occupation": {
+        "label": "Ocupación",
+        "placeholder": "ej., Ingeniero de Software"
+      },
+      "more": {
+        "label": "Más sobre ti",
+        "placeholder": "Comparte contexto adicional sobre ti que pueda ayudar a la IA a proporcionar mejores respuestas"
+      }
+    },
+    "save_button": "Guardar Personalización",
+    "saving": "Guardando...",
+    "saved": "Guardado exitosamente"
+  },
+  "ai_config": {
+    "title": "Límites de Ejecución de Herramientas Multi-Paso",
+    "description": "Configura cuántos pasos puede dar la IA al usar herramientas. El número real de pasos se calcula dinámicamente según la cantidad de herramientas disponibles.",
+    "base_steps": {
+      "label": "Pasos Base",
+      "description": "Pasos mínimos permitidos (predeterminado: 5)"
+    },
+    "max_steps": {
+      "label": "Pasos Máximos",
+      "description": "Pasos máximos permitidos (predeterminado: 20)"
+    },
+    "save_button": "Guardar Configuración",
+    "how_it_works": {
+      "title": "Cómo funciona:",
+      "formula": "Fórmula: Pasos Base + (Número de Herramientas ÷ 5) × 2",
+      "example": "Con 24 herramientas: {{baseSteps}} + (24 ÷ 5) × 2 = {{result}} pasos",
+      "note": "Previene bucles infinitos mientras permite operaciones complejas"
+    }
+  }
+}

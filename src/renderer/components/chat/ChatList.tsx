@@ -8,6 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
+import { useTranslation } from 'react-i18next';
 import { ChatSession } from '../../../types/database';
 import { cn } from '@/lib/utils';
 
@@ -28,6 +29,7 @@ export function ChatList({
   onDeleteChat,
   loading = false
 }: ChatListProps) {
+  const { t } = useTranslation('chat');
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredSessions, setFilteredSessions] = useState<ChatSession[]>(sessions);
 
@@ -55,15 +57,15 @@ export function ChatList({
     let key: string;
 
     if (date.toDateString() === today.toDateString()) {
-      key = 'Today';
+      key = 'today';
     } else if (date.toDateString() === yesterday.toDateString()) {
-      key = 'Yesterday';
+      key = 'yesterday';
     } else if (date.getTime() > today.getTime() - 7 * 24 * 60 * 60 * 1000) {
-      key = 'This Week';
+      key = 'this_week';
     } else if (date.getTime() > today.getTime() - 30 * 24 * 60 * 60 * 1000) {
-      key = 'This Month';
+      key = 'this_month';
     } else {
-      key = 'Older';
+      key = 'older';
     }
 
     if (!groups[key]) {
@@ -75,7 +77,7 @@ export function ChatList({
 
   // Sort groups by date (most recent first)
   const sortedGroupKeys = Object.keys(groupedSessions).sort((a, b) => {
-    const order = ['Today', 'Yesterday', 'This Week', 'This Month', 'Older'];
+    const order = ['today', 'yesterday', 'this_week', 'this_month', 'older'];
     return order.indexOf(a) - order.indexOf(b);
   });
 
@@ -98,14 +100,14 @@ export function ChatList({
           disabled={loading}
         >
           <Plus size={16} />
-          New Chat
+          {t('chat_list.new_chat')}
         </Button>
 
         {/* Search */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={16} />
           <Input
-            placeholder="Search chats..."
+            placeholder={t('chat_list.search_placeholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -117,18 +119,18 @@ export function ChatList({
       <div className="flex-1 overflow-y-auto">
         {loading ? (
           <div className="p-4 text-center text-muted-foreground">
-            Loading chats...
+            {t('chat_list.loading')}
           </div>
         ) : filteredSessions.length === 0 ? (
           <div className="p-4 text-center text-muted-foreground">
-            {searchQuery ? 'No chats found' : 'No chats yet'}
+            {searchQuery ? t('chat_list.no_results') : t('chat_list.no_chats')}
           </div>
         ) : (
           sortedGroupKeys.map(groupKey => (
             <div key={groupKey}>
               {/* Group Header */}
               <div className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                {groupKey}
+                {t(`chat_list.groups.${groupKey}`)}
               </div>
 
               {/* Sessions in Group */}

@@ -114,7 +114,7 @@ export function DebugPanel() {
       </div>
 
       {error && (
-        <Card className="border-red-200 bg-red-50">
+        <Card className="border-red-200 bg-red-50 border-none">
           <CardContent className="p-4">
             <p className="text-red-700">Error: {error}</p>
           </CardContent>
@@ -122,7 +122,7 @@ export function DebugPanel() {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <Card>
+        <Card className="border-none">
           <CardHeader>
             <CardTitle>Directory Info</CardTitle>
             <CardDescription>Levante directory structure</CardDescription>
@@ -153,7 +153,7 @@ export function DebugPanel() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-none">
           <CardHeader>
             <CardTitle>Service Health</CardTitle>
             <CardDescription>Service status and paths</CardDescription>
@@ -184,7 +184,7 @@ export function DebugPanel() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-none">
           <CardHeader>
             <CardTitle>File List</CardTitle>
             <CardDescription>All files in directory</CardDescription>
@@ -207,7 +207,7 @@ export function DebugPanel() {
       </div>
 
       {directoryInfo && (
-        <Card>
+        <Card className="border-none">
           <CardHeader>
             <CardTitle>File Paths</CardTitle>
             <CardDescription>Predefined file locations</CardDescription>

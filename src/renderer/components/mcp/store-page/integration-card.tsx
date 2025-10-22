@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { MCPRegistryEntry, MCPServerConfig, MCPConnectionStatus } from '@/types/mcp';
 import { ConnectionStatus } from '../connection/connection-status';
+import { useTranslation } from 'react-i18next';
 
 interface IntegrationCardProps {
   mode: 'active' | 'store';
@@ -61,8 +62,9 @@ export function IntegrationCard({
   onAddToActive,
   onDelete
 }: IntegrationCardProps) {
-  const displayName = entry?.name || server?.name || server?.id || 'Unknown';
-  const description = entry?.description || 'Custom MCP server integration';
+  const { t } = useTranslation('mcp');
+  const displayName = entry?.name || server?.name || server?.id || t('server.unknown');
+  const description = entry?.description || t('server.custom_description');
   const category = entry?.category || 'custom';
   const iconName = entry?.icon || 'folder';
 
@@ -80,7 +82,7 @@ export function IntegrationCard({
   };
 
   return (
-    <Card className="relative overflow-hidden">
+    <Card className="relative overflow-hidden border-none">
       <CardContent className="p-6">
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-3">
@@ -118,7 +120,7 @@ export function IntegrationCard({
               variant="indicator"
             />
             <Badge variant={server?.enabled !== false ? 'default' : 'secondary'}>
-              {server?.enabled !== false ? 'Active' : 'Disabled'}
+              {server?.enabled !== false ? t('server.active') : t('server.disabled')}
             </Badge>
           </div>
         )}
@@ -126,7 +128,7 @@ export function IntegrationCard({
         {/* Badge en modo Store */}
         {mode === 'store' && (
           <Badge variant={isActive ? 'default' : 'outline'}>
-            {isActive ? 'Already Added' : 'Available'}
+            {isActive ? t('server.already_added') : 'Available'}
           </Badge>
         )}
       </CardContent>
@@ -144,7 +146,7 @@ export function IntegrationCard({
                 onClick={onAddToActive}
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Add to Active
+                {t('server.add_to_active')}
               </Button>
             ) : (
               <Button
@@ -153,7 +155,7 @@ export function IntegrationCard({
                 className="flex-1"
                 disabled
               >
-                Already Added
+                {t('server.already_added')}
               </Button>
             )
           ) : (
@@ -167,7 +169,7 @@ export function IntegrationCard({
                 disabled={status === 'connecting'}
               >
                 <Settings className="w-4 h-4 mr-2" />
-                Configure
+                {t('server.configure')}
               </Button>
 
               {onDelete && (
@@ -176,7 +178,7 @@ export function IntegrationCard({
                   size="sm"
                   onClick={handleDeleteClick}
                   disabled={status === 'connecting'}
-                  title="Delete server"
+                  title={t('server.delete')}
                 >
                   <Trash2 className="w-4 h-4" />
                 </Button>
@@ -190,18 +192,18 @@ export function IntegrationCard({
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete MCP Server?</AlertDialogTitle>
+            <AlertDialogTitle>{t('dialog.delete_title')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete <strong>{displayName}</strong>?
+              <span dangerouslySetInnerHTML={{ __html: t('dialog.delete_description', { name: displayName }) }} />
               <br />
               <br />
-              This will remove the server from your configuration file. This action cannot be undone.
+              {t('dialog.delete_warning')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('dialog.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteConfirm}>
-              Delete
+              {t('dialog.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

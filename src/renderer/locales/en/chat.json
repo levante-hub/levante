@@ -1,0 +1,66 @@
+{
+  "title": "Chat",
+  "input": {
+    "placeholder": "Type a message...",
+    "send": "Send",
+    "stop": "Stop"
+  },
+  "model_selector": {
+    "label": "Select model...",
+    "no_models": "No models available",
+    "configure": "Configure models in Models page",
+    "loading": "Loading...",
+    "search_placeholder": "Search models...",
+    "no_models_found": "No models found.",
+    "context": "{{count}} context",
+    "context_k": "{{count}}k context"
+  },
+  "message": {
+    "user": "You",
+    "assistant": "Assistant",
+    "streaming": "Thinking...",
+    "error": "Failed to send message"
+  },
+  "empty_state": {
+    "title": "Start a conversation",
+    "description": "Select a model and start chatting"
+  },
+  "welcome": {
+    "greeting": "How's your day going, {{userName}}?",
+    "greeting_default": "How's your day going?",
+    "default_user_name": "User"
+  },
+  "actions": {
+    "copy": "Copy",
+    "regenerate": "Regenerate",
+    "edit": "Edit"
+  },
+  "chat_list": {
+    "new_chat": "New Chat",
+    "search_placeholder": "Search chats...",
+    "loading": "Loading chats...",
+    "no_chats": "No chats yet",
+    "no_results": "No chats found",
+    "groups": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "this_week": "This Week",
+      "this_month": "This Month",
+      "older": "Older"
+    }
+  },
+  "tools_menu": {
+    "button_label": "Settings",
+    "title": "Search & tools",
+    "search_placeholder": "Search menu",
+    "no_results": "No tools found",
+    "web_search": {
+      "label": "Web search",
+      "keywords": ["web", "search", "internet", "búsqueda"]
+    },
+    "mcp_tools": {
+      "label": "Tools (MCP)",
+      "keywords": ["tools", "herramientas", "mcp"]
+    }
+  }
+}

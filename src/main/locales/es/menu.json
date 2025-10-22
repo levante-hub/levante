@@ -1,0 +1,48 @@
+{
+  "app": {
+    "about": "Acerca de Levante",
+    "services": "Servicios",
+    "hide": "Ocultar Levante",
+    "hide_others": "Ocultar Otros",
+    "show_all": "Mostrar Todo",
+    "quit": "Salir de Levante"
+  },
+  "file": {
+    "label": "Archivo",
+    "new_chat": "Nuevo Chat",
+    "close": "Cerrar Ventana"
+  },
+  "edit": {
+    "label": "Editar",
+    "undo": "Deshacer",
+    "redo": "Rehacer",
+    "cut": "Cortar",
+    "copy": "Copiar",
+    "paste": "Pegar",
+    "select_all": "Seleccionar Todo"
+  },
+  "view": {
+    "label": "Ver",
+    "reload": "Recargar",
+    "force_reload": "Forzar Recarga",
+    "toggle_devtools": "Alternar Herramientas de Desarrollo",
+    "actual_size": "Tamaño Real",
+    "zoom_in": "Ampliar",
+    "zoom_out": "Reducir",
+    "toggle_fullscreen": "Alternar Pantalla Completa"
+  },
+  "window": {
+    "label": "Ventana",
+    "minimize": "Minimizar",
+    "zoom": "Ampliar",
+    "close": "Cerrar",
+    "bring_all_to_front": "Traer Todo al Frente"
+  },
+  "help": {
+    "label": "Ayuda",
+    "learn_more": "Aprender Más",
+    "documentation": "Documentación",
+    "search_issues": "Buscar Problemas",
+    "check_updates": "Buscar Actualizaciones..."
+  }
+}

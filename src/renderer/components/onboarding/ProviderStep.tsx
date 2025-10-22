@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { CheckCircle2, XCircle, Loader2, ExternalLink } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { ProviderValidationConfig } from '../../../types/wizard';
 
 interface ProviderStepProps {
@@ -30,8 +31,8 @@ const PROVIDERS = [
     id: 'openrouter',
     name: 'OpenRouter (Recommended)',
     description: '100+ models with a single API key',
-    requiresKey: false,
-    signupUrl: 'https://openrouter.ai',
+    requiresKey: true,
+    signupUrl: 'https://openrouter.ai/keys',
   },
   {
     id: 'gateway',
@@ -81,30 +82,37 @@ export function ProviderStep({
   onEndpointChange,
   onValidate,
 }: ProviderStepProps) {
+  const { t } = useTranslation('wizard');
   const provider = PROVIDERS.find((p) => p.id === selectedProvider);
 
-  const showApiKeyField =
-    provider && (provider.requiresKey || selectedProvider === 'openrouter');
+  const showApiKeyField = provider?.requiresKey;
   const showEndpointField = provider?.requiresEndpoint;
-  const isOptionalKey = selectedProvider === 'openrouter';
+
+  // Check if required fields are filled
+  const canValidate = () => {
+    if (!selectedProvider) return false;
+    if (provider?.requiresKey && !apiKey) return false;
+    if (provider?.requiresEndpoint && !endpoint) return false;
+    return true;
+  };
 
   return (
     <div className="space-y-6">
       <div className="text-center">
         <h2 className="text-2xl font-bold tracking-tight">
-          Choose Your AI Provider
+          {t('provider.title')}
         </h2>
         <p className="mt-2 text-muted-foreground">
-          Select a provider to access AI models. You can add more later in Settings.
+          {t('provider.subtitle')}
         </p>
       </div>
 
       <div className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="provider">Provider</Label>
+          <Label htmlFor="provider">{t('provider.label')}</Label>
           <Select value={selectedProvider} onValueChange={onProviderChange}>
             <SelectTrigger id="provider">
-              <SelectValue placeholder="Select a provider" />
+              <SelectValue placeholder={t('provider.placeholder')} />
             </SelectTrigger>
             <SelectContent>
               {PROVIDERS.map((p) => (
@@ -126,9 +134,7 @@ export function ProviderStep({
             {showApiKeyField && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="apiKey">
-                    API Key {isOptionalKey && '(optional but recommended)'}
-                  </Label>
+                  <Label htmlFor="apiKey">{t('provider.api_key')}</Label>
                   {provider?.signupUrl && (
                     <a
                       href={provider.signupUrl}
@@ -136,7 +142,7 @@ export function ProviderStep({
                       rel="noopener noreferrer"
                       className="text-xs text-primary hover:underline flex items-center gap-1"
                     >
-                      Get your API key
+                      {t('provider.get_api_key')}
                       <ExternalLink className="h-3 w-3" />
                     </a>
                   )}
@@ -144,9 +150,7 @@ export function ProviderStep({
                 <Input
                   id="apiKey"
                   type="password"
-                  placeholder={
-                    isOptionalKey ? 'Optional' : 'Enter your API key'
-                  }
+                  placeholder={t('provider.enter_api_key')}
                   value={apiKey}
                   onChange={(e) => onApiKeyChange(e.target.value)}
                   className="font-mono text-sm"
@@ -156,7 +160,7 @@ export function ProviderStep({
 
             {showEndpointField && (
               <div className="space-y-2">
-                <Label htmlFor="endpoint">Endpoint</Label>
+                <Label htmlFor="endpoint">{t('provider.endpoint')}</Label>
                 <Input
                   id="endpoint"
                   type="url"
@@ -166,15 +170,14 @@ export function ProviderStep({
                   className="font-mono text-sm"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Default Ollama endpoint. Make sure your local server is
-                  running.
+                  {t('provider.endpoint_description')}
                 </p>
               </div>
             )}
 
             {selectedProvider === 'gateway' && (
               <div className="space-y-2">
-                <Label htmlFor="gateway-endpoint">Base URL (optional)</Label>
+                <Label htmlFor="gateway-endpoint">{t('provider.base_url_optional')}</Label>
                 <Input
                   id="gateway-endpoint"
                   type="url"
@@ -189,40 +192,39 @@ export function ProviderStep({
             <div className="pt-2">
               <Button
                 onClick={onValidate}
-                disabled={validationStatus === 'validating'}
+                disabled={validationStatus === 'validating' || !canValidate()}
                 className="w-full"
                 variant={validationStatus === 'valid' ? 'default' : 'outline'}
               >
                 {validationStatus === 'validating' ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Testing Connection...
+                    {t('provider.testing_connection')}
                   </>
                 ) : validationStatus === 'valid' ? (
                   <>
                     <CheckCircle2 className="mr-2 h-4 w-4" />
-                    Connection Verified
+                    {t('provider.connection_verified')}
                   </>
                 ) : (
-                  'Test Connection'
+                  t('provider.test_connection')
                 )}
               </Button>
             </div>
 
             {validationStatus === 'valid' && (
-              <Alert className="border-green-500/50 bg-green-500/10">
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
-                <AlertDescription className="text-green-600">
-                  API key validated successfully! You can proceed to the next
-                  step.
+              <Alert className="border-green-500/50 bg-green-500/10 dark:bg-green-500/20 [&>svg]:top-3.5">
+                <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                <AlertDescription className="text-green-700 dark:text-green-300">
+                  {t('provider.validation_success')}
                 </AlertDescription>
               </Alert>
             )}
 
             {validationStatus === 'invalid' && (
-              <Alert variant="destructive">
-                <XCircle className="h-4 w-4" />
-                <AlertDescription>{validationError}</AlertDescription>
+              <Alert variant="destructive" className="border-red-500/50 bg-red-500/10 dark:border-red-500/50 dark:bg-red-500/20 [&>svg]:top-3.5">
+                <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                <AlertDescription className="text-red-700 dark:text-red-300">{validationError}</AlertDescription>
               </Alert>
             )}
           </>
@@ -230,7 +232,7 @@ export function ProviderStep({
 
         {!selectedProvider && (
           <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
-            Select a provider to continue
+            {t('provider.select_to_continue')}
           </div>
         )}
       </div>
