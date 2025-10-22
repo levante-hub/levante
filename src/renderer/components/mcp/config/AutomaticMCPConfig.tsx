@@ -4,6 +4,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, AlertTriangle, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useMCPStore } from '@/stores/mcpStore';
+import type { MCPServerConfig } from '@/types/mcp';
 
 interface AutomaticMCPConfigProps {
   serverId: string | null;
@@ -79,14 +81,31 @@ export function AutomaticMCPConfig({ serverId, onClose, onSwitchToCustom }: Auto
   };
 
   const handleAdd = async () => {
-    if (!extractedConfig) return;
+    if (!extractedConfig) {
+      setError(t('config.automatic.no_config_extracted'));
+      return;
+    }
 
     try {
-      // TODO: Add server using extracted config
-      // await useMCPStore.getState().addServer(...)
+      setError(null);
+
+      // Convert extracted config to MCPServerConfig format
+      const serverConfig: MCPServerConfig = {
+        id: extractedConfig.name,
+        name: extractedConfig.name,
+        transport: extractedConfig.type,
+        command: extractedConfig.command,
+        args: extractedConfig.args,
+        env: extractedConfig.env,
+      };
+
+      // Add server via store
+      await useMCPStore.getState().addServer(serverConfig);
+
+      // Success - close panel
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(err instanceof Error ? err.message : t('config.automatic.add_failed'));
     }
   };
 
