@@ -10,6 +10,7 @@ import { modelService } from '@/services/modelService'
 import { logger } from '@/services/logger'
 import { useTranslation } from 'react-i18next'
 import '@/i18n/config' // Initialize i18n
+import type { DeepLinkAction } from '../../preload/preload'
 
 function App() {
   const [currentPage, setCurrentPage] = useState('chat')
@@ -160,6 +161,97 @@ function App() {
   const startNewChat = useChatStore((state) => state.startNewChat)
   const loadSession = useChatStore((state) => state.loadSession)
   const deleteSession = useChatStore((state) => state.deleteSession)
+  const sendMessage = useChatStore((state) => state.sendMessage)
+
+  // Handle deep links
+  useEffect(() => {
+    const cleanup = window.levante.onDeepLink(async (action: DeepLinkAction) => {
+      logger.core.info('Received deep link action', { type: action.type, data: action.data });
+
+      try {
+        if (action.type === 'mcp-add') {
+          // Navigate to Store page for MCP management
+          setCurrentPage('store');
+
+          // Try to add the MCP server
+          const { name, config } = action.data as { name: string; config: any };
+          if (config && config.id) {
+            logger.core.info('Attempting to add MCP server from deep link', { serverId: config.id });
+
+            const result = await window.levante.mcp.addServer(config);
+            if (result.success) {
+              logger.core.info('MCP server added successfully from deep link', { serverId: config.id });
+            } else {
+              logger.core.error('Failed to add MCP server from deep link', {
+                serverId: config.id,
+                error: result.error
+              });
+            }
+          }
+        } else if (action.type === 'chat-new') {
+          const { prompt, autoSend } = action.data as { prompt: string; autoSend: boolean };
+
+          logger.core.info('Creating new chat from deep link', {
+            promptLength: prompt.length,
+            autoSend
+          });
+
+          // Navigate to chat page
+          setCurrentPage('chat');
+
+          // Start a new chat session
+          startNewChat();
+
+          // If autoSend is true, send the message automatically
+          if (autoSend && prompt) {
+            // Wait a bit for the chat to be ready
+            setTimeout(async () => {
+              try {
+                // Get available models
+                const models = await modelService.getAvailableModels();
+                const defaultModel = models.length > 0 ? models[0].id : undefined;
+
+                if (!defaultModel) {
+                  logger.core.error('No model available to send deep link message');
+                  return;
+                }
+
+                logger.core.info('Sending message from deep link', {
+                  model: defaultModel,
+                  promptLength: prompt.length
+                });
+
+                // Send the message
+                await sendMessage(
+                  { text: prompt },
+                  {
+                    body: {
+                      model: defaultModel,
+                      webSearch: false,
+                      enableMCP: false
+                    }
+                  }
+                );
+
+                logger.core.info('Message sent successfully from deep link');
+              } catch (error) {
+                logger.core.error('Failed to send message from deep link', {
+                  error: error instanceof Error ? error.message : error
+                });
+              }
+            }, 500);
+          }
+        }
+      } catch (error) {
+        logger.core.error('Error handling deep link action', {
+          type: action.type,
+          error: error instanceof Error ? error.message : error
+        });
+      }
+    });
+
+    return cleanup;
+  }, [startNewChat, sendMessage]);
 
   const getPageTitle = (page: string) => {
     switch (page) {

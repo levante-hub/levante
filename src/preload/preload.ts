@@ -105,6 +105,12 @@ export interface MCPHealthReport {
   lastUpdated: number;
 }
 
+// Deep link types
+export interface DeepLinkAction {
+  type: 'mcp-add' | 'chat-new';
+  data: Record<string, unknown>;
+}
+
 // Define the API interface for type safety
 export interface LevanteAPI {
   // App information
@@ -113,6 +119,7 @@ export interface LevanteAPI {
   getSystemTheme: () => Promise<{ shouldUseDarkColors: boolean; themeSource: string }>
   onSystemThemeChanged: (callback: (theme: { shouldUseDarkColors: boolean; themeSource: string }) => void) => () => void
   checkForUpdates: () => Promise<{ success: boolean; error?: string }>
+  onDeepLink: (callback: (action: DeepLinkAction) => void) => () => void
 
   // Chat functionality
   sendMessage: (request: ChatRequest) => Promise<{ success: boolean; response: string; sources?: any[]; reasoning?: string }>
@@ -256,6 +263,18 @@ const api: LevanteAPI = {
   },
 
   checkForUpdates: () => ipcRenderer.invoke('levante/app/check-for-updates'),
+
+  onDeepLink: (callback) => {
+    const listener = (_event: any, action: DeepLinkAction) => {
+      callback(action);
+    };
+    ipcRenderer.on('levante/deep-link/action', listener);
+
+    // Return cleanup function
+    return () => {
+      ipcRenderer.removeListener('levante/deep-link/action', listener);
+    };
+  },
 
   sendMessage: (request: ChatRequest) =>
     ipcRenderer.invoke('levante/chat/send', request),

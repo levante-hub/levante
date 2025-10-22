@@ -16,6 +16,7 @@ import { userProfileService } from "./services/userProfileService";
 import { getLogger, initializeLogger } from "./services/logging";
 import { createApplicationMenu } from "./menu";
 import { updateService } from "./services/updateService";
+import { deepLinkService } from "./services/deepLinkService";
 
 // Load environment variables from .env.local and .env files
 config({ path: join(__dirname, "../../.env.local") });
@@ -28,6 +29,18 @@ initializeLogger();
 
 // Initialize auto-updates
 updateService.initialize();
+
+// Register custom protocol for deep linking
+// This should be called before app.whenReady()
+if (process.defaultApp) {
+  // Development mode with electron .
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient('levante', process.execPath, [join(__dirname, '../../')]);
+  }
+} else {
+  // Production mode
+  app.setAsDefaultProtocolClient('levante');
+}
 
 // Keep a global reference of the window object
 let mainWindow: BrowserWindow | null = null;
@@ -179,6 +192,11 @@ app.whenReady().then(async () => {
 
   // Create application menu after window is created
   createApplicationMenu(mainWindow);
+
+  // Register main window with deep link service
+  if (mainWindow) {
+    deepLinkService.setMainWindow(mainWindow);
+  }
 
   app.on("activate", function () {
     // On macOS it's common to re-create a window in the app when the
@@ -355,5 +373,31 @@ ipcMain.handle("levante/chat/send", async (event, request: ChatRequest) => {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
     };
+  }
+});
+
+// Deep link handlers
+// macOS: Handle protocol URLs via 'open-url' event
+app.on('open-url', (event, url) => {
+  event.preventDefault();
+  logger.core.info('Received deep link URL (open-url)', { url });
+  deepLinkService.handleDeepLink(url);
+});
+
+// Windows/Linux: Handle protocol URLs via command-line arguments
+// This needs to run after app is ready
+app.whenReady().then(() => {
+  // Check if app was launched with a deep link URL
+  const args = process.argv;
+  logger.core.debug('Process arguments', { args });
+
+  // Look for levante:// protocol in arguments
+  const deepLinkUrl = args.find(arg => arg.startsWith('levante://'));
+  if (deepLinkUrl) {
+    logger.core.info('Received deep link URL (command-line)', { url: deepLinkUrl });
+    // Wait a bit to ensure window is ready
+    setTimeout(() => {
+      deepLinkService.handleDeepLink(deepLinkUrl);
+    }, 1000);
   }
 });
