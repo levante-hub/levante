@@ -392,6 +392,121 @@ export function registerMCPHandlers() {
     }
   });
 
+  // Extract MCP configuration from text using AI
+  ipcMain.handle('levante/mcp/extract-config', async (_, text: string) => {
+    try {
+      const { mcpExtractionService } = await import('../services/mcpExtractionService.js');
+      const { detectSensitiveData, sanitizeSensitiveData } = await import('../utils/sensitiveDataDetector.js');
+      const { preferencesService } = await import('../services/preferencesService.js');
+
+      logger.mcp.info('Starting MCP config extraction', { textLength: text.length });
+
+      // Step 1: Detect sensitive data
+      const detection = detectSensitiveData(text);
+      if (detection.hasSensitiveData) {
+        logger.mcp.warn('Sensitive data detected in input', {
+          detectionsCount: detection.detections.length,
+          highestConfidence: detection.detections[0]?.confidence,
+        });
+
+        // Auto-sanitize high confidence detections
+        const { sanitized, replacements } = sanitizeSensitiveData(text);
+        if (replacements > 0) {
+          logger.mcp.info('Auto-sanitized sensitive data', { replacements });
+          text = sanitized;
+        }
+      }
+
+      // Step 2: Get user's active model and provider
+      const preferences = await preferencesService.getAll();
+      const userProviderId = preferences.activeProvider || 'anthropic';
+      const providerConfig = preferences.providers?.find(p => p.id === userProviderId);
+      const userModel = providerConfig?.models.find(m => m.isSelected)?.id || 'claude-3-5-sonnet-20241022';
+      const apiKey = providerConfig?.apiKey;
+
+      logger.mcp.debug('Using model for extraction', { provider: userProviderId, model: userModel });
+
+      // Step 3: Check if model supports structured output
+      const userProviderType = providerConfig?.type || 'anthropic';
+      if (!mcpExtractionService.supportsStructuredOutput(userProviderType, userModel)) {
+        const supportedModels = mcpExtractionService.getSupportedModels();
+        return {
+          success: false,
+          error: 'Model not supported',
+          data: {
+            supportedModels,
+            currentModel: userModel,
+            currentProvider: userProviderType,
+          },
+        };
+      }
+
+      // Step 4: Extract configuration using AI
+      const result = await mcpExtractionService.extractConfig({
+        text,
+        userModel,
+        userProvider: userProviderType,
+        apiKey,
+      });
+
+      if (!result.success) {
+        return {
+          success: false,
+          error: result.error,
+          suggestion: result.suggestion,
+        };
+      }
+
+      logger.mcp.info('MCP config extracted successfully', {
+        name: result.config?.name,
+        type: result.config?.type,
+      });
+
+      return {
+        success: true,
+        data: result.config,
+      };
+    } catch (error: any) {
+      logger.mcp.error('MCP extraction failed', { error: error.message });
+      return {
+        success: false,
+        error: error.message || 'Failed to extract configuration',
+      };
+    }
+  });
+
+  // Check if user's model supports structured output
+  ipcMain.handle('levante/mcp/check-structured-output-support', async () => {
+    try {
+      const { mcpExtractionService } = await import('../services/mcpExtractionService.js');
+      const { preferencesService } = await import('../services/preferencesService.js');
+
+      const preferences = await preferencesService.getAll();
+      const userProviderId = preferences.activeProvider || 'anthropic';
+      const providerConfig = preferences.providers?.find(p => p.id === userProviderId);
+      const userModel = providerConfig?.models.find(m => m.isSelected)?.id || 'claude-3-5-sonnet-20241022';
+      const userProviderType = providerConfig?.type || 'anthropic';
+
+      const supported = mcpExtractionService.supportsStructuredOutput(userProviderType, userModel);
+      const supportedModels = mcpExtractionService.getSupportedModels();
+
+      return {
+        success: true,
+        data: {
+          supported,
+          currentModel: userModel,
+          currentProvider: userProviderType,
+          supportedModels,
+        },
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  });
+
   logger.mcp.info('MCP IPC handlers registered successfully');
 }
 
