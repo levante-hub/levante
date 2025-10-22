@@ -395,17 +395,24 @@ export function registerMCPHandlers() {
   // Extract MCP configuration from text using AI
   ipcMain.handle('levante/mcp/extract-config', async (_, text: string) => {
     try {
+      logger.mcp.info('IPC handler: levante/mcp/extract-config called', {
+        textLength: text.length,
+        textPreview: text.slice(0, 100) + (text.length > 100 ? '...' : ''),
+      });
+
       const { mcpExtractionService } = await import('../services/mcpExtractionService.js');
       const { detectSensitiveData, sanitizeSensitiveData } = await import('../utils/sensitiveDataDetector.js');
       const { preferencesService } = await import('../services/preferencesService.js');
 
-      logger.mcp.info('Starting MCP config extraction', { textLength: text.length });
+      logger.mcp.debug('Modules imported successfully');
 
       // Step 1: Detect sensitive data
+      logger.mcp.debug('Step 1: Detecting sensitive data');
       const detection = detectSensitiveData(text);
       if (detection.hasSensitiveData) {
         logger.mcp.warn('Sensitive data detected in input', {
           detectionsCount: detection.detections.length,
+          detectionTypes: detection.detections.map(d => d.type),
           highestConfidence: detection.detections[0]?.confidence,
         });
 
@@ -415,21 +422,35 @@ export function registerMCPHandlers() {
           logger.mcp.info('Auto-sanitized sensitive data', { replacements });
           text = sanitized;
         }
+      } else {
+        logger.mcp.debug('No sensitive data detected');
       }
 
       // Step 2: Get user's active model and provider
+      logger.mcp.debug('Step 2: Loading user preferences');
       const preferences = await preferencesService.getAll();
       const userProviderId = preferences.activeProvider || 'anthropic';
       const providerConfig = preferences.providers?.find(p => p.id === userProviderId);
       const userModel = providerConfig?.models.find(m => m.isSelected)?.id || 'claude-3-5-sonnet-20241022';
       const apiKey = providerConfig?.apiKey;
 
-      logger.mcp.debug('Using model for extraction', { provider: userProviderId, model: userModel });
+      logger.mcp.info('User model configuration loaded', {
+        provider: userProviderId,
+        providerType: providerConfig?.type,
+        model: userModel,
+        hasApiKey: !!apiKey,
+      });
 
       // Step 3: Check if model supports structured output
+      logger.mcp.debug('Step 3: Checking structured output support');
       const userProviderType = providerConfig?.type || 'anthropic';
       if (!mcpExtractionService.supportsStructuredOutput(userProviderType, userModel)) {
         const supportedModels = mcpExtractionService.getSupportedModels();
+        logger.mcp.warn('Model does not support structured output', {
+          currentModel: userModel,
+          currentProvider: userProviderType,
+          supportedModels,
+        });
         return {
           success: false,
           error: 'Model not supported',
@@ -441,7 +462,10 @@ export function registerMCPHandlers() {
         };
       }
 
+      logger.mcp.debug('Model supports structured output');
+
       // Step 4: Extract configuration using AI
+      logger.mcp.info('Step 4: Starting AI extraction process');
       const result = await mcpExtractionService.extractConfig({
         text,
         userModel,
@@ -449,7 +473,17 @@ export function registerMCPHandlers() {
         apiKey,
       });
 
+      logger.mcp.debug('Extraction service returned result', {
+        success: result.success,
+        hasConfig: !!result.config,
+        error: result.error,
+      });
+
       if (!result.success) {
+        logger.mcp.warn('Extraction unsuccessful', {
+          error: result.error,
+          suggestion: result.suggestion,
+        });
         return {
           success: false,
           error: result.error,
@@ -460,6 +494,9 @@ export function registerMCPHandlers() {
       logger.mcp.info('MCP config extracted successfully', {
         name: result.config?.name,
         type: result.config?.type,
+        command: result.config?.command,
+        hasArgs: !!result.config?.args,
+        hasEnv: !!result.config?.env,
       });
 
       return {
@@ -467,7 +504,11 @@ export function registerMCPHandlers() {
         data: result.config,
       };
     } catch (error: any) {
-      logger.mcp.error('MCP extraction failed', { error: error.message });
+      logger.mcp.error('MCP extraction IPC handler failed', {
+        error: error.message,
+        errorType: error?.constructor?.name,
+        errorStack: error.stack,
+      });
       return {
         success: false,
         error: error.message || 'Failed to extract configuration',

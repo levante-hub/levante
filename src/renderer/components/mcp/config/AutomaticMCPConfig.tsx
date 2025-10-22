@@ -5,6 +5,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, AlertTriangle, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useMCPStore } from '@/stores/mcpStore';
+import { logger } from '@/services/logger';
 import type { MCPServerConfig } from '@/types/mcp';
 
 interface AutomaticMCPConfigProps {
@@ -57,43 +58,78 @@ export function AutomaticMCPConfig({ serverId, onClose, onSwitchToCustom, onConf
 
   const handleExtract = async () => {
     if (!inputText.trim()) {
+      logger.mcp.warn('Automatic extraction: empty input provided');
       setError(t('config.automatic.error_empty_input'));
       return;
     }
 
+    logger.mcp.info('Starting automatic MCP config extraction', {
+      inputLength: inputText.length,
+      inputPreview: inputText.slice(0, 100) + (inputText.length > 100 ? '...' : ''),
+    });
+
     try {
       // Phase 1: Analyzing
+      logger.mcp.debug('Phase 1: Analyzing input text');
       setPhase('analyzing');
       setProgress(20);
       setError(null);
       await new Promise(resolve => setTimeout(resolve, 500));
 
       // Phase 2: Security check
+      logger.mcp.debug('Phase 2: Running security checks');
       setPhase('security');
       setProgress(40);
       await new Promise(resolve => setTimeout(resolve, 300));
 
       // Phase 3: AI Extraction
+      logger.mcp.debug('Phase 3: Starting AI extraction via IPC');
       setPhase('extracting');
       setProgress(60);
 
       const result = await window.levante.mcp.extractConfig(inputText);
 
+      logger.mcp.debug('Received extraction result from main process', {
+        success: result.success,
+        hasData: !!result.data,
+        error: result.error,
+      });
+
       if (!result.success || !result.data) {
+        logger.mcp.error('Extraction failed', {
+          error: result.error,
+          suggestion: result.suggestion,
+        });
         throw new Error(result.error || t('config.automatic.extraction_failed'));
       }
 
+      logger.mcp.info('Extraction successful', {
+        name: result.data.name,
+        type: result.data.type,
+        command: result.data.command,
+        hasArgs: !!result.data.args,
+        hasEnv: !!result.data.env,
+      });
+
       // Phase 4: Validation
+      logger.mcp.debug('Phase 4: Validating extracted configuration');
       setPhase('validating');
       setProgress(90);
       await new Promise(resolve => setTimeout(resolve, 300));
 
       // Complete
+      logger.mcp.info('Automatic extraction complete', {
+        configName: result.data.name,
+      });
       setPhase('complete');
       setProgress(100);
       setExtractedConfig(result.data);
 
     } catch (err) {
+      logger.mcp.error('Automatic extraction error', {
+        error: err instanceof Error ? err.message : String(err),
+        phase,
+      });
       setPhase('error');
       setError(err instanceof Error ? err.message : String(err));
     }
@@ -101,9 +137,15 @@ export function AutomaticMCPConfig({ serverId, onClose, onSwitchToCustom, onConf
 
   const handleAdd = async () => {
     if (!extractedConfig) {
+      logger.mcp.warn('Attempted to add server without extracted config');
       setError(t('config.automatic.no_config_extracted'));
       return;
     }
+
+    logger.mcp.info('Adding extracted MCP server', {
+      name: extractedConfig.name,
+      type: extractedConfig.type,
+    });
 
     try {
       setError(null);
@@ -118,12 +160,26 @@ export function AutomaticMCPConfig({ serverId, onClose, onSwitchToCustom, onConf
         env: extractedConfig.env,
       };
 
+      logger.mcp.debug('Converted config to MCPServerConfig format', {
+        serverId: serverConfig.id,
+        transport: serverConfig.transport,
+        command: serverConfig.command,
+      });
+
       // Add server via store
       await useMCPStore.getState().addServer(serverConfig);
+
+      logger.mcp.info('MCP server added successfully', {
+        serverId: serverConfig.id,
+      });
 
       // Success - close panel
       onClose();
     } catch (err) {
+      logger.mcp.error('Failed to add MCP server', {
+        error: err instanceof Error ? err.message : String(err),
+        serverName: extractedConfig.name,
+      });
       setError(err instanceof Error ? err.message : t('config.automatic.add_failed'));
     }
   };
