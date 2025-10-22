@@ -168,7 +168,7 @@ const SettingsPage = () => {
     <div className="h-full overflow-y-auto">
       <div className="max-w-4xl mx-auto space-y-6 px-4 mb-10">
         {/* Personalization Settings - First Block */}
-        <Collapsible defaultOpen className="bg-card rounded-lg border">
+        <Collapsible defaultOpen className="bg-card rounded-lg border-none">
           <div className="p-6">
             <CollapsibleTrigger className="flex items-center justify-between w-full group">
               <h3 className="text-lg font-semibold flex items-center gap-2">
@@ -330,7 +330,7 @@ const SettingsPage = () => {
         </Collapsible>
 
         {/* Appearance - Second Block */}
-        <Collapsible className="bg-card rounded-lg border">
+        <Collapsible className="bg-card rounded-lg border-none">
           <div className="p-6">
             <CollapsibleTrigger className="flex items-center justify-between w-full group">
               <h3 className="text-lg font-semibold flex items-center gap-2">
@@ -381,7 +381,7 @@ const SettingsPage = () => {
         </Collapsible>
 
         {/* AI Configuration - Third Block */}
-        <Collapsible className="bg-card rounded-lg border">
+        <Collapsible className="bg-card rounded-lg border-none">
           <div className="p-6">
             <CollapsibleTrigger className="flex items-center justify-between w-full group">
               <h3 className="text-lg font-semibold flex items-center gap-2">

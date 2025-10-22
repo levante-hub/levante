@@ -28,7 +28,7 @@ export function WizardStep({
 }: WizardStepProps) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-2xl">
+      <Card className="w-full max-w-2xl border-none">
         {showProgress && (
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
