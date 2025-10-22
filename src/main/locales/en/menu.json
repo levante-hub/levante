@@ -1,0 +1,48 @@
+{
+  "app": {
+    "about": "About Levante",
+    "services": "Services",
+    "hide": "Hide Levante",
+    "hide_others": "Hide Others",
+    "show_all": "Show All",
+    "quit": "Quit Levante"
+  },
+  "file": {
+    "label": "File",
+    "new_chat": "New Chat",
+    "close": "Close Window"
+  },
+  "edit": {
+    "label": "Edit",
+    "undo": "Undo",
+    "redo": "Redo",
+    "cut": "Cut",
+    "copy": "Copy",
+    "paste": "Paste",
+    "select_all": "Select All"
+  },
+  "view": {
+    "label": "View",
+    "reload": "Reload",
+    "force_reload": "Force Reload",
+    "toggle_devtools": "Toggle Developer Tools",
+    "actual_size": "Actual Size",
+    "zoom_in": "Zoom In",
+    "zoom_out": "Zoom Out",
+    "toggle_fullscreen": "Toggle Full Screen"
+  },
+  "window": {
+    "label": "Window",
+    "minimize": "Minimize",
+    "zoom": "Zoom",
+    "close": "Close",
+    "bring_all_to_front": "Bring All to Front"
+  },
+  "help": {
+    "label": "Help",
+    "learn_more": "Learn More",
+    "documentation": "Documentation",
+    "search_issues": "Search Issues",
+    "check_updates": "Check for Updates..."
+  }
+}

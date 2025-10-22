@@ -1,0 +1,62 @@
+{
+  "update": {
+    "available": {
+      "title": "Update Available",
+      "message": "A new version of Levante ({{version}}) is available. Would you like to download it now?",
+      "detail": "Current version: {{currentVersion}}",
+      "buttons": {
+        "download": "Download",
+        "later": "Later",
+        "skip": "Skip This Version"
+      }
+    },
+    "downloading": {
+      "title": "Downloading Update",
+      "message": "Downloading Levante {{version}}...",
+      "progress": "{{percent}}% complete"
+    },
+    "downloaded": {
+      "title": "Update Ready",
+      "message": "Levante {{version}} has been downloaded and is ready to install.",
+      "detail": "The application will restart to apply the update.",
+      "buttons": {
+        "restart": "Restart Now",
+        "later": "Later"
+      }
+    },
+    "error": {
+      "title": "Update Error",
+      "message": "An error occurred while checking for updates.",
+      "detail": "{{error}}",
+      "button": "OK"
+    },
+    "not_available": {
+      "title": "No Updates Available",
+      "message": "You're using the latest version of Levante ({{version}}).",
+      "button": "OK"
+    }
+  },
+  "restart": {
+    "title": "Restart Required",
+    "message": "Language will change to {{language}} after restarting.",
+    "detail": "Would you like to restart the application now?",
+    "buttons": {
+      "restart": "Restart Now",
+      "later": "Later"
+    }
+  },
+  "error": {
+    "title": "Error",
+    "message": "An error occurred",
+    "button": "OK"
+  },
+  "confirm": {
+    "title": "Confirm",
+    "message": "Are you sure?",
+    "buttons": {
+      "yes": "Yes",
+      "no": "No",
+      "cancel": "Cancel"
+    }
+  }
+}
