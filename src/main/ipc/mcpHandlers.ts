@@ -444,65 +444,130 @@ export function registerMCPHandlers() {
       // Step 3: Check if model supports structured output
       logger.mcp.debug('Step 3: Checking structured output support');
       const userProviderType = providerConfig?.type || 'anthropic';
+
+      let finalProvider = userProviderType;
+      let finalModel = userModel;
+      let finalApiKey = apiKey;
+
+      // If current provider doesn't support structured output (e.g., OpenRouter)
+      // try to find an alternative provider that does
       if (!mcpExtractionService.supportsStructuredOutput(userProviderType, userModel)) {
-        const supportedModels = mcpExtractionService.getSupportedModels();
-        logger.mcp.warn('Model does not support structured output', {
+        logger.mcp.warn('Current provider does not support structured output directly', {
           currentModel: userModel,
           currentProvider: userProviderType,
-          supportedModels,
         });
-        return {
-          success: false,
-          error: 'Model not supported',
-          data: {
-            supportedModels,
+
+        // Look for alternative providers with API keys
+        const alternativeProviders = preferences.providers?.filter(p =>
+          p.apiKey &&
+          p.type !== userProviderType &&
+          (p.type === 'openai' || p.type === 'anthropic' || p.type === 'google')
+        ) || [];
+
+        logger.mcp.debug('Searching for alternative providers', {
+          alternativesFound: alternativeProviders.length,
+          alternatives: alternativeProviders.map(p => ({ id: p.id, type: p.type })),
+        });
+
+        // Try to find a suitable alternative
+        let foundAlternative = false;
+        for (const altProvider of alternativeProviders) {
+          const supportedModels = mcpExtractionService.getSupportedModels();
+          const providerModels = supportedModels.find(sm => sm.provider === altProvider.type);
+
+          if (providerModels && providerModels.models.length > 0) {
+            // Use the first supported model from this provider
+            finalProvider = altProvider.type!;
+            finalModel = providerModels.models[0];
+            finalApiKey = altProvider.apiKey;
+            foundAlternative = true;
+
+            logger.mcp.info('Using alternative provider for extraction', {
+              originalProvider: userProviderType,
+              alternativeProvider: finalProvider,
+              alternativeModel: finalModel,
+            });
+            break;
+          }
+        }
+
+        if (!foundAlternative) {
+          const supportedModels = mcpExtractionService.getSupportedModels();
+          logger.mcp.error('No alternative provider found with structured output support', {
             currentModel: userModel,
             currentProvider: userProviderType,
-          },
-        };
+            supportedModels,
+          });
+          return {
+            success: false,
+            error: 'No compatible AI provider configured',
+            suggestion: `Please configure one of these providers: OpenAI (GPT-4o), Anthropic (Claude 3.5 Sonnet), or Google (Gemini 1.5 Pro)`,
+          };
+        }
       }
 
-      logger.mcp.debug('Model supports structured output');
-
-      // Step 4: Extract configuration using AI
-      logger.mcp.info('Step 4: Starting AI extraction process');
-      const result = await mcpExtractionService.extractConfig({
-        text,
-        userModel,
-        userProvider: userProviderType,
-        apiKey,
+      logger.mcp.debug('Using provider for extraction', {
+        provider: finalProvider,
+        model: finalModel,
       });
 
-      logger.mcp.debug('Extraction service returned result', {
-        success: result.success,
-        hasConfig: !!result.config,
-        error: result.error,
-      });
+      // Step 4: Set API key as environment variable temporarily
+      const envVarName = `${finalProvider.toUpperCase()}_API_KEY`;
+      const originalEnvValue = process.env[envVarName];
 
-      if (!result.success) {
-        logger.mcp.warn('Extraction unsuccessful', {
-          error: result.error,
-          suggestion: result.suggestion,
+      if (finalApiKey) {
+        logger.mcp.debug('Setting temporary API key in environment', { envVarName });
+        process.env[envVarName] = finalApiKey;
+      }
+
+      try {
+        // Extract configuration using AI
+        logger.mcp.info('Step 4: Starting AI extraction process');
+        const result = await mcpExtractionService.extractConfig({
+          text,
+          userModel: finalModel,
+          userProvider: finalProvider,
+          apiKey: finalApiKey,
         });
-        return {
-          success: false,
+
+        logger.mcp.debug('Extraction service returned result', {
+          success: result.success,
+          hasConfig: !!result.config,
           error: result.error,
-          suggestion: result.suggestion,
+        });
+
+        if (!result.success) {
+          logger.mcp.warn('Extraction unsuccessful', {
+            error: result.error,
+            suggestion: result.suggestion,
+          });
+          return {
+            success: false,
+            error: result.error,
+            suggestion: result.suggestion,
+          };
+        }
+
+        logger.mcp.info('MCP config extracted successfully', {
+          name: result.config?.name,
+          type: result.config?.type,
+          command: result.config?.command,
+          hasArgs: !!result.config?.args,
+          hasEnv: !!result.config?.env,
+        });
+
+        return {
+          success: true,
+          data: result.config,
         };
+      } finally {
+        // Restore original environment variable
+        if (originalEnvValue !== undefined) {
+          process.env[envVarName] = originalEnvValue;
+        } else if (finalApiKey) {
+          delete process.env[envVarName];
+        }
       }
-
-      logger.mcp.info('MCP config extracted successfully', {
-        name: result.config?.name,
-        type: result.config?.type,
-        command: result.config?.command,
-        hasArgs: !!result.config?.args,
-        hasEnv: !!result.config?.env,
-      });
-
-      return {
-        success: true,
-        data: result.config,
-      };
     } catch (error: any) {
       logger.mcp.error('MCP extraction IPC handler failed', {
         error: error.message,

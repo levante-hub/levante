@@ -1,8 +1,7 @@
 import { generateObject } from "ai";
-import { createAnthropic } from "@ai-sdk/anthropic";
-import { createOpenAI } from "@ai-sdk/openai";
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+import { anthropic } from "@ai-sdk/anthropic";
+import { openai } from "@ai-sdk/openai";
+import { google } from "@ai-sdk/google";
 import { z } from "zod";
 import { getLogger } from "./logging";
 
@@ -122,57 +121,38 @@ class MCPExtractionService {
   }
 
   /**
-   * Create AI provider instance based on user's provider
+   * Get AI model instance for extraction
+   * Uses simple direct imports instead of complex provider creation
+   * API keys must be set as environment variables before calling this
    */
-  private createProvider(provider: string, apiKey?: string) {
-    logger.mcp.debug("Creating AI provider", {
+  private getModel(provider: string, modelId: string) {
+    logger.mcp.debug("Getting AI model", {
       provider,
-      hasCustomApiKey: !!apiKey,
-      hasEnvApiKey: !!process.env[`${provider.toUpperCase()}_API_KEY`],
+      modelId,
     });
 
     switch (provider.toLowerCase()) {
       case "openai":
-        logger.mcp.debug("Creating OpenAI provider");
-        return createOpenAI({
-          apiKey: apiKey || process.env.OPENAI_API_KEY,
-        });
+        logger.mcp.debug("Using OpenAI model");
+        // API key read from OPENAI_API_KEY env var
+        return openai(modelId);
 
       case "anthropic":
-        logger.mcp.debug("Creating Anthropic provider");
-        return createAnthropic({
-          apiKey: apiKey || process.env.ANTHROPIC_API_KEY,
-        });
+        logger.mcp.debug("Using Anthropic model");
+        // API key read from ANTHROPIC_API_KEY env var
+        return anthropic(modelId);
 
       case "google":
-        logger.mcp.debug("Creating Google Generative AI provider");
-        return createGoogleGenerativeAI({
-          apiKey: apiKey || process.env.GOOGLE_GENERATIVE_AI_API_KEY,
-        });
+        logger.mcp.debug("Using Google model");
+        // API key read from GOOGLE_GENERATIVE_AI_API_KEY env var
+        return google(modelId);
 
       case "openrouter":
-        logger.mcp.debug("Creating OpenRouter provider (OpenAI-compatible)", {
-          baseURL: "https://openrouter.ai/api/v1",
-        });
-        if (!apiKey) {
-          throw new Error("OpenRouter API key is required");
-        }
-        return createOpenAICompatible({
-          name: "openrouter",
-          apiKey,
-          baseURL: "https://openrouter.ai/api/v1",
-        });
-
       case "gateway":
-        logger.mcp.debug("Creating Gateway provider (OpenAI-compatible)");
-        if (!apiKey) {
-          throw new Error("Gateway API key is required");
-        }
-        return createOpenAICompatible({
-          name: "gateway",
-          apiKey,
-          baseURL: process.env.GATEWAY_BASE_URL || "http://localhost:3000",
-        });
+        // For OpenRouter/Gateway, we should not reach here
+        // The IPC handler should fallback to a compatible provider
+        logger.mcp.error("Gateway provider should use fallback", { provider });
+        throw new Error(`${provider} requires using a fallback provider`);
 
       default:
         logger.mcp.error("Unsupported provider requested", { provider });
@@ -303,13 +283,12 @@ Return ONLY the JSON object, no markdown formatting, no explanation text.`;
         };
       }
 
-      logger.mcp.debug("Model supports structured output, creating provider");
+      logger.mcp.debug("Model supports structured output, getting model instance");
 
-      // Create provider
-      const provider = this.createProvider(input.userProvider, input.apiKey);
-      const model = provider(input.userModel);
+      // Get model instance (API key should be in env vars)
+      const model = this.getModel(input.userProvider, input.userModel);
 
-      logger.mcp.debug("Provider created, calling generateObject API", {
+      logger.mcp.debug("Model instance created, calling generateObject API", {
         provider: input.userProvider,
         model: input.userModel,
       });
@@ -405,8 +384,7 @@ Return ONLY the JSON object, no markdown formatting, no explanation text.`;
     input: ExtractionInput
   ): Promise<{ error: string; suggestion: string } | null> {
     try {
-      const provider = this.createProvider(input.userProvider, input.apiKey);
-      const model = provider(input.userModel);
+      const model = this.getModel(input.userProvider, input.userModel);
 
       // @ts-ignore - Zod schema inference causes type instantiation depth issues
       const result = await generateObject({
