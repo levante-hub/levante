@@ -86,10 +86,6 @@ export function ToolsMenu({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-80">
-        <DropdownMenuLabel className="font-semibold">
-          {t('tools_menu.title')}
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
 
         {/* Search input */}
         <div className="p-2">
