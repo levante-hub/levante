@@ -50,6 +50,7 @@ export function ChatPromptInput({
         value={input}
         rows={1}
         className="p-2 border-none"
+        placeholder={t('input.placeholder')}
       />
       <PromptInputToolbar className="p-0 border-none">
         <PromptInputTools>

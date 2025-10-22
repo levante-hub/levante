@@ -20,6 +20,11 @@
     "title": "Start a conversation",
     "description": "Select a model and start chatting"
   },
+  "welcome": {
+    "greeting": "How's your day going, {{userName}}?",
+    "greeting_default": "How's your day going?",
+    "default_user_name": "User"
+  },
   "actions": {
     "copy": "Copy",
     "regenerate": "Regenerate",
@@ -37,6 +42,20 @@
       "this_week": "This Week",
       "this_month": "This Month",
       "older": "Older"
+    }
+  },
+  "tools_menu": {
+    "button_label": "Settings",
+    "title": "Search & tools",
+    "search_placeholder": "Search menu",
+    "no_results": "No tools found",
+    "web_search": {
+      "label": "Web search",
+      "keywords": ["web", "search", "internet", "búsqueda"]
+    },
+    "mcp_tools": {
+      "label": "Tools (MCP)",
+      "keywords": ["tools", "herramientas", "mcp"]
     }
   }
 }

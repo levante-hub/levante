@@ -23,7 +23,9 @@
     "get_key": "Get your key"
   },
   "base_url": {
-    "label": "Base URL"
+    "label": "Base URL",
+    "help_gateway": "Configure your Vercel AI Gateway at",
+    "help_local": "Default ports: Ollama (11434), LM Studio (1234), LocalAI (8080)"
   },
   "organization_id": {
     "label": "Organization ID (Optional)",
@@ -33,6 +35,8 @@
     "title": "Available Models",
     "from": "Models from {{provider}}",
     "sync": "Sync Models",
+    "sync_now": "Sync Models Now",
+    "discover": "Discover Models",
     "select_all": "Select All",
     "deselect_all": "Deselect All",
     "selected": "Selected: {{count}} of {{total}} models",
@@ -40,7 +44,14 @@
     "no_models": "No models available",
     "sync_prompt": "Click \"Sync Models\" to load available models from the provider",
     "configure_key": "Configure your API key above to sync models",
-    "user_defined": "This provider uses user-defined models. Add models manually"
+    "user_defined": "This provider uses user-defined models. Add models manually",
+    "search_placeholder": "Search models by name...",
+    "no_search_results": "No models found matching \"{{query}}\"",
+    "selected_section": "Selected Models ({{count}})",
+    "selected_description": "These models appear in chat",
+    "available_section": "Available Models ({{count}})",
+    "available_description": "Select to use in chat",
+    "no_models_configured": "No models available. Configure your provider and sync models"
   },
   "model_info": {
     "context_length": "Context Length: {{length}} tokens",
@@ -52,6 +63,12 @@
     "source": "Model source: {{source}}",
     "source_dynamic": "Fetched automatically",
     "source_user": "User-defined",
-    "last_sync": "Last sync: {{date}}"
+    "last_sync": "Last sync: {{date}}",
+    "active": "Active",
+    "select_message": "Please select a provider above to configure",
+    "save": "Save"
+  },
+  "links": {
+    "vercel_dashboard": "Vercel Dashboard"
   }
 }

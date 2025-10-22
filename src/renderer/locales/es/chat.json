@@ -20,6 +20,11 @@
     "title": "Iniciar una conversación",
     "description": "Selecciona un modelo y comienza a chatear"
   },
+  "welcome": {
+    "greeting": "¿Qué tal tu día, {{userName}}?",
+    "greeting_default": "¿Qué tal tu día?",
+    "default_user_name": "Usuario"
+  },
   "actions": {
     "copy": "Copiar",
     "regenerate": "Regenerar",
@@ -37,6 +42,20 @@
       "this_week": "Esta Semana",
       "this_month": "Este Mes",
       "older": "Más Antiguos"
+    }
+  },
+  "tools_menu": {
+    "button_label": "Configuración",
+    "title": "Búsqueda y herramientas",
+    "search_placeholder": "Buscar en el menú",
+    "no_results": "No se encontraron herramientas",
+    "web_search": {
+      "label": "Búsqueda web",
+      "keywords": ["web", "búsqueda", "search", "internet"]
+    },
+    "mcp_tools": {
+      "label": "Herramientas (MCP)",
+      "keywords": ["tools", "herramientas", "mcp"]
     }
   }
 }

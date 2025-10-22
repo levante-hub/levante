@@ -23,7 +23,9 @@
     "get_key": "Obtener tu clave"
   },
   "base_url": {
-    "label": "URL Base"
+    "label": "URL Base",
+    "help_gateway": "Configura tu Vercel AI Gateway en",
+    "help_local": "Puertos predeterminados: Ollama (11434), LM Studio (1234), LocalAI (8080)"
   },
   "organization_id": {
     "label": "ID de Organización (Opcional)",
@@ -33,6 +35,8 @@
     "title": "Modelos Disponibles",
     "from": "Modelos de {{provider}}",
     "sync": "Sincronizar Modelos",
+    "sync_now": "Sincronizar Modelos Ahora",
+    "discover": "Descubrir Modelos",
     "select_all": "Seleccionar Todo",
     "deselect_all": "Deseleccionar Todo",
     "selected": "Seleccionados: {{count}} de {{total}} modelos",
@@ -40,7 +44,14 @@
     "no_models": "No hay modelos disponibles",
     "sync_prompt": "Haz clic en \"Sincronizar Modelos\" para cargar los modelos disponibles del proveedor",
     "configure_key": "Configura tu clave de API arriba para sincronizar modelos",
-    "user_defined": "Este proveedor usa modelos definidos por el usuario. Añade modelos manualmente"
+    "user_defined": "Este proveedor usa modelos definidos por el usuario. Añade modelos manualmente",
+    "search_placeholder": "Buscar modelos por nombre...",
+    "no_search_results": "No se encontraron modelos con \"{{query}}\"",
+    "selected_section": "Modelos Seleccionados ({{count}})",
+    "selected_description": "Estos modelos aparecen en el chat",
+    "available_section": "Modelos Disponibles ({{count}})",
+    "available_description": "Selecciona para usar en el chat",
+    "no_models_configured": "No hay modelos disponibles. Configura tu proveedor y sincroniza modelos"
   },
   "model_info": {
     "context_length": "Longitud de Contexto: {{length}} tokens",
@@ -52,6 +63,12 @@
     "source": "Fuente de modelos: {{source}}",
     "source_dynamic": "Obtenidos automáticamente",
     "source_user": "Definidos por el usuario",
-    "last_sync": "Última sincronización: {{date}}"
+    "last_sync": "Última sincronización: {{date}}",
+    "active": "Activo",
+    "select_message": "Por favor selecciona un proveedor arriba para configurar",
+    "save": "Guardar"
+  },
+  "links": {
+    "vercel_dashboard": "Panel de Vercel"
   }
 }

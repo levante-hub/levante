@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { GlobeIcon, Wrench, ChevronDown, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
 
 interface ToolsMenuProps {
   webSearch: boolean;
@@ -28,6 +29,7 @@ export function ToolsMenu({
   onMCPChange,
   className
 }: ToolsMenuProps) {
+  const { t } = useTranslation('chat');
   const [searchQuery, setSearchQuery] = useState('');
   const [open, setOpen] = useState(false);
 
@@ -35,19 +37,19 @@ export function ToolsMenu({
   const tools = [
     {
       id: 'web-search',
-      label: 'Búsqueda web',
+      label: t('tools_menu.web_search.label'),
       icon: GlobeIcon,
       enabled: webSearch,
       onChange: onWebSearchChange,
-      keywords: ['web', 'busqueda', 'search', 'internet']
+      keywords: t('tools_menu.web_search.keywords', { returnObjects: true }) as string[]
     },
     {
       id: 'mcp-tools',
-      label: 'Tools (MCP)',
+      label: t('tools_menu.mcp_tools.label'),
       icon: Wrench,
       enabled: enableMCP,
       onChange: onMCPChange,
-      keywords: ['tools', 'herramientas', 'mcp']
+      keywords: t('tools_menu.mcp_tools.keywords', { returnObjects: true }) as string[]
     }
   ];
 
@@ -74,7 +76,7 @@ export function ToolsMenu({
           type="button"
         >
           <Wrench size={16} />
-          <span>Settings</span>
+          <span>{t('tools_menu.button_label')}</span>
           {activeCount > 0 && (
             <span className="rounded-full bg-primary px-1.5 py-0.5 text-xs text-primary-foreground">
               {activeCount}
@@ -85,7 +87,7 @@ export function ToolsMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-80">
         <DropdownMenuLabel className="font-semibold">
-          Búsqueda y herramientas
+          {t('tools_menu.title')}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
 
@@ -94,7 +96,7 @@ export function ToolsMenu({
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={14} />
             <Input
-              placeholder="Buscar en el menú"
+              placeholder={t('tools_menu.search_placeholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-8 h-8"
@@ -108,7 +110,7 @@ export function ToolsMenu({
         <div className="p-1">
           {filteredTools.length === 0 ? (
             <div className="p-4 text-center text-sm text-muted-foreground">
-              No se encontraron herramientas
+              {t('tools_menu.no_results')}
             </div>
           ) : (
             filteredTools.map((tool) => {
