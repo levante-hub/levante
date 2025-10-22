@@ -1,27 +1,30 @@
 import { Shield, Database, Zap, Lock } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 export function WelcomeStep() {
+  const { t } = useTranslation('wizard');
+
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <h1 className="text-3xl font-bold tracking-tight">Welcome to Levante</h1>
+        <h1 className="text-3xl font-bold tracking-tight">{t('welcome.title')}</h1>
         <p className="mt-2 text-lg text-muted-foreground">
-          Your Personal, Secure, and Free AI Assistant
+          {t('welcome.subtitle')}
         </p>
       </div>
 
       <div className="mt-8 space-y-4">
         <p className="text-center text-muted-foreground">
-          Levante brings AI closer to everyone—not just technical users. We focus on:
+          {t('welcome.description')}
         </p>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="flex items-start gap-3 rounded-lg border p-4">
             <Lock className="h-5 w-5 mt-0.5 text-primary shrink-0" />
             <div>
-              <h3 className="font-semibold">Privacy First</h3>
+              <h3 className="font-semibold">{t('welcome.features.privacy.title')}</h3>
               <p className="text-sm text-muted-foreground">
-                All conversations stay on your device
+                {t('welcome.features.privacy.description')}
               </p>
             </div>
           </div>
@@ -29,9 +32,9 @@ export function WelcomeStep() {
           <div className="flex items-start gap-3 rounded-lg border p-4">
             <Zap className="h-5 w-5 mt-0.5 text-primary shrink-0" />
             <div>
-              <h3 className="font-semibold">Multi-Provider Access</h3>
+              <h3 className="font-semibold">{t('welcome.features.multi_provider.title')}</h3>
               <p className="text-sm text-muted-foreground">
-                Choose from 100+ AI models
+                {t('welcome.features.multi_provider.description')}
               </p>
             </div>
           </div>
@@ -39,9 +42,9 @@ export function WelcomeStep() {
           <div className="flex items-start gap-3 rounded-lg border p-4">
             <Database className="h-5 w-5 mt-0.5 text-primary shrink-0" />
             <div>
-              <h3 className="font-semibold">Local Storage</h3>
+              <h3 className="font-semibold">{t('welcome.features.local_storage.title')}</h3>
               <p className="text-sm text-muted-foreground">
-                No cloud sync, no tracking
+                {t('welcome.features.local_storage.description')}
               </p>
             </div>
           </div>
@@ -49,16 +52,16 @@ export function WelcomeStep() {
           <div className="flex items-start gap-3 rounded-lg border p-4">
             <Shield className="h-5 w-5 mt-0.5 text-primary shrink-0" />
             <div>
-              <h3 className="font-semibold">MCP Support</h3>
+              <h3 className="font-semibold">{t('welcome.features.mcp_support.title')}</h3>
               <p className="text-sm text-muted-foreground">
-                Extend AI with powerful tools
+                {t('welcome.features.mcp_support.description')}
               </p>
             </div>
           </div>
         </div>
 
         <p className="text-center text-sm text-muted-foreground pt-4">
-          Let's get you set up in just a few steps!
+          {t('welcome.get_started')}
         </p>
       </div>
     </div>

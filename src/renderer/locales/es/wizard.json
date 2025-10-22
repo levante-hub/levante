@@ -3,31 +3,114 @@
     "title": "Elige tu idioma",
     "title_bilingual": "Choose your language / Elige tu idioma",
     "description": "Selecciona tu idioma preferido para Levante",
-    "detected": "Detectado de tu sistema",
+    "detected": "Detectado desde tu sistema",
     "change_later": "Puedes cambiar esto más tarde en Configuración"
   },
   "welcome": {
     "title": "Bienvenido a Levante",
-    "description": "Tu compañero de IA amigable",
-    "get_started": "Comencemos"
-  },
-  "directory": {
-    "title": "Configuración de Directorio",
-    "description": "Elige dónde Levante almacenará tus datos",
-    "default": "Ubicación predeterminada",
-    "custom": "Ubicación personalizada",
-    "browse": "Examinar..."
+    "subtitle": "Tu Asistente de IA Personal, Seguro y Gratuito",
+    "description": "Levante acerca la IA a todos, no solo a usuarios técnicos. Nos enfocamos en:",
+    "features": {
+      "privacy": {
+        "title": "Privacidad Primero",
+        "description": "Todas las conversaciones permanecen en tu dispositivo"
+      },
+      "multi_provider": {
+        "title": "Acceso Multi-Proveedor",
+        "description": "Elige entre más de 100 modelos de IA"
+      },
+      "local_storage": {
+        "title": "Almacenamiento Local",
+        "description": "Sin sincronización en la nube, sin seguimiento"
+      },
+      "mcp_support": {
+        "title": "Soporte MCP",
+        "description": "Extiende la IA con herramientas poderosas"
+      }
+    },
+    "get_started": "¡Configuremos todo en solo unos pasos!"
   },
   "mcp": {
-    "title": "Integración MCP",
-    "description": "Model Context Protocol permite a Levante acceder a herramientas y datos externos",
-    "skip": "Omitir por ahora",
-    "configure": "Configurar MCP"
+    "title": "¿Qué es MCP (Model Context Protocol)?",
+    "subtitle": "MCP permite que los modelos de IA interactúen con tus herramientas y datos, con tu permiso explícito.",
+    "diagram": {
+      "ai_model": "Modelo de IA",
+      "mcp_tools": "Herramientas MCP",
+      "your_data": "Tus Datos"
+    },
+    "examples": {
+      "title": "Ejemplos de lo que MCP puede hacer:",
+      "read_files": "Leer archivos de tu computadora",
+      "web_search": "Buscar información actual en la web",
+      "execute_commands": "Ejecutar comandos (con tu permiso)"
+    },
+    "control": {
+      "title": "Siempre tienes el control:",
+      "consent": "Consentimiento de un clic para cada herramienta",
+      "audit_trail": "Registro completo de auditoría de acciones",
+      "sandboxed": "Ejecución aislada para seguridad"
+    },
+    "footer": "Levante fue construido para hacer MCP accesible y transparente."
+  },
+  "provider": {
+    "title": "Elige Tu Proveedor de IA",
+    "subtitle": "Selecciona un proveedor para acceder a modelos de IA. Puedes añadir más tarde en Configuración.",
+    "label": "Proveedor",
+    "placeholder": "Selecciona un proveedor",
+    "api_key": "Clave de API",
+    "optional_recommended": "(opcional pero recomendado)",
+    "optional": "Opcional",
+    "enter_api_key": "Ingresa tu clave de API",
+    "get_api_key": "Obtén tu clave de API",
+    "endpoint": "Endpoint",
+    "endpoint_description": "Endpoint predeterminado de Ollama. Asegúrate de que tu servidor local esté ejecutándose.",
+    "base_url_optional": "URL Base (opcional)",
+    "test_connection": "Probar Conexión",
+    "testing_connection": "Probando Conexión...",
+    "connection_verified": "Conexión Verificada",
+    "validation_success": "¡Clave de API validada exitosamente! Puedes proceder al siguiente paso.",
+    "select_to_continue": "Selecciona un proveedor para continuar"
+  },
+  "directory": {
+    "title": "Ubicación de Tus Datos",
+    "subtitle": "Todos los datos de Levante se almacenan localmente en tu directorio personal",
+    "files": {
+      "user_profile": "Tu perfil y configuración",
+      "ui_preferences": "Preferencias de UI",
+      "chat_history": "Historial de chat y conversaciones",
+      "mcp_servers": "Configuraciones de servidores MCP"
+    },
+    "why_title": "¿Por qué esta ubicación?",
+    "reasons": {
+      "easy_access": "Fácil de encontrar y acceder",
+      "simple_backup": "Simple de respaldar",
+      "portable": "Portable entre instalaciones"
+    },
+    "privacy_guarantee": "<strong>Garantía de privacidad:</strong> Sin sincronización en la nube, sin telemetría. Todo permanece en tu dispositivo.",
+    "open_button": "Abrir Directorio",
+    "tip": "Consejo: Marca esta carpeta como favorita para acceder fácilmente a tus datos"
   },
   "completion": {
-    "title": "¡Todo listo!",
-    "description": "Levante está listo para usar",
-    "start": "Comenzar a Chatear"
+    "title": "¡Listo para Comenzar!",
+    "subtitle": "Has configurado exitosamente Levante con",
+    "whats_next": "¿Qué sigue?",
+    "steps": {
+      "select_models": "Selecciona modelos de tu proveedor (hemos preseleccionado los más populares)",
+      "start_chatting": "Comienza a chatear con IA",
+      "explore_mcp": "Explora las herramientas MCP en el menú de Herramientas",
+      "customize_settings": "Personaliza la configuración a tu preferencia"
+    },
+    "tips": {
+      "switch_providers": {
+        "title": "Cambia de proveedor en cualquier momento",
+        "location": "en Configuración → Modelos"
+      },
+      "add_providers": {
+        "title": "Añade más proveedores",
+        "description": "para acceder a diferentes modelos"
+      }
+    },
+    "ready_message": "¿Listo para experimentar la IA, a tu manera?"
   },
   "steps": {
     "step": "Paso {{current}} de {{total}}"
