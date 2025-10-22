@@ -8,6 +8,7 @@ import {
 } from '@/components/ai-elements/prompt-input';
 import { ModelSearchableSelect } from '@/components/ai-elements/model-searchable-select';
 import { ToolsMenu } from '@/components/chat/ToolsMenu';
+import { useTranslation } from 'react-i18next';
 import type { Model } from '../../../types/models';
 import type { ChatStatus } from 'ai';
 
@@ -40,6 +41,8 @@ export function ChatPromptInput({
   modelsLoading,
   status
 }: ChatPromptInputProps) {
+  const { t } = useTranslation('chat');
+
   return (
     <PromptInput onSubmit={onSubmit} className="max-w-3xl mx-auto w-full p-2">
       <PromptInputTextarea
@@ -63,7 +66,7 @@ export function ChatPromptInput({
             onValueChange={onModelChange}
             models={availableModels}
             loading={modelsLoading}
-            placeholder={availableModels.length === 0 ? "No models available" : "Select model..."}
+            placeholder={availableModels.length === 0 ? t('model_selector.no_models') : t('model_selector.label')}
           />
           <PromptInputSubmit disabled={!input} status={status} />
         </div>
