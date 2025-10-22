@@ -95,23 +95,33 @@ class MCPExtractionService {
    * Create AI provider instance based on user's provider
    */
   private createProvider(provider: string, apiKey?: string) {
+    logger.mcp.debug('Creating AI provider', {
+      provider,
+      hasCustomApiKey: !!apiKey,
+      hasEnvApiKey: !!process.env[`${provider.toUpperCase()}_API_KEY`],
+    });
+
     switch (provider.toLowerCase()) {
       case 'openai':
+        logger.mcp.debug('Creating OpenAI provider');
         return createOpenAI({
           apiKey: apiKey || process.env.OPENAI_API_KEY,
         });
 
       case 'anthropic':
+        logger.mcp.debug('Creating Anthropic provider');
         return createAnthropic({
           apiKey: apiKey || process.env.ANTHROPIC_API_KEY,
         });
 
       case 'google':
+        logger.mcp.debug('Creating Google Generative AI provider');
         return createGoogleGenerativeAI({
           apiKey: apiKey || process.env.GOOGLE_GENERATIVE_AI_API_KEY,
         });
 
       default:
+        logger.mcp.error('Unsupported provider requested', { provider });
         throw new Error(`Unsupported provider: ${provider}`);
     }
   }
@@ -212,26 +222,42 @@ Return ONLY the JSON object, no markdown formatting, no explanation text.`;
    */
   async extractConfig(input: ExtractionInput): Promise<ExtractionResult> {
     try {
-      logger.aiSdk.info('Starting MCP config extraction', {
+      logger.mcp.info('Starting MCP config extraction', {
         provider: input.userProvider,
         model: input.userModel,
         textLength: input.text.length,
+        textPreview: input.text.slice(0, 150) + (input.text.length > 150 ? '...' : ''),
       });
 
       // Check if model supports structured output
       if (!this.supportsStructuredOutput(input.userProvider, input.userModel)) {
+        const supportedModelsStr = this.getSupportedModels()
+          .map(p => `${p.provider}: ${p.models.join(', ')}`)
+          .join('; ');
+
+        logger.mcp.warn('Model does not support structured output', {
+          provider: input.userProvider,
+          model: input.userModel,
+          supportedModels: supportedModelsStr,
+        });
+
         return {
           success: false,
           error: 'Model not supported',
-          suggestion: `The model "${input.userModel}" doesn't support structured output. Please use one of these models: ${this.getSupportedModels()
-            .map(p => `${p.provider}: ${p.models.join(', ')}`)
-            .join('; ')}`,
+          suggestion: `The model "${input.userModel}" doesn't support structured output. Please use one of these models: ${supportedModelsStr}`,
         };
       }
+
+      logger.mcp.debug('Model supports structured output, creating provider');
 
       // Create provider
       const provider = this.createProvider(input.userProvider, input.apiKey);
       const model = provider(input.userModel);
+
+      logger.mcp.debug('Provider created, calling generateObject API', {
+        provider: input.userProvider,
+        model: input.userModel,
+      });
 
       // Try to extract config
       // @ts-ignore - Zod schema inference causes type instantiation depth issues
@@ -242,6 +268,11 @@ Return ONLY the JSON object, no markdown formatting, no explanation text.`;
         system: this.getSystemPrompt(),
       });
 
+      logger.mcp.debug('generateObject API returned result', {
+        hasObject: !!result.object,
+        objectKeys: result.object ? Object.keys(result.object) : [],
+      });
+
       const extractedConfig: ExtractedConfig = {
         name: result.object.name,
         type: result.object.type,
@@ -250,9 +281,12 @@ Return ONLY the JSON object, no markdown formatting, no explanation text.`;
         env: result.object.env,
       };
 
-      logger.aiSdk.info('Extraction successful', {
+      logger.mcp.info('Extraction successful', {
         extractedName: extractedConfig.name,
         extractedType: extractedConfig.type,
+        extractedCommand: extractedConfig.command,
+        argsCount: extractedConfig.args?.length || 0,
+        envVarsCount: extractedConfig.env ? Object.keys(extractedConfig.env).length : 0,
       });
 
       return {
@@ -261,23 +295,37 @@ Return ONLY the JSON object, no markdown formatting, no explanation text.`;
       };
 
     } catch (error) {
-      logger.aiSdk.error('Extraction failed', {
-        error: error instanceof Error ? error.message : String(error),
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+
+      logger.mcp.error('Extraction failed', {
+        error: errorMessage,
+        errorType: error?.constructor?.name,
+        errorStack,
+        provider: input.userProvider,
+        model: input.userModel,
       });
 
       // Try to extract error information if AI returned structured error
       if (error instanceof Error && error.message.includes('error')) {
+        logger.mcp.debug('Attempting to extract structured error information');
         try {
           const errorResult = await this.extractError(input);
           if (errorResult) {
+            logger.mcp.info('Extracted structured error information', {
+              error: errorResult.error,
+              suggestion: errorResult.suggestion,
+            });
             return {
               success: false,
               error: errorResult.error,
               suggestion: errorResult.suggestion,
             };
           }
-        } catch {
-          // Ignore error extraction failure, use default message
+        } catch (extractErrorErr) {
+          logger.mcp.warn('Failed to extract structured error information', {
+            error: extractErrorErr instanceof Error ? extractErrorErr.message : String(extractErrorErr),
+          });
         }
       }
 
