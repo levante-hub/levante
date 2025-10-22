@@ -16,6 +16,7 @@ import {
 import { MessageSquare, Settings, User, Bot, Store, Plus, PanelLeftClose, PanelLeft } from 'lucide-react'
 import { getRendererLogger } from '@/services/logger'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
 // @ts-ignore - PNG import
 import logoIcon from '@/assets/icons/icon.png'
 
@@ -33,6 +34,7 @@ interface MainLayoutProps {
 // Inner component that has access to useSidebar
 function MainLayoutContent({ children, title, currentPage, onPageChange, sidebarContent, onNewChat, version, platform }: MainLayoutProps & { version: string; platform: string }) {
   const { open } = useSidebar()
+  const { t } = useTranslation('common')
 
   return (
     <>
@@ -50,7 +52,7 @@ function MainLayoutContent({ children, title, currentPage, onPageChange, sidebar
                   className="h-7 px-2 gap-1"
                 >
                   <Plus size={14} />
-                  <span className="text-sm">New Chat</span>
+                  <span className="text-sm">{t('actions.add')}</span>
                 </Button>
               </div>
             )}
@@ -85,7 +87,7 @@ function MainLayoutContent({ children, title, currentPage, onPageChange, sidebar
                     isActive={currentPage === 'chat'}
                   >
                     <MessageSquare className="w-4 h-4" />
-                    Chat
+                    {t('navigation.chat')}
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>
@@ -100,7 +102,7 @@ function MainLayoutContent({ children, title, currentPage, onPageChange, sidebar
                 isActive={currentPage === 'store'}
               >
                 <Store className="w-4 h-4" />
-                Store
+                {t('navigation.mcp')}
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
@@ -109,7 +111,7 @@ function MainLayoutContent({ children, title, currentPage, onPageChange, sidebar
                 isActive={currentPage === 'model'}
               >
                 <Bot className="w-4 h-4" />
-                Model
+                {t('navigation.models')}
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
@@ -118,7 +120,7 @@ function MainLayoutContent({ children, title, currentPage, onPageChange, sidebar
                 isActive={currentPage === 'settings'}
               >
                 <Settings className="w-4 h-4" />
-                Settings
+                {t('navigation.settings')}
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
@@ -149,7 +151,7 @@ function MainLayoutContent({ children, title, currentPage, onPageChange, sidebar
                 className="h-7 px-2 gap-1"
               >
                 <Plus size={14} />
-                <span className="text-xs">New Chat</span>
+                <span className="text-xs">{t('actions.add')}</span>
               </Button>
             </div>
           )}
