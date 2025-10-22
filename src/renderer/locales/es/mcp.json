@@ -1,5 +1,5 @@
 {
-  "title": "Tienda MCP",
+  "title": "Tienda",
   "active": {
     "title": "MCPs Activos",
     "description": "Gestiona tus servidores MCP conectados",
@@ -12,7 +12,7 @@
     "loading": "Cargando servidores MCP..."
   },
   "store": {
-    "title": "Tienda MCP",
+    "title": "Tienda",
     "description": "Descubre y configura nuevas integraciones MCP",
     "available": "{{count}} disponibles",
     "available_integrations": "Integraciones Disponibles"
@@ -39,10 +39,23 @@
   },
   "config": {
     "title": "Editar Configuración MCP",
+    "configure": "Configurar",
+    "edit": "Editar",
     "loading": "Cargando configuración...",
+    "json_label": "Configuración del Servidor (JSON)",
+    "json_placeholder": "Introduce la configuración JSON...",
+    "preview_label": "Vista Previa del Servidor",
+    "new_server_name": "Nuevo Servidor Personalizado",
+    "save_error": "Error al guardar la configuración del servidor",
+    "saving": "Guardando...",
     "validation": {
       "valid": "La configuración es válida",
-      "invalid": "Corrige los errores de JSON para ver la vista previa"
+      "invalid": "Corrige los errores de JSON para ver la vista previa",
+      "missing_name": "Falta el campo requerido: name",
+      "missing_type": "Falta el campo requerido: type",
+      "missing_command": "Falta el campo requerido: command (para transporte stdio)",
+      "missing_baseurl": "Falta el campo requerido: baseUrl (para transporte http/sse)",
+      "invalid_json": "Sintaxis JSON inválida"
     },
     "preview": {
       "title": "Vista Previa de Configuración",
@@ -52,7 +65,10 @@
     "test": {
       "connection": "Probar Conexión",
       "success": "Conexión exitosa",
-      "failed": "Conexión fallida"
+      "failed": "Conexión fallida",
+      "success_message": "¡Prueba de conexión exitosa! El servidor responde correctamente.",
+      "failed_message": "Prueba de conexión fallida. Por favor verifica tu configuración.",
+      "error_message": "Prueba de conexión fallida con un error inesperado."
     },
     "save": "Guardar y Aplicar"
   },

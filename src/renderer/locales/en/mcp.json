@@ -39,10 +39,23 @@
   },
   "config": {
     "title": "Edit MCP Configuration",
+    "configure": "Configure",
+    "edit": "Edit",
     "loading": "Loading configuration...",
+    "json_label": "Server Configuration (JSON)",
+    "json_placeholder": "Enter JSON configuration...",
+    "preview_label": "Server Preview",
+    "new_server_name": "New Custom Server",
+    "save_error": "Failed to save server configuration",
+    "saving": "Saving...",
     "validation": {
       "valid": "Configuration is valid",
-      "invalid": "Fix JSON errors to see preview"
+      "invalid": "Fix JSON errors to see preview",
+      "missing_name": "Missing required field: name",
+      "missing_type": "Missing required field: type",
+      "missing_command": "Missing required field: command (for stdio transport)",
+      "missing_baseurl": "Missing required field: baseUrl (for http/sse transport)",
+      "invalid_json": "Invalid JSON syntax"
     },
     "preview": {
       "title": "Configuration Preview",
@@ -52,7 +65,10 @@
     "test": {
       "connection": "Test Connection",
       "success": "Connection successful",
-      "failed": "Connection failed"
+      "failed": "Connection failed",
+      "success_message": "Connection test successful! Server is responding correctly.",
+      "failed_message": "Connection test failed. Please check your configuration.",
+      "error_message": "Connection test failed with an unexpected error."
     },
     "save": "Save & Apply"
   },
