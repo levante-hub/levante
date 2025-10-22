@@ -157,6 +157,8 @@ export function AutomaticMCPConfig({ serverId, onClose, onSwitchToCustom, onConf
         transport: extractedConfig.type,
         command: extractedConfig.command,
         args: extractedConfig.args,
+        baseUrl: extractedConfig.baseUrl,
+        headers: extractedConfig.headers,
         env: extractedConfig.env,
       };
 
@@ -164,6 +166,8 @@ export function AutomaticMCPConfig({ serverId, onClose, onSwitchToCustom, onConf
         serverId: serverConfig.id,
         transport: serverConfig.transport,
         command: serverConfig.command,
+        baseUrl: serverConfig.baseUrl,
+        hasHeaders: !!serverConfig.headers,
       });
 
       // Add server via store

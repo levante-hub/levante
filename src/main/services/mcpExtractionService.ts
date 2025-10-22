@@ -2,7 +2,7 @@ import { generateObject } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { openai } from "@ai-sdk/openai";
 import { google } from "@ai-sdk/google";
-import { z } from "zod";
+import { z } from "zod/v3";
 import { getLogger } from "./logging";
 
 const logger = getLogger();
@@ -12,16 +12,24 @@ const MCPConfigSchema = z.object({
   name: z
     .string()
     .describe(
-      'Short identifier for the MCP server (e.g., "filesystem", "github")'
+      'Short identifier for the MCP server (e.g., "filesystem", "github", "expo-mcp")'
     ),
   type: z
     .enum(["stdio", "http", "sse"])
-    .describe('Transport type, default to "stdio" if not specified'),
+    .describe('Transport type: "stdio" for local processes, "http" for HTTP endpoints, "sse" for Server-Sent Events'),
   command: z
     .string()
     .optional()
-    .describe('Executable command (e.g., "npx", "uvx", "node", "python")'),
-  args: z.array(z.string()).optional().describe("Array of command arguments"),
+    .describe('Executable command for stdio servers (e.g., "npx", "uvx", "node", "python")'),
+  args: z.array(z.string()).optional().describe("Array of command arguments for stdio servers"),
+  baseUrl: z
+    .string()
+    .optional()
+    .describe('Base URL for HTTP/SSE servers (e.g., "https://mcp.expo.dev/mcp")'),
+  headers: z
+    .record(z.string())
+    .optional()
+    .describe("HTTP headers for HTTP/SSE servers"),
   env: z
     .record(z.string())
     .optional()
@@ -36,7 +44,13 @@ const ErrorSchema = z.object({
 
 // Models that support structured output
 const STRUCTURED_OUTPUT_MODELS = {
-  openai: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4-turbo-preview"],
+  openai: [
+    "gpt-5-2025-08-07",
+    "gpt-4o",
+    "gpt-4o-mini",
+    "gpt-4-turbo",
+    "gpt-4-turbo-preview",
+  ],
   anthropic: [
     "claude-3-5-sonnet-20241022",
     "claude-3-5-sonnet-20240620",
@@ -58,6 +72,8 @@ interface ExtractedConfig {
   type: "stdio" | "http" | "sse";
   command?: string;
   args?: string[];
+  baseUrl?: string;
+  headers?: Record<string, string>;
   env?: Record<string, string>;
 }
 
@@ -79,13 +95,17 @@ class MCPExtractionService {
    */
   supportsStructuredOutput(provider: string, model: string): boolean {
     // For OpenRouter and gateways, check model name against all providers
-    if (provider === 'openrouter' || provider === 'gateway') {
+    if (provider === "openrouter" || provider === "gateway") {
       // Check if the model name matches any supported model from any provider
-      for (const [providerKey, models] of Object.entries(STRUCTURED_OUTPUT_MODELS)) {
-        if (models.some((supportedModel) =>
-          model.toLowerCase().includes(supportedModel.toLowerCase())
-        )) {
-          logger.mcp.debug('Model supported via gateway', {
+      for (const [providerKey, models] of Object.entries(
+        STRUCTURED_OUTPUT_MODELS
+      )) {
+        if (
+          models.some((supportedModel) =>
+            model.toLowerCase().includes(supportedModel.toLowerCase())
+          )
+        ) {
+          logger.mcp.debug("Model supported via gateway", {
             gateway: provider,
             model,
             detectedProvider: providerKey,
@@ -176,11 +196,21 @@ The user may provide:
 OUTPUT SCHEMA:
 You must return a JSON object with this exact structure:
 
+For stdio servers (local processes):
 {
   "name": "string",        // Short identifier (e.g., "filesystem", "github", "time")
-  "type": "stdio",         // Transport type: "stdio", "http", or "sse" (default: "stdio")
+  "type": "stdio",         // Transport type
   "command": "string",     // Executable: "npx", "uvx", "node", "python", etc.
   "args": ["string"],      // Array of command arguments
+  "env": {}                // Object with environment variables (use placeholders for secrets)
+}
+
+For HTTP/SSE servers (remote endpoints):
+{
+  "name": "string",        // Short identifier (e.g., "expo-mcp")
+  "type": "http",          // Transport type: "http" or "sse"
+  "baseUrl": "string",     // Server endpoint URL (e.g., "https://mcp.expo.dev/mcp")
+  "headers": {},           // Optional HTTP headers
   "env": {}                // Object with environment variables (use placeholders for secrets)
 }
 
@@ -194,10 +224,23 @@ SECURITY RULES:
 
 EXTRACTION RULES:
 1. Name: Derive from package name (remove @org/ prefix, remove "server-" or "mcp-" prefix)
-2. Type: Always "stdio" unless HTTP/SSE is explicitly mentioned
-3. Command: Common values: "npx" (Node.js), "uvx" (Python), "node", "python"
-4. Args: Include package name with flags (e.g., ["-y", "@org/package"])
+2. Type:
+   - Use "stdio" for npm/pip packages with commands (npx, uvx, node, python)
+   - Use "http" for HTTP endpoints or URLs
+   - Use "sse" for Server-Sent Events endpoints
+3. For stdio servers:
+   - Command: Common values: "npx" (Node.js), "uvx" (Python), "node", "python"
+   - Args: Include package name with flags (e.g., ["-y", "@org/package"])
+4. For HTTP/SSE servers:
+   - baseUrl: REQUIRED - Extract the full URL endpoint from the text
+     * Look for URLs in the format: https://... or http://...
+     * Look for phrases like "URL:", "endpoint:", "server URL:", "base URL:"
+     * Look for URLs in code blocks or configuration examples
+     * Common patterns: https://mcp.example.com/..., https://api.example.com/mcp
+   - headers: Only include if explicitly mentioned (e.g., Authorization headers)
 5. Env: Only include if explicitly mentioned in the text
+
+IMPORTANT: When type is "http" or "sse", you MUST extract the baseUrl field. Never return http/sse config without baseUrl.
 
 REAL-WORLD EXAMPLES:
 
@@ -239,6 +282,25 @@ Example 4 - With API Key:
   "env": {
     "CONTEXT7_API_KEY": "YOUR_API_KEY_HERE"
   }
+}
+
+Example 5 - HTTP Server:
+{
+  "name": "expo-mcp",
+  "type": "http",
+  "baseUrl": "https://mcp.expo.dev/mcp",
+  "env": {}
+}
+
+Example 6 - SSE Server with Headers:
+{
+  "name": "custom-sse",
+  "type": "sse",
+  "baseUrl": "https://api.example.com/sse",
+  "headers": {
+    "Authorization": "Bearer YOUR_TOKEN_HERE"
+  },
+  "env": {}
 }
 
 ERROR HANDLING:
@@ -283,7 +345,9 @@ Return ONLY the JSON object, no markdown formatting, no explanation text.`;
         };
       }
 
-      logger.mcp.debug("Model supports structured output, getting model instance");
+      logger.mcp.debug(
+        "Model supports structured output, getting model instance"
+      );
 
       // Get model instance (API key should be in env vars)
       const model = this.getModel(input.userProvider, input.userModel);
@@ -294,6 +358,7 @@ Return ONLY the JSON object, no markdown formatting, no explanation text.`;
       });
 
       // Try to extract config
+      // Note: We don't use strictJsonSchema because our schema has optional fields
       // @ts-ignore - Zod schema inference causes type instantiation depth issues
       const result = await generateObject({
         model,
@@ -312,6 +377,8 @@ Return ONLY the JSON object, no markdown formatting, no explanation text.`;
         type: result.object.type,
         command: result.object.command,
         args: result.object.args,
+        baseUrl: result.object.baseUrl,
+        headers: result.object.headers,
         env: result.object.env,
       };
 
@@ -319,7 +386,11 @@ Return ONLY the JSON object, no markdown formatting, no explanation text.`;
         extractedName: extractedConfig.name,
         extractedType: extractedConfig.type,
         extractedCommand: extractedConfig.command,
+        extractedBaseUrl: extractedConfig.baseUrl,
         argsCount: extractedConfig.args?.length || 0,
+        headersCount: extractedConfig.headers
+          ? Object.keys(extractedConfig.headers).length
+          : 0,
         envVarsCount: extractedConfig.env
           ? Object.keys(extractedConfig.env).length
           : 0,
