@@ -23,20 +23,6 @@ import type { PersonalizationSettings } from '../../types/userProfile';
 
 const logger = getRendererLogger();
 
-const PERSONALITY_OPTIONS = [
-  { value: 'default', label: 'Default', description: 'Cheerful and adaptive' },
-  { value: 'cynic', label: 'Cynic', description: 'Critical and sarcastic' },
-  { value: 'robot', label: 'Robot', description: 'Efficient and blunt' },
-  { value: 'listener', label: 'Listener', description: 'Thoughtful and supportive' },
-  { value: 'nerd', label: 'Nerd', description: 'Exploratory and enthusiastic' },
-];
-
-const THEME_OPTIONS = [
-  { value: 'system', label: 'System', description: 'Follow system settings' },
-  { value: 'light', label: 'Light', description: 'Light theme' },
-  { value: 'dark', label: 'Dark', description: 'Dark theme' },
-];
-
 const SettingsPage = () => {
   const { t, i18n } = useTranslation(['settings', 'common']);
   const [theme, setThemeState] = useState<'light' | 'dark' | 'system'>('system');
@@ -207,10 +193,10 @@ const SettingsPage = () => {
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label htmlFor="enableCustomization" className="text-base">
-                      Enable customization
+                      {t('settings:personalization.enable_customization.label')}
                     </Label>
                     <p className="text-sm text-muted-foreground">
-                      Customize how AI responds to you
+                      {t('settings:personalization.enable_customization.description')}
                     </p>
                   </div>
                   <Switch
@@ -224,7 +210,7 @@ const SettingsPage = () => {
 
                 {/* Personality Selector */}
                 <div className="space-y-2">
-                  <Label htmlFor="personality">AI Personality</Label>
+                  <Label htmlFor="personality">{t('settings:personalization.personality.label')}</Label>
                   <Select
                     value={personalization.personality}
                     onValueChange={(value) =>
@@ -236,30 +222,30 @@ const SettingsPage = () => {
                     disabled={!personalization.enabled}
                   >
                     <SelectTrigger id="personality">
-                      <SelectValue placeholder="Select personality" />
+                      <SelectValue placeholder={t('settings:personalization.personality.placeholder')} />
                     </SelectTrigger>
                     <SelectContent>
-                      {PERSONALITY_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
+                      {['default', 'cynic', 'robot', 'listener', 'nerd'].map((option) => (
+                        <SelectItem key={option} value={option}>
                           <div className="flex flex-col">
-                            <span className="font-medium">{option.label}</span>
-                            <span className="text-xs text-muted-foreground">{option.description}</span>
+                            <span className="font-medium">{t(`settings:personalization.personality.options.${option}.label`)}</span>
+                            <span className="text-xs text-muted-foreground">{t(`settings:personalization.personality.options.${option}.description`)}</span>
                           </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
-                    Set the style and tone AI uses when responding
+                    {t('settings:personalization.personality.description')}
                   </p>
                 </div>
 
                 {/* Custom Instructions */}
                 <div className="space-y-2">
-                  <Label htmlFor="customInstructions">Custom instructions</Label>
+                  <Label htmlFor="customInstructions">{t('settings:personalization.custom_instructions.label')}</Label>
                   <Textarea
                     id="customInstructions"
-                    placeholder="Additional behavior, style, and tone preferences"
+                    placeholder={t('settings:personalization.custom_instructions.placeholder')}
                     value={personalization.customInstructions}
                     onChange={(e) =>
                       setPersonalization(prev => ({
@@ -271,19 +257,19 @@ const SettingsPage = () => {
                     className="min-h-[80px] resize-none"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Provide additional context about how you want the AI to behave
+                    {t('settings:personalization.custom_instructions.description')}
                   </p>
                 </div>
 
                 {/* About You Section */}
                 <div className="space-y-4">
-                  <h4 className="text-sm font-medium">About you</h4>
+                  <h4 className="text-sm font-medium">{t('settings:personalization.about_you.title')}</h4>
 
                   <div className="space-y-2">
-                    <Label htmlFor="nickname">Nickname</Label>
+                    <Label htmlFor="nickname">{t('settings:personalization.about_you.nickname.label')}</Label>
                     <Input
                       id="nickname"
-                      placeholder="What should AI call you?"
+                      placeholder={t('settings:personalization.about_you.nickname.placeholder')}
                       value={personalization.nickname}
                       onChange={(e) =>
                         setPersonalization(prev => ({
@@ -296,10 +282,10 @@ const SettingsPage = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="occupation">Occupation</Label>
+                    <Label htmlFor="occupation">{t('settings:personalization.about_you.occupation.label')}</Label>
                     <Input
                       id="occupation"
-                      placeholder="e.g., Software Engineer"
+                      placeholder={t('settings:personalization.about_you.occupation.placeholder')}
                       value={personalization.occupation}
                       onChange={(e) =>
                         setPersonalization(prev => ({
@@ -312,10 +298,10 @@ const SettingsPage = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="aboutUser">More about you</Label>
+                    <Label htmlFor="aboutUser">{t('settings:personalization.about_you.more.label')}</Label>
                     <Textarea
                       id="aboutUser"
-                      placeholder="Share additional context about yourself that might help AI provide better responses"
+                      placeholder={t('settings:personalization.about_you.more.placeholder')}
                       value={personalization.aboutUser}
                       onChange={(e) =>
                         setPersonalization(prev => ({
@@ -337,13 +323,13 @@ const SettingsPage = () => {
                     variant="outline"
                     size="sm"
                   >
-                    {personalizationState.saving ? 'Saving...' : 'Save Personalization'}
+                    {personalizationState.saving ? t('settings:personalization.saving') : t('settings:personalization.save_button')}
                   </Button>
 
                   {personalizationState.saved && (
                     <div className="flex items-center text-green-600 text-sm">
                       <CheckCircle className="w-4 h-4 mr-1" />
-                      Saved successfully
+                      {t('settings:personalization.saved')}
                     </div>
                   )}
                 </div>
@@ -451,14 +437,14 @@ const SettingsPage = () => {
             <CollapsibleContent className="mt-4">
               <div className="space-y-6">
                 <div className="space-y-4">
-                  <h4 className="text-sm font-medium">Multi-Step Tool Execution Limits</h4>
+                  <h4 className="text-sm font-medium">{t('settings:ai_config.title')}</h4>
                   <p className="text-muted-foreground text-sm">
-                    Configure how many steps the AI can take when using tools. The actual step count is calculated dynamically based on the number of available tools.
+                    {t('settings:ai_config.description')}
                   </p>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="baseSteps">Base Steps</Label>
+                      <Label htmlFor="baseSteps">{t('settings:ai_config.base_steps.label')}</Label>
                       <Input
                         id="baseSteps"
                         type="number"
@@ -472,12 +458,12 @@ const SettingsPage = () => {
                         className="w-full"
                       />
                       <p className="text-xs text-muted-foreground">
-                        Minimum steps allowed (default: 5)
+                        {t('settings:ai_config.base_steps.description')}
                       </p>
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="maxSteps">Maximum Steps</Label>
+                      <Label htmlFor="maxSteps">{t('settings:ai_config.max_steps.label')}</Label>
                       <Input
                         id="maxSteps"
                         type="number"
@@ -491,7 +477,7 @@ const SettingsPage = () => {
                         className="w-full"
                       />
                       <p className="text-xs text-muted-foreground">
-                        Maximum steps allowed (default: 20)
+                        {t('settings:ai_config.max_steps.description')}
                       </p>
                     </div>
                   </div>
@@ -503,23 +489,26 @@ const SettingsPage = () => {
                       variant="outline"
                       size="sm"
                     >
-                      {maxStepsConfig.saving ? 'Saving...' : 'Save Configuration'}
+                      {maxStepsConfig.saving ? t('settings:personalization.saving') : t('settings:ai_config.save_button')}
                     </Button>
 
                     {maxStepsConfig.saved && (
                       <div className="flex items-center text-green-600 text-sm">
                         <CheckCircle className="w-4 h-4 mr-1" />
-                        Saved successfully
+                        {t('settings:personalization.saved')}
                       </div>
                     )}
                   </div>
 
                   <div className="bg-muted/50 p-3 rounded-md text-sm">
-                    <p className="font-medium mb-1">How it works:</p>
+                    <p className="font-medium mb-1">{t('settings:ai_config.how_it_works.title')}</p>
                     <ul className="text-muted-foreground space-y-1 text-xs">
-                      <li>• Formula: Base Steps + (Number of Tools ÷ 5) × 2</li>
-                      <li>• With 24 tools: {maxStepsConfig.baseSteps} + (24 ÷ 5) × 2 = {Math.min(Math.max(maxStepsConfig.baseSteps + Math.floor(24 / 5) * 2, maxStepsConfig.baseSteps), maxStepsConfig.maxSteps)} steps</li>
-                      <li>• Prevents infinite loops while allowing complex operations</li>
+                      <li>• {t('settings:ai_config.how_it_works.formula')}</li>
+                      <li>• {t('settings:ai_config.how_it_works.example', {
+                        baseSteps: maxStepsConfig.baseSteps,
+                        result: Math.min(Math.max(maxStepsConfig.baseSteps + Math.floor(24 / 5) * 2, maxStepsConfig.baseSteps), maxStepsConfig.maxSteps)
+                      })}</li>
+                      <li>• {t('settings:ai_config.how_it_works.note')}</li>
                     </ul>
                   </div>
                 </div>
