@@ -1,25 +1,20 @@
-import { app, dialog, nativeImage } from 'electron';
+import { app, dialog, nativeImage, autoUpdater } from 'electron';
 import { join } from 'path';
 import { getLogger } from './logging';
 
 const logger = getLogger();
 
-interface UpdateInfo {
-  version: string;
-  releaseNotes?: string;
-  releaseDate?: string;
-}
-
 /**
  * Auto-update service for Levante
  *
- * Uses update-electron-app for automatic updates in production.
- * Provides manual update check functionality through GitHub Releases API.
+ * Uses update-electron-app for automatic background updates.
+ * Manual checks use Electron's autoUpdater directly.
  */
 class UpdateService {
   private repo = 'levante-hub/levante';
   private updateCheckInProgress = false;
   private appIcon: Electron.NativeImage | undefined;
+  private autoUpdateInitialized = false;
 
   /**
    * Get the app icon for dialogs
@@ -46,9 +41,10 @@ class UpdateService {
 
   /**
    * Initialize automatic updates (production only)
+   * Sets up background update checks using update-electron-app
    */
   initialize(): void {
-    if (process.env.NODE_ENV === 'production') {
+    if (process.env.NODE_ENV === 'production' || app.isPackaged) {
       try {
         const { updateElectronApp } = require('update-electron-app');
         updateElectronApp({
@@ -60,7 +56,8 @@ class UpdateService {
             error: (...args: any[]) => logger.core.error('Auto-update error:', ...args)
           }
         });
-        logger.core.info('Auto-update system initialized');
+        this.autoUpdateInitialized = true;
+        logger.core.info('Auto-update system initialized', { repo: this.repo });
       } catch (error) {
         logger.core.error('Failed to initialize auto-update', {
           error: error instanceof Error ? error.message : error
@@ -73,7 +70,8 @@ class UpdateService {
 
   /**
    * Manually check for updates
-   * Uses GitHub Releases API to check for newer versions
+   * Triggers the same auto-update mechanism as background checks
+   * Downloads and installs updates automatically, then prompts to restart
    */
   async checkForUpdates(): Promise<void> {
     if (this.updateCheckInProgress) {
@@ -81,57 +79,86 @@ class UpdateService {
       return;
     }
 
+    // In development mode, show message
+    if (process.env.NODE_ENV !== 'production' && !app.isPackaged) {
+      await dialog.showMessageBox({
+        type: 'info',
+        title: 'Updates Not Available',
+        message: 'Auto-updates are only available in production builds',
+        detail: 'You are running a development build. To test updates, create a production build using:\npnpm package',
+        buttons: ['OK'],
+        icon: this.getAppIcon()
+      });
+      return;
+    }
+
     this.updateCheckInProgress = true;
     logger.core.info('Manual update check initiated');
 
     try {
-      const currentVersion = app.getVersion();
-      const latestRelease = await this.fetchLatestRelease();
-
-      if (!latestRelease) {
-        await dialog.showMessageBox({
-          type: 'info',
-          title: 'Update Check',
-          message: 'Unable to check for updates',
-          detail: 'Could not connect to update server. Please try again later.',
-          buttons: ['OK'],
-          icon: this.getAppIcon()
-        });
-        return;
+      // Ensure auto-update is initialized
+      if (!this.autoUpdateInitialized) {
+        logger.core.warn('Update system not initialized, attempting to initialize');
+        this.initialize();
       }
 
-      const latestVersion = latestRelease.version.replace(/^v/, '');
-      logger.core.info('Version comparison', { currentVersion, latestVersion });
+      // Use Electron's autoUpdater to trigger a check
+      // update-electron-app already set up the feed URL and event handlers
+      logger.core.info('Triggering manual update check via autoUpdater');
 
-      if (this.isNewerVersion(currentVersion, latestVersion)) {
-        const { response } = await dialog.showMessageBox({
-          type: 'info',
-          title: 'Update Available',
-          message: `A new version of Levante is available!`,
-          detail: `Current version: ${currentVersion}\nLatest version: ${latestVersion}\n\n${latestRelease.releaseNotes || 'View release notes on GitHub'}`,
-          buttons: ['Download', 'Later'],
-          defaultId: 0,
-          cancelId: 1,
-          icon: this.getAppIcon()
-        });
-
-        if (response === 0) {
-          // Open releases page
-          const { shell } = require('electron');
-          await shell.openExternal(`https://github.com/${this.repo}/releases/latest`);
-        }
-      } else {
-        await dialog.showMessageBox({
+      // Set up one-time event listeners for this manual check
+      const updateNotAvailableHandler = () => {
+        dialog.showMessageBox({
           type: 'info',
           title: 'No Updates Available',
           message: 'You are running the latest version',
-          detail: `Current version: ${currentVersion}`,
+          detail: `Current version: ${app.getVersion()}`,
           buttons: ['OK'],
           icon: this.getAppIcon()
+        }).finally(() => {
+          this.updateCheckInProgress = false;
+          cleanup();
         });
-      }
+      };
+
+      const errorHandler = (error: Error) => {
+        logger.core.error('Error checking for updates', { error: error.message });
+        dialog.showMessageBox({
+          type: 'error',
+          title: 'Update Check Failed',
+          message: 'An error occurred while checking for updates',
+          detail: error.message,
+          buttons: ['OK'],
+          icon: this.getAppIcon()
+        }).finally(() => {
+          this.updateCheckInProgress = false;
+          cleanup();
+        });
+      };
+
+      const updateDownloadedHandler = () => {
+        // update-electron-app handles the download notification
+        // Just clean up our check state
+        this.updateCheckInProgress = false;
+        cleanup();
+      };
+
+      const cleanup = () => {
+        autoUpdater.removeListener('update-not-available', updateNotAvailableHandler);
+        autoUpdater.removeListener('error', errorHandler);
+        autoUpdater.removeListener('update-downloaded', updateDownloadedHandler);
+      };
+
+      // Register temporary listeners
+      autoUpdater.once('update-not-available', updateNotAvailableHandler);
+      autoUpdater.once('error', errorHandler);
+      autoUpdater.once('update-downloaded', updateDownloadedHandler);
+
+      // Trigger the check
+      autoUpdater.checkForUpdates();
+
     } catch (error) {
-      logger.core.error('Error checking for updates', {
+      logger.core.error('Error initiating update check', {
         error: error instanceof Error ? error.message : error
       });
 
@@ -143,55 +170,11 @@ class UpdateService {
         buttons: ['OK'],
         icon: this.getAppIcon()
       });
-    } finally {
+
       this.updateCheckInProgress = false;
     }
   }
 
-  /**
-   * Fetch latest release information from GitHub
-   */
-  private async fetchLatestRelease(): Promise<UpdateInfo | null> {
-    try {
-      const response = await fetch(`https://api.github.com/repos/${this.repo}/releases/latest`);
-
-      if (!response.ok) {
-        throw new Error(`GitHub API returned ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      return {
-        version: data.tag_name,
-        releaseNotes: data.body,
-        releaseDate: data.published_at
-      };
-    } catch (error) {
-      logger.core.error('Failed to fetch latest release', {
-        error: error instanceof Error ? error.message : error
-      });
-      return null;
-    }
-  }
-
-  /**
-   * Compare two semantic versions
-   * Returns true if newVersion is greater than currentVersion
-   */
-  private isNewerVersion(current: string, latest: string): boolean {
-    const currentParts = current.split('.').map(Number);
-    const latestParts = latest.split('.').map(Number);
-
-    for (let i = 0; i < Math.max(currentParts.length, latestParts.length); i++) {
-      const currentPart = currentParts[i] || 0;
-      const latestPart = latestParts[i] || 0;
-
-      if (latestPart > currentPart) return true;
-      if (latestPart < currentPart) return false;
-    }
-
-    return false;
-  }
 }
 
 export const updateService = new UpdateService();

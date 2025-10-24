@@ -48,6 +48,52 @@
     "new_server_name": "Nuevo Servidor Personalizado",
     "save_error": "Error al guardar la configuración del servidor",
     "saving": "Guardando...",
+    "add_tabs": {
+      "automatic": "Automático",
+      "custom": "Personalizado"
+    },
+    "automatic": {
+      "title": "Configuración Automática de MCP",
+      "description": "Configuración con IA desde texto o URL",
+      "textarea_placeholder": "Pega la configuración MCP desde:\n• URL de GitHub\n• Comando de instalación\n• Texto de documentación\n\nLa IA extraerá automáticamente la configuración necesaria.",
+      "security_warning": "⚠️  No pegues claves API, tokens o contraseñas",
+      "extract_button": "Extraer Configuración",
+      "phase_analyzing": "Analizando texto...",
+      "phase_security": "Verificando datos sensibles...",
+      "phase_extracting": "Extrayendo configuración con IA...",
+      "phase_validating": "Validando configuración...",
+      "phase_complete": "Configuración extraída",
+      "progress_label": "Progreso",
+      "toggle_preview": "Alternar vista previa",
+      "preview_title": "Vista Previa de Configuración Extraída",
+      "preview_edit_hint": "Puedes editar los valores si es necesario",
+      "add_button": "Añadir Servidor",
+      "fallback_to_custom": "Cambiar a Edición Personalizada",
+      "retry_extraction": "Reintentar Extracción",
+      "extraction_failed": "Error al extraer la configuración",
+      "no_config_extracted": "No se pudo extraer ninguna configuración válida",
+      "empty_input": "Por favor ingresa algo de texto o una URL para extraer",
+      "model_not_supported": "Tu modelo actual no soporta extracción estructurada",
+      "model_suggestion": "Cambia a uno de estos modelos compatibles:",
+      "extracting": "Extrayendo...",
+      "add_failed": "Error al añadir el servidor",
+      "add_success": "Servidor añadido exitosamente",
+      "preview_empty": "Configura un servidor para ver la vista previa",
+      "preview_field_name": "Nombre",
+      "preview_field_type": "Tipo de Transporte",
+      "preview_field_command": "Comando",
+      "preview_field_args": "Argumentos",
+      "preview_field_baseurl": "URL Base",
+      "preview_field_env": "Variables de Entorno",
+      "preview_label": "Vista Previa de Configuración",
+      "env_variables_label": "Variables de Entorno",
+      "textarea_label": "Pega la configuración MCP:",
+      "validation_failed": "Validación fallida",
+      "validation_empty_env": "Por favor completa las siguientes variables de entorno",
+      "add_success_message": "Servidor \"{{name}}\" añadido exitosamente. Puedes añadir otro servidor o cerrar este diálogo.",
+      "no_openai_key": "Se requiere clave API de OpenAI",
+      "no_openai_key_description": "La extracción automática de MCP requiere una clave API de OpenAI. Por favor configura OpenAI en Ajustes → Modelos para usar esta funcionalidad."
+    },
     "validation": {
       "valid": "La configuración es válida",
       "invalid": "Corrige los errores de JSON para ver la vista previa",
@@ -55,12 +101,20 @@
       "missing_type": "Falta el campo requerido: type",
       "missing_command": "Falta el campo requerido: command (para transporte stdio)",
       "missing_baseurl": "Falta el campo requerido: baseUrl (para transporte http/sse)",
-      "invalid_json": "Sintaxis JSON inválida"
+      "invalid_json": "Sintaxis JSON inválida",
+      "missing_mcpservers": "Falta o es inválido el campo \"mcpServers\" (debe ser un objeto)",
+      "invalid_server_config": "Configuración inválida para el servidor \"{{serverId}}\"",
+      "invalid_transport": "Servidor \"{{serverId}}\": falta o es inválido el campo \"transport\" o \"type\"",
+      "invalid_server_id": "Servidor \"{{serverId}}\": el ID debe contener solo caracteres alfanuméricos, guiones y guiones bajos",
+      "invalid_disabled": "Campo \"disabled\" inválido (debe ser un objeto)",
+      "invalid_disabled_server": "Configuración inválida para el servidor deshabilitado \"{{serverId}}\"",
+      "invalid_disabled_transport": "Servidor deshabilitado \"{{serverId}}\": falta o es inválido el campo \"transport\" o \"type\""
     },
     "preview": {
       "title": "Vista Previa de Configuración",
       "active_servers": "Servidores Activos",
-      "startup_note": "Estos servidores se conectarán al iniciar"
+      "startup_note": "Estos servidores se conectarán al iniciar",
+      "no_servers": "No hay servidores MCP configurados aún"
     },
     "test": {
       "connection": "Probar Conexión",
@@ -70,7 +124,12 @@
       "failed_message": "Prueba de conexión fallida. Por favor verifica tu configuración.",
       "error_message": "Prueba de conexión fallida con un error inesperado."
     },
-    "save": "Guardar y Aplicar"
+    "save": "Guardar y Aplicar",
+    "full_editor": {
+      "panel_title": "Añadir Integración MCP",
+      "title": "Configuración Completa de MCP (.mcp.json)",
+      "load_failed": "Error al cargar la configuración"
+    }
   },
   "actions": {
     "refresh": "Actualizar Configuración",

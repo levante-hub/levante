@@ -31,8 +31,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps = {}) {
   const { i18n } = useTranslation();
 
   // Language step state
-  const [detectedLanguage, setDetectedLanguage] = useState('en');
-  const [selectedLanguage, setSelectedLanguage] = useState('en');
+  const [detectedLanguage, setDetectedLanguage] = useState<'en' | 'es'>('en');
+  const [selectedLanguage, setSelectedLanguage] = useState<'en' | 'es'>('en');
 
   // Wizard state
   const [currentStep, setCurrentStep] = useState(1);
@@ -79,7 +79,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps = {}) {
     }
   };
 
-  const handleLanguageChange = (language: string) => {
+  const handleLanguageChange = (language: 'en' | 'es') => {
     setSelectedLanguage(language);
     i18n.changeLanguage(language);
   };
