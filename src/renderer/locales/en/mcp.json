@@ -110,7 +110,14 @@
       "preview_field_command": "Command",
       "preview_field_args": "Arguments",
       "preview_field_baseurl": "Base URL",
-      "preview_field_env": "Environment Variables"
+      "preview_field_env": "Environment Variables",
+      "preview_label": "Configuration Preview",
+      "env_variables_label": "Environment Variables",
+      "validation_failed": "Validation failed",
+      "validation_empty_env": "Please fill in the following environment variables",
+      "add_success_message": "Server \"{{name}}\" added successfully! You can add another server or close this dialog.",
+      "no_openai_key": "OpenAI API Key Required",
+      "no_openai_key_description": "Automatic MCP extraction requires an OpenAI API key. Please configure OpenAI in Settings → Models to use this feature."
     },
     "save": "Save & Apply",
     "full_editor": {

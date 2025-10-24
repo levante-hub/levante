@@ -118,6 +118,7 @@ export function FullJSONEditorPanel({ isOpen, onClose }: FullJSONEditorPanelProp
                     serverId={null}
                     onClose={onClose}
                     onSwitchToCustom={() => setActiveTab('custom')}
+                    onServerAdded={loadMCPConfiguration}
                   />
                 </TabsContent>
 

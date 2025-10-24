@@ -84,7 +84,15 @@
       "preview_field_command": "Comando",
       "preview_field_args": "Argumentos",
       "preview_field_baseurl": "URL Base",
-      "preview_field_env": "Variables de Entorno"
+      "preview_field_env": "Variables de Entorno",
+      "preview_label": "Vista Previa de Configuración",
+      "env_variables_label": "Variables de Entorno",
+      "textarea_label": "Pega la configuración MCP:",
+      "validation_failed": "Validación fallida",
+      "validation_empty_env": "Por favor completa las siguientes variables de entorno",
+      "add_success_message": "Servidor \"{{name}}\" añadido exitosamente. Puedes añadir otro servidor o cerrar este diálogo.",
+      "no_openai_key": "Se requiere clave API de OpenAI",
+      "no_openai_key_description": "La extracción automática de MCP requiere una clave API de OpenAI. Por favor configura OpenAI en Ajustes → Modelos para usar esta funcionalidad."
     },
     "validation": {
       "valid": "La configuración es válida",
