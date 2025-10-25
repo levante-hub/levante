@@ -682,6 +682,42 @@ export function registerMCPHandlers() {
     }
   });
 
+  // Verify npm package existence (for deep link security)
+  ipcMain.handle("levante/mcp/verify-package", async (_, packageName: string) => {
+    try {
+      logger.mcp.debug("Verifying npm package", { packageName });
+
+      const response = await fetch(
+        `https://registry.npmjs.org/${encodeURIComponent(packageName)}`
+      );
+
+      const exists = response.ok;
+
+      logger.mcp.debug("Package verification result", {
+        packageName,
+        exists,
+        status: response.status,
+      });
+
+      return {
+        success: true,
+        data: {
+          exists,
+          status: response.status,
+        },
+      };
+    } catch (error: any) {
+      logger.mcp.error("Package verification failed", {
+        packageName,
+        error: error.message,
+      });
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  });
+
   logger.mcp.info("MCP IPC handlers registered successfully");
 }
 

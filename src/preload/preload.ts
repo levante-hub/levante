@@ -211,6 +211,7 @@ export interface LevanteAPI {
     resetServerHealth: (serverId: string) => Promise<{ success: boolean; error?: string }>
     extractConfig: (text: string) => Promise<{ success: boolean; data?: any; error?: string; suggestion?: string }>
     checkStructuredOutputSupport: () => Promise<{ success: boolean; data?: { supported: boolean; currentModel: string; currentProvider: string; supportedModels: any[] }; error?: string }>
+    verifyPackage: (packageName: string) => Promise<{ success: boolean; data?: { exists: boolean; status: number }; error?: string }>
   }
 
   // Logger functionality
@@ -527,7 +528,10 @@ const api: LevanteAPI = {
       ipcRenderer.invoke('levante/mcp/extract-config', text),
 
     checkStructuredOutputSupport: () =>
-      ipcRenderer.invoke('levante/mcp/check-structured-output-support')
+      ipcRenderer.invoke('levante/mcp/check-structured-output-support'),
+
+    verifyPackage: (packageName: string) =>
+      ipcRenderer.invoke('levante/mcp/verify-package', packageName)
   },
 
   // Logger API

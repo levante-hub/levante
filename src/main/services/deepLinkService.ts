@@ -32,9 +32,15 @@ export class DeepLinkService {
         return null;
       }
 
-      // Extract path segments (remove leading slashes)
+      // For custom protocols like levante://mcp/add, the URL parser treats:
+      // - 'mcp' as the hostname
+      // - '/add' as the pathname
+      // We need to combine hostname + pathname to get the full path
+      const hostname = parsedUrl.hostname || '';
       const pathname = parsedUrl.pathname.replace(/^\/+/, '');
-      const [category, action] = pathname.split('/');
+      const fullPath = hostname ? `${hostname}/${pathname}` : pathname;
+
+      const [category, action] = fullPath.split('/');
 
       // Extract query parameters
       const params = Object.fromEntries(parsedUrl.searchParams.entries());
@@ -61,47 +67,51 @@ export class DeepLinkService {
 
   /**
    * Parse MCP server addition deep link
-   * Format: levante://mcp/add?name=server&type=stdio&command=npx&args=package-name
+   * Format: levante://mcp/add?name=server&transport=stdio&command=npx&args=package-name
    */
   private parseMCPAddLink(params: Record<string, string>): DeepLinkAction | null {
-    const { name, type, command, args, url, headers } = params;
+    // Support both 'transport' (correct) and 'type' (legacy) for backwards compatibility
+    const { name, transport, type, command, args, url, headers } = params;
+    const serverType = transport || type;
 
-    if (!name || !type) {
+    if (!name || !serverType) {
       logger.core.warn('Missing required parameters for MCP add', { params });
       return null;
     }
 
     // Validate server type
-    if (type !== 'stdio' && type !== 'http' && type !== 'sse') {
-      logger.core.warn('Invalid MCP server type', { type });
+    if (serverType !== 'stdio' && serverType !== 'http' && serverType !== 'sse') {
+      logger.core.warn('Invalid MCP server transport type', { serverType });
       return null;
     }
 
     const serverConfig: Partial<MCPServerConfig> = {
       id: name.toLowerCase().replace(/\s+/g, '-'),
-      type: type as 'stdio' | 'http' | 'sse',
+      name: name,
+      transport: serverType as 'stdio' | 'http' | 'sse',
     };
 
     // Handle stdio type
-    if (type === 'stdio') {
+    if (serverType === 'stdio') {
       if (!command) {
         logger.core.warn('Missing command for stdio MCP server', { params });
         return null;
       }
 
       serverConfig.command = command;
-      serverConfig.args = args ? args.split(',') : [];
+      // Support both comma-separated args and single arg (for URLs with single package)
+      serverConfig.args = args ? (args.includes(',') ? args.split(',') : [args]) : [];
       serverConfig.env = {};
     }
 
     // Handle http/sse types
-    if (type === 'http' || type === 'sse') {
+    if (serverType === 'http' || serverType === 'sse') {
       if (!url) {
         logger.core.warn('Missing URL for HTTP/SSE MCP server', { params });
         return null;
       }
 
-      serverConfig.url = url;
+      serverConfig.baseUrl = url;
       serverConfig.headers = headers ? JSON.parse(headers) : {};
     }
 

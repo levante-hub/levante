@@ -18,39 +18,61 @@ Add a Model Context Protocol server to Levante's configuration.
 
 **URL Format**:
 ```
-levante://mcp/add?name=<server-name>&type=<server-type>&<config-params>
+levante://mcp/add?name=<server-name>&transport=<server-transport>&<config-params>
 ```
 
 **Parameters**:
 - `name` (required): Display name for the MCP server
-- `type` (required): Server type - one of: `stdio`, `http`, `sse`
+- `transport` (required): Server transport type - one of: `stdio`, `http`, `sse`
+  - Note: `type` is also supported for backwards compatibility but `transport` is preferred
 
-**For `stdio` type**:
+**For `stdio` transport**:
 - `command` (required): Command to execute (e.g., `npx`, `node`)
-- `args` (optional): Comma-separated list of arguments (e.g., `@modelcontextprotocol/server-memory`)
+- `args` (optional): Package name or comma-separated arguments (e.g., `@modelcontextprotocol/server-memory` or `arg1,arg2,arg3`)
 
-**For `http` or `sse` types**:
+**For `http` or `sse` transports**:
 - `url` (required): Base URL of the server
 - `headers` (optional): JSON-encoded headers object
 
 **Examples**:
 
 ```bash
-# Add stdio MCP server
-levante://mcp/add?name=Memory%20Server&type=stdio&command=npx&args=@modelcontextprotocol/server-memory
+# Add stdio MCP server (single package argument)
+levante://mcp/add?name=Memory%20Server&transport=stdio&command=npx&args=@modelcontextprotocol/server-memory
+
+# Add stdio MCP server (multiple arguments)
+levante://mcp/add?name=Custom%20Server&transport=stdio&command=node&args=server.js,--port,3000
 
 # Add HTTP MCP server
-levante://mcp/add?name=Custom%20Server&type=http&url=http://localhost:3000
+levante://mcp/add?name=Custom%20Server&transport=http&url=http://localhost:3000
 
 # Add SSE MCP server with headers
-levante://mcp/add?name=Secure%20Server&type=sse&url=https://api.example.com&headers=%7B%22Authorization%22%3A%22Bearer%20token%22%7D
+levante://mcp/add?name=Secure%20Server&transport=sse&url=https://api.example.com&headers=%7B%22Authorization%22%3A%22Bearer%20token%22%7D
 ```
 
 **Behavior**:
 1. Opens Levante and focuses the window
 2. Navigates to the Store page
-3. Attempts to add the MCP server to configuration
-4. Logs success or error to the application logs
+3. Opens a security confirmation modal with:
+   - Server configuration details
+   - JSON preview
+   - Multi-level validation (structure, package verification, AI analysis)
+   - Security warnings and trust level indicators
+4. User can review and choose to:
+   - Cancel the installation
+   - Add the server as disabled (for testing)
+   - Validate and add the server
+5. Logs all actions to the application logs
+
+**Security Features**:
+- **Structural Validation**: Verifies configuration format and required fields
+- **Package Verification**: Checks if npm packages exist and are official
+- **AI Security Analysis**: Uses configured AI model to analyze for suspicious patterns
+- **Trust Levels**:
+  - 🟢 Verified Official: Official MCP packages
+  - 🟡 Community Package: Community-developed packages
+  - 🔴 Unknown Source: Unverified sources
+- **Test Mode**: Option to add servers as disabled for safe testing
 
 ---
 
@@ -158,7 +180,7 @@ start levante://chat/new?prompt=Hello%20World&autoSend=true
   Ask Levante about AI
 </a>
 
-<a href="levante://mcp/add?name=Memory&type=stdio&command=npx&args=@modelcontextprotocol/server-memory">
+<a href="levante://mcp/add?name=Memory&transport=stdio&command=npx&args=@modelcontextprotocol/server-memory">
   Install Memory MCP Server
 </a>
 ```

@@ -51,6 +51,8 @@ const ChatPageContent = () => {
   const sendMessage = useChatStore((state) => state.sendMessage);
   const stopStreaming = useChatStore((state) => state.stopStreaming);
   const setOnStreamFinish = useChatStore((state) => state.setOnStreamFinish);
+  const pendingPrompt = useChatStore((state) => state.pendingPrompt);
+  const setPendingPrompt = useChatStore((state) => state.setPendingPrompt);
 
   // Streaming context
   const { triggerMermaidProcessing } = useStreamingContext();
@@ -85,6 +87,17 @@ const ChatPageContent = () => {
     setOnStreamFinish(triggerMermaidProcessing);
     return () => setOnStreamFinish(undefined);
   }, [triggerMermaidProcessing, setOnStreamFinish]);
+
+  // Handle pending prompt from deep link
+  useEffect(() => {
+    if (pendingPrompt) {
+      setInput(pendingPrompt);
+      setPendingPrompt(null); // Clear the pending prompt after setting it
+      logger.core.info('Applied pending prompt from deep link', {
+        promptLength: pendingPrompt.length
+      });
+    }
+  }, [pendingPrompt, setPendingPrompt]);
 
   // Load available models on component mount
   useEffect(() => {
