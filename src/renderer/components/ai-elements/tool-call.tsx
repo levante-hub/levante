@@ -242,7 +242,10 @@ function ResultSection({ result }: { result: NonNullable<ToolCallData['result']>
               ? 'text-green-800 dark:text-green-200'
               : 'text-red-800 dark:text-red-200'
           )}>
-            {result.success ? result.content : result.error}
+            {result.success
+              ? (typeof result.content === 'string' ? result.content : JSON.stringify(result.content, null, 2))
+              : (typeof result.error === 'string' ? result.error : JSON.stringify(result.error, null, 2))
+            }
           </pre>
         </div>
       </div>
