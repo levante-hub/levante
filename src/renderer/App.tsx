@@ -5,17 +5,29 @@ import SettingsPage from '@/pages/SettingsPage'
 import ModelPage from '@/pages/ModelPage'
 import StorePage from '@/pages/StorePage'
 import { OnboardingWizard } from '@/pages/OnboardingWizard'
+import { MCPDeepLinkModal } from '@/components/mcp/deep-link/MCPDeepLinkModal'
 import { useChatStore, initializeChatStore } from '@/stores/chatStore'
 import { modelService } from '@/services/modelService'
 import { logger } from '@/services/logger'
 import { useTranslation } from 'react-i18next'
+import { toast, Toaster } from 'sonner'
 import '@/i18n/config' // Initialize i18n
+import type { DeepLinkAction } from '@preload/preload'
+import type { MCPServerConfig } from '@/types/mcp'
 
 function App() {
   const [currentPage, setCurrentPage] = useState('chat')
   const [wizardCompleted, setWizardCompleted] = useState<boolean | null>(null)
   const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system')
   const { i18n } = useTranslation()
+
+  // MCP Deep Link Modal state
+  const [mcpModalOpen, setMcpModalOpen] = useState(false)
+  const [mcpModalConfig, setMcpModalConfig] = useState<{
+    config: Partial<MCPServerConfig> | null;
+    name: string;
+    sourceUrl?: string;
+  }>({ config: null, name: '' })
 
   // Load theme and language from user profile
   useEffect(() => {
@@ -160,6 +172,127 @@ function App() {
   const startNewChat = useChatStore((state) => state.startNewChat)
   const loadSession = useChatStore((state) => state.loadSession)
   const deleteSession = useChatStore((state) => state.deleteSession)
+  const sendMessage = useChatStore((state) => state.sendMessage)
+  const setPendingPrompt = useChatStore((state) => state.setPendingPrompt)
+
+  // Handle deep links
+  useEffect(() => {
+    const cleanup = window.levante.onDeepLink(async (action: DeepLinkAction) => {
+      logger.core.info('Received deep link action', { type: action.type, data: action.data });
+
+      try {
+        if (action.type === 'mcp-add') {
+          // Navigate to Store page for MCP management
+          setCurrentPage('store');
+
+          // Extract MCP server data from deep link
+          const { name, config } = action.data as { name: string; config: any };
+          if (config && config.id) {
+            logger.core.info('Opening MCP confirmation modal from deep link', { serverId: config.id });
+
+            // Open confirmation modal instead of adding directly
+            setMcpModalConfig({
+              config,
+              name: name || 'MCP Server',
+              sourceUrl: undefined // Could be extracted from deep link if needed
+            });
+            setMcpModalOpen(true);
+          } else {
+            toast.error('Invalid MCP server configuration', {
+              description: 'The deep link did not contain valid server configuration',
+              duration: 5000
+            });
+          }
+        } else if (action.type === 'chat-new') {
+          const { prompt, autoSend } = action.data as { prompt: string; autoSend: boolean };
+
+          logger.core.info('Creating new chat from deep link', {
+            promptLength: prompt.length,
+            autoSend
+          });
+
+          // Navigate to chat page
+          setCurrentPage('chat');
+
+          // Start a new chat session
+          startNewChat();
+
+          // Set the pending prompt in the store (ChatPage will pick it up)
+          if (!autoSend && prompt) {
+            setPendingPrompt(prompt);
+            toast.success('New chat created', {
+              description: 'Your message has been pre-filled in the chat input',
+              duration: 3000
+            });
+          }
+
+          // If autoSend is true, send the message automatically
+          if (autoSend && prompt) {
+            toast.info('Starting new chat...', {
+              description: 'Sending your message automatically',
+              duration: 3000
+            });
+
+            // Wait a bit for the chat to be ready
+            setTimeout(async () => {
+              try {
+                // Get available models
+                const models = await modelService.getAvailableModels();
+                const defaultModel = models.length > 0 ? models[0].id : undefined;
+
+                if (!defaultModel) {
+                  logger.core.error('No model available to send deep link message');
+                  toast.error('No model available', {
+                    description: 'Please select a model in the Model page first',
+                    duration: 5000
+                  });
+                  return;
+                }
+
+                logger.core.info('Sending message from deep link', {
+                  model: defaultModel,
+                  promptLength: prompt.length
+                });
+
+                // Send the message
+                await sendMessage(
+                  { text: prompt },
+                  {
+                    body: {
+                      model: defaultModel,
+                      webSearch: false,
+                      enableMCP: false
+                    }
+                  }
+                );
+
+                logger.core.info('Message sent successfully from deep link');
+              } catch (error) {
+                logger.core.error('Failed to send message from deep link', {
+                  error: error instanceof Error ? error.message : error
+                });
+                toast.error('Failed to send message', {
+                  description: error instanceof Error ? error.message : 'An unknown error occurred',
+                  duration: 5000
+                });
+              }
+            }, 500);
+          }
+        }
+      } catch (error) {
+        logger.core.error('Error handling deep link action', {
+          type: action.type,
+          error: error instanceof Error ? error.message : error
+        });
+        toast.error('Deep link error', {
+          description: error instanceof Error ? error.message : 'Failed to process deep link',
+          duration: 5000
+        });
+      }
+    });
+
+    return cleanup;
+  }, [startNewChat, sendMessage]);
 
   const getPageTitle = (page: string) => {
     switch (page) {
@@ -241,15 +374,28 @@ function App() {
   }
 
   return (
-    <MainLayout
-      title={getPageTitle(currentPage)}
-      currentPage={currentPage}
-      onPageChange={setCurrentPage}
-      sidebarContent={getSidebarContent()}
-      onNewChat={handleNewChat}
-    >
-      {renderPage()}
-    </MainLayout>
+    <>
+      <Toaster position="top-right" />
+
+      {/* MCP Deep Link Confirmation Modal */}
+      <MCPDeepLinkModal
+        open={mcpModalOpen}
+        onOpenChange={setMcpModalOpen}
+        config={mcpModalConfig.config}
+        serverName={mcpModalConfig.name}
+        sourceUrl={mcpModalConfig.sourceUrl}
+      />
+
+      <MainLayout
+        title={getPageTitle(currentPage)}
+        currentPage={currentPage}
+        onPageChange={setCurrentPage}
+        sidebarContent={getSidebarContent()}
+        onNewChat={handleNewChat}
+      >
+        {renderPage()}
+      </MainLayout>
+    </>
   )
 }
 

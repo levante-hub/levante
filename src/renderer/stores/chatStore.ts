@@ -9,43 +9,49 @@ interface ChatStore {
   messages: ElectronMessage[];
   status: ElectronChatStatus;
   streamingMessage: ElectronMessage | null;
-  
+
   // Session management
   currentSession: ChatSession | null;
   sessions: ChatSession[];
   loading: boolean;
   error: string | null;
-  
+
   // Database messages (raw from DB)
   dbMessages: Message[];
   messagesOffset: number;
   hasMoreMessages: boolean;
-  
+
+  // Deep link state
+  pendingPrompt: string | null;
+
   // Streaming callbacks
   onStreamFinish?: () => void;
-  
+
   // Actions
   setStatus: (status: ElectronChatStatus) => void;
   setStreamingMessage: (message: ElectronMessage | null) => void;
   setError: (error: string | null) => void;
   setLoading: (loading: boolean) => void;
   setOnStreamFinish: (callback?: () => void) => void;
-  
+
+  // Deep link actions
+  setPendingPrompt: (prompt: string | null) => void;
+
   // Session actions
   setSessions: (sessions: ChatSession[]) => void;
   setCurrentSession: (session: ChatSession | null) => void;
   addSession: (session: ChatSession) => void;
   updateSession: (session: ChatSession) => void;
   removeSession: (sessionId: string) => void;
-  
+
   // Message actions
   setDbMessages: (messages: Message[]) => void;
   addDbMessage: (message: Message) => void;
   appendDbMessages: (messages: Message[]) => void;
-  
+
   // Computed/derived actions
   updateDisplayMessages: () => void;
-  
+
   // API actions (async)
   refreshSessions: () => Promise<void>;
   createSession: (title?: string, model?: string) => Promise<ChatSession | null>;
@@ -57,7 +63,7 @@ interface ChatStore {
   sendMessage: (message: { text: string }, options?: { body?: { model?: string; webSearch?: boolean; enableMCP?: boolean } }) => Promise<void>;
   stopStreaming: () => Promise<void>;
   loadMoreMessages: () => Promise<void>;
-  
+
   // UI actions
   startNewChat: () => void;
 }
@@ -135,6 +141,7 @@ export const useChatStore = create<ChatStore>()(
       dbMessages: [],
       messagesOffset: 0,
       hasMoreMessages: true,
+      pendingPrompt: null,
       onStreamFinish: undefined,
 
       // Basic setters
@@ -146,6 +153,9 @@ export const useChatStore = create<ChatStore>()(
       setError: (error) => set({ error }),
       setLoading: (loading) => set({ loading }),
       setOnStreamFinish: (callback) => set({ onStreamFinish: callback }),
+
+      // Deep link actions
+      setPendingPrompt: (prompt) => set({ pendingPrompt: prompt }),
 
       // Session actions
       setSessions: (sessions) => set({ sessions }),

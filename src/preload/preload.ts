@@ -105,6 +105,12 @@ export interface MCPHealthReport {
   lastUpdated: number;
 }
 
+// Deep link types
+export interface DeepLinkAction {
+  type: 'mcp-add' | 'chat-new';
+  data: Record<string, unknown>;
+}
+
 // Define the API interface for type safety
 export interface LevanteAPI {
   // App information
@@ -113,6 +119,7 @@ export interface LevanteAPI {
   getSystemTheme: () => Promise<{ shouldUseDarkColors: boolean; themeSource: string }>
   onSystemThemeChanged: (callback: (theme: { shouldUseDarkColors: boolean; themeSource: string }) => void) => () => void
   checkForUpdates: () => Promise<{ success: boolean; error?: string }>
+  onDeepLink: (callback: (action: DeepLinkAction) => void) => () => void
 
   // Chat functionality
   sendMessage: (request: ChatRequest) => Promise<{ success: boolean; response: string; sources?: any[]; reasoning?: string }>
@@ -204,6 +211,7 @@ export interface LevanteAPI {
     resetServerHealth: (serverId: string) => Promise<{ success: boolean; error?: string }>
     extractConfig: (text: string) => Promise<{ success: boolean; data?: any; error?: string; suggestion?: string }>
     checkStructuredOutputSupport: () => Promise<{ success: boolean; data?: { supported: boolean; currentModel: string; currentProvider: string; supportedModels: any[] }; error?: string }>
+    verifyPackage: (packageName: string) => Promise<{ success: boolean; data?: { exists: boolean; status: number }; error?: string }>
   }
 
   // Logger functionality
@@ -258,6 +266,18 @@ const api: LevanteAPI = {
   },
 
   checkForUpdates: () => ipcRenderer.invoke('levante/app/check-for-updates'),
+
+  onDeepLink: (callback) => {
+    const listener = (_event: any, action: DeepLinkAction) => {
+      callback(action);
+    };
+    ipcRenderer.on('levante/deep-link/action', listener);
+
+    // Return cleanup function
+    return () => {
+      ipcRenderer.removeListener('levante/deep-link/action', listener);
+    };
+  },
 
   sendMessage: (request: ChatRequest) =>
     ipcRenderer.invoke('levante/chat/send', request),
@@ -508,7 +528,10 @@ const api: LevanteAPI = {
       ipcRenderer.invoke('levante/mcp/extract-config', text),
 
     checkStructuredOutputSupport: () =>
-      ipcRenderer.invoke('levante/mcp/check-structured-output-support')
+      ipcRenderer.invoke('levante/mcp/check-structured-output-support'),
+
+    verifyPackage: (packageName: string) =>
+      ipcRenderer.invoke('levante/mcp/verify-package', packageName)
   },
 
   // Logger API
