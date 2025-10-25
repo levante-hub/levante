@@ -2,97 +2,10 @@ import { promisify } from "util";
 import { exec } from "child_process";
 import path from "path";
 import { getLogger } from "../logging";
+import { validateNpxPackage } from "./packageValidator";
 
 const execAsync = promisify(exec);
 const logger = getLogger();
-
-/**
- * Official MCP packages whitelist
- * These packages are verified and safe to execute
- */
-const OFFICIAL_MCP_PACKAGES = [
-  '@modelcontextprotocol/server-memory',
-  '@modelcontextprotocol/server-filesystem',
-  '@modelcontextprotocol/server-sqlite',
-  '@modelcontextprotocol/server-postgres',
-  '@modelcontextprotocol/server-brave-search',
-  '@modelcontextprotocol/server-fetch',
-  '@modelcontextprotocol/server-github',
-  '@modelcontextprotocol/server-google-maps',
-  '@modelcontextprotocol/server-puppeteer',
-  '@modelcontextprotocol/server-slack',
-  '@modelcontextprotocol/server-everything'
-] as const;
-
-/**
- * Dangerous npx flags that allow arbitrary code execution or modify behavior unsafely
- */
-const BLOCKED_NPX_FLAGS = [
-  '-e',
-  '--eval',
-  '--call',
-  '-c',
-  '--shell-auto-fallback'
-] as const;
-
-/**
- * Valid npm package name regex
- * Matches: @scope/package-name or package-name
- */
-const NPM_PACKAGE_REGEX = /^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/;
-
-/**
- * Validates npx package name and arguments for security
- * @throws Error if validation fails
- */
-function validateNpxPackage(packageName: string, args: string[]): void {
-  // Extract actual package name (remove -y or other safe flags)
-  const cleanPackageName = packageName.replace(/^-y\s+/, '').trim();
-
-  // Validate package name format
-  if (!NPM_PACKAGE_REGEX.test(cleanPackageName)) {
-    logger.mcp.error('Invalid npm package name format', { packageName: cleanPackageName });
-    throw new Error(
-      `Invalid package name format: "${cleanPackageName}". ` +
-      `Package names must follow npm naming conventions.`
-    );
-  }
-
-  // Check if package is in official whitelist
-  const isOfficial = OFFICIAL_MCP_PACKAGES.includes(cleanPackageName as any);
-
-  if (!isOfficial) {
-    // Check if it's at least from @modelcontextprotocol scope
-    if (!cleanPackageName.startsWith('@modelcontextprotocol/')) {
-      logger.mcp.warn('Package not in official whitelist', { packageName: cleanPackageName });
-      throw new Error(
-        `Package "${cleanPackageName}" is not in the official MCP packages whitelist. ` +
-        `For security reasons, only verified MCP packages can be installed via deep links. ` +
-        `Please install this package manually through the UI if you trust it.`
-      );
-    }
-  }
-
-  // Check for dangerous npx flags in arguments
-  const allArgs = [packageName, ...args];
-  for (const arg of allArgs) {
-    for (const blockedFlag of BLOCKED_NPX_FLAGS) {
-      if (arg === blockedFlag || arg.startsWith(`${blockedFlag}=`)) {
-        logger.mcp.error('Blocked dangerous npx flag', { flag: blockedFlag, arg });
-        throw new Error(
-          `Dangerous npx flag "${blockedFlag}" is not allowed. ` +
-          `This flag can execute arbitrary code and poses a security risk.`
-        );
-      }
-    }
-  }
-
-  logger.mcp.info('Package validation passed', {
-    packageName: cleanPackageName,
-    isOfficial,
-    argsCount: args.length
-  });
-}
 
 /**
  * Resolve the command and arguments for MCP server execution

@@ -1,6 +1,7 @@
 import { BrowserWindow } from 'electron';
 import type { MCPServerConfig } from '../types/mcp.js';
 import { getLogger } from './logging';
+import { validateMCPCommand } from './mcp/packageValidator';
 
 const logger = getLogger();
 
@@ -140,6 +141,23 @@ export class DeepLinkService {
       // Support both comma-separated args and single arg (for URLs with single package)
       serverConfig.args = args ? (args.includes(',') ? args.split(',') : [args]) : [];
       serverConfig.env = {};
+
+      // Security: Validate npx packages and arguments before allowing deep link
+      try {
+        validateMCPCommand(command, serverConfig.args);
+        logger.core.info('MCP command validation passed for deep link', {
+          command,
+          argsCount: serverConfig.args.length
+        });
+      } catch (error) {
+        logger.core.error('Security validation failed for MCP deep link', {
+          command,
+          args: serverConfig.args,
+          error: error instanceof Error ? error.message : String(error)
+        });
+        // Reject the deep link by returning null
+        return null;
+      }
     }
 
     // Handle http/sse types
