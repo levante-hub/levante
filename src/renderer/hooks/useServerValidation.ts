@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { MCPServerConfig } from '../../types/mcp';
+import type { MCPServerConfig } from '@/types/mcp';
 import type { ValidationResult, TrustLevel } from '@/constants/mcpSecurity';
 import { OFFICIAL_MCP_PACKAGES } from '@/constants/mcpSecurity';
 
@@ -52,7 +52,7 @@ export function useServerValidation(config: Partial<MCPServerConfig> | null): Va
       // Check args for suspicious patterns
       if (config.args) {
         const suspiciousPatterns = ['&&', '||', ';', '|', '>', '<', '$'];
-        const hasSuspiciousArgs = config.args.some(arg =>
+        const hasSuspiciousArgs = config.args.some((arg: string) =>
           suspiciousPatterns.some(pattern => arg.includes(pattern))
         );
         if (hasSuspiciousArgs) {

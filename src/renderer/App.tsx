@@ -12,8 +12,8 @@ import { logger } from '@/services/logger'
 import { useTranslation } from 'react-i18next'
 import { toast, Toaster } from 'sonner'
 import '@/i18n/config' // Initialize i18n
-import type { DeepLinkAction } from '../../preload/preload'
-import type { MCPServerConfig } from '../types/mcp'
+import type { DeepLinkAction } from '@preload/preload'
+import type { MCPServerConfig } from '@/types/mcp'
 
 function App() {
   const [currentPage, setCurrentPage] = useState('chat')
