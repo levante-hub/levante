@@ -690,7 +690,7 @@ export function registerMCPHandlers() {
       const response = await fetch(
         `https://registry.npmjs.org/${encodeURIComponent(packageName)}`
       );
-
+      
       const exists = response.ok;
 
       logger.mcp.debug("Package verification result", {
