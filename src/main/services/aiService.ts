@@ -5,18 +5,12 @@ import {
   UIMessage,
   stepCountIs,
 } from "ai";
-import { createOpenAI } from "@ai-sdk/openai";
-import { createAnthropic } from "@ai-sdk/anthropic";
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
-import { createGateway } from "@ai-sdk/gateway";
-import { tool } from "ai";
-import { z } from "zod/v3";
-import type { ProviderConfig } from "../../types/models";
-import { mcpService, configManager } from "../ipc/mcpHandlers";
-import { mcpHealthService } from "./mcpHealthService.js";
-import type { Tool, ToolCall, ToolResult } from "../types/mcp";
 import { getLogger } from "./logging";
+import { getModelProvider } from "./ai/providerResolver";
+import { getMCPTools } from "./ai/mcpToolsAdapter";
+import { buildSystemPrompt } from "./ai/systemPromptBuilder";
+import { isToolUseNotSupportedError } from "./ai/toolErrorDetector";
+import { calculateMaxSteps } from "./ai/stepsCalculator";
 
 export interface ChatRequest {
   messages: UIMessage[];
@@ -49,247 +43,6 @@ export interface ChatStreamChunk {
 export class AIService {
   private logger = getLogger();
 
-  private async getModelProvider(modelId: string) {
-    try {
-      // Get providers configuration from preferences via IPC
-      // Since this is in main process, we need to simulate the IPC call
-      const { preferencesService } = await import("./preferencesService");
-
-      let providers: ProviderConfig[];
-      try {
-        providers =
-          (preferencesService.get("providers") as ProviderConfig[]) || [];
-
-        // Debug: Log loaded providers
-        this.logger.aiSdk.debug("Loaded providers from preferences", {
-          providerCount: providers.length,
-          providers: providers.map(p => ({
-            id: p.id,
-            type: p.type,
-            hasApiKey: !!p.apiKey,
-            apiKeyPrefix: p.apiKey?.substring(0, 10)
-          }))
-        });
-      } catch (error) {
-        this.logger.aiSdk.warn("No providers found in preferences, using empty array");
-        providers = [];
-      }
-
-      // If no providers configured, throw error
-      if (providers.length === 0) {
-        this.logger.aiSdk.error("No providers configured");
-        throw new Error(
-          "No AI providers configured. Please configure at least one provider in the Models page."
-        );
-      }
-
-      // Find which provider this model belongs to
-      // For dynamic providers, check selectedModelIds (since models array is empty in storage)
-      // For user-defined providers, check models array
-      const providerWithModel = providers.find((provider) => {
-        if (provider.modelSource === 'dynamic') {
-          // Dynamic providers save only selectedModelIds
-          return provider.selectedModelIds?.includes(modelId);
-        } else {
-          // User-defined providers have full model data
-          return provider.models.some(
-            (model) => model.id === modelId && model.isSelected !== false
-          );
-        }
-      });
-
-      if (!providerWithModel) {
-        // Log all available providers and their models for debugging
-        this.logger.aiSdk.error("Model not found in any configured provider", {
-          modelId,
-          totalProviders: providers.length,
-          availableProviders: providers.map(p => ({
-            id: p.id,
-            name: p.name,
-            type: p.type,
-            modelSource: p.modelSource,
-            modelCount: p.models.length,
-            selectedModels: p.modelSource === 'dynamic'
-              ? (p.selectedModelIds || [])
-              : p.models.filter(m => m.isSelected !== false).map(m => m.id)
-          }))
-        });
-
-        throw new Error(
-          `Model "${modelId}" not found in any configured provider. Please select the model in the Models page and ensure it is enabled.`
-        );
-      }
-
-      // Log the provider that will be used
-      this.logger.aiSdk.info("Using configured provider for model", {
-        modelId,
-        providerType: providerWithModel.type,
-        providerName: providerWithModel.name,
-        providerId: providerWithModel.id,
-        hasApiKey: !!providerWithModel.apiKey,
-        hasBaseUrl: !!providerWithModel.baseUrl,
-        apiKeyPrefix: providerWithModel.apiKey?.substring(0, 10) + '...'
-      });
-
-      // Configure provider based on type
-      switch (providerWithModel.type) {
-        case "vercel-gateway":
-          if (!providerWithModel.apiKey || !providerWithModel.baseUrl) {
-            throw new Error(
-              `Vercel AI Gateway configuration incomplete for provider ${providerWithModel.name}`
-            );
-          }
-
-          // For AI calls, use /v1/ai endpoint (different from models listing endpoint)
-          const gatewayApiUrl = providerWithModel.baseUrl.includes("/v1/ai")
-            ? providerWithModel.baseUrl
-            : providerWithModel.baseUrl.replace("/v1", "/v1/ai");
-
-          this.logger.aiSdk.debug("Creating Vercel Gateway provider", {
-            modelId,
-            gatewayApiUrl
-          });
-
-          const gateway = createGateway({
-            apiKey: providerWithModel.apiKey,
-            baseURL: gatewayApiUrl,
-          });
-
-          return gateway(modelId);
-
-        case "openrouter":
-          if (!providerWithModel.apiKey) {
-            throw new Error(
-              `OpenRouter API key is required. Get your free API key at https://openrouter.ai/keys`
-            );
-          }
-
-          this.logger.aiSdk.debug("Creating OpenRouter provider", {
-            modelId,
-            baseURL: "https://openrouter.ai/api/v1"
-          });
-
-          const openrouter = createOpenAICompatible({
-            name: "openrouter",
-            apiKey: providerWithModel.apiKey,
-            baseURL: "https://openrouter.ai/api/v1",
-          });
-
-          return openrouter(modelId);
-
-        case "local":
-          if (!providerWithModel.baseUrl) {
-            throw new Error(
-              `Local provider endpoint missing for provider ${providerWithModel.name}`
-            );
-          }
-
-          // Ensure the baseURL has the /v1 suffix for OpenAI compatibility
-          // Ollama, LM Studio, and other local providers use /v1/chat/completions
-          let localBaseUrl = providerWithModel.baseUrl;
-          if (!localBaseUrl.endsWith('/v1')) {
-            localBaseUrl = localBaseUrl.replace(/\/$/, '') + '/v1';
-          }
-
-          this.logger.aiSdk.debug("Creating Local provider", {
-            modelId,
-            baseURL: localBaseUrl
-          });
-
-          const localProvider = createOpenAICompatible({
-            name: "local",
-            baseURL: localBaseUrl,
-          });
-
-          return localProvider(modelId);
-
-        // Cloud Providers
-        case "openai":
-          if (!providerWithModel.apiKey) {
-            throw new Error(
-              `OpenAI API key missing for provider ${providerWithModel.name}`
-            );
-          }
-          this.logger.aiSdk.debug("Creating OpenAI provider", { modelId });
-          const openaiProvider = createOpenAI({
-            apiKey: providerWithModel.apiKey,
-            organization: providerWithModel.organizationId,
-          });
-          return openaiProvider(modelId);
-
-        case "anthropic":
-          if (!providerWithModel.apiKey) {
-            throw new Error(
-              `Anthropic API key missing for provider ${providerWithModel.name}`
-            );
-          }
-          this.logger.aiSdk.debug("Creating Anthropic provider", { modelId });
-          const anthropicProvider = createAnthropic({
-            apiKey: providerWithModel.apiKey,
-          });
-          return anthropicProvider(modelId);
-
-        case "google":
-          if (!providerWithModel.apiKey) {
-            throw new Error(
-              `Google AI API key missing for provider ${providerWithModel.name}`
-            );
-          }
-          this.logger.aiSdk.debug("Creating Google provider", { modelId });
-          const googleProvider = createGoogleGenerativeAI({
-            apiKey: providerWithModel.apiKey,
-          });
-          return googleProvider(modelId);
-
-        case "groq":
-          if (!providerWithModel.apiKey) {
-            throw new Error(
-              `Groq API key missing for provider ${providerWithModel.name}`
-            );
-          }
-          this.logger.aiSdk.debug("Creating Groq provider", {
-            modelId,
-            baseURL: providerWithModel.baseUrl || "https://api.groq.com/openai/v1"
-          });
-          const groq = createOpenAICompatible({
-            name: "groq",
-            apiKey: providerWithModel.apiKey,
-            baseURL: providerWithModel.baseUrl || "https://api.groq.com/openai/v1",
-          });
-          return groq(modelId);
-
-        case "xai":
-          if (!providerWithModel.apiKey) {
-            throw new Error(
-              `xAI API key missing for provider ${providerWithModel.name}`
-            );
-          }
-          this.logger.aiSdk.debug("Creating xAI provider", {
-            modelId,
-            baseURL: providerWithModel.baseUrl || "https://api.x.ai/v1"
-          });
-          const xai = createOpenAICompatible({
-            name: "xai",
-            apiKey: providerWithModel.apiKey,
-            baseURL: providerWithModel.baseUrl || "https://api.x.ai/v1",
-          });
-          return xai(modelId);
-
-        default:
-          throw new Error(`Unknown provider type: ${providerWithModel.type}`);
-      }
-    } catch (error) {
-      this.logger.aiSdk.error("Error getting model provider configuration", {
-        error: error instanceof Error ? error.message : error,
-        modelId
-      });
-      // Re-throw the error instead of using fallback
-      throw error;
-    }
-  }
-
-
-
   async *streamChat(
     request: ChatRequest
   ): AsyncGenerator<ChatStreamChunk, void, unknown> {
@@ -297,26 +50,26 @@ export class AIService {
 
     try {
       // Get the appropriate model provider
-      const modelProvider = await this.getModelProvider(model);
+      const modelProvider = await getModelProvider(model);
 
       // Get MCP tools if enabled
       let tools = {};
       if (enableMCP) {
-        tools = await this.getMCPTools();
+        tools = await getMCPTools();
         this.logger.aiSdk.debug("Passing tools to streamText", {
           toolCount: Object.keys(tools).length,
           toolNames: Object.keys(tools)
         });
-        
+
         // Debug: Check for any empty or invalid tool names
         const invalidTools = Object.entries(tools).filter(([key, value]) => {
           return !key || key.trim() === '' || !value;
         });
-        
+
         if (invalidTools.length > 0) {
           this.logger.aiSdk.error("Found invalid tools", { invalidTools });
         }
-        
+
         // Debug: Log a sample tool to see its structure
         const sampleToolKey = Object.keys(tools)[0];
         if (sampleToolKey) {
@@ -330,7 +83,7 @@ export class AIService {
         this.logger.aiSdk.debug("All tool keys being passed to AI SDK", {
           toolKeys: Object.keys(tools)
         });
-        
+
         // Debug: Verify no empty keys exist
         const emptyKeys = Object.keys(tools).filter(key => !key || key.trim() === '');
         if (emptyKeys.length > 0) {
@@ -362,12 +115,12 @@ export class AIService {
         model: modelProvider,
         messages: convertToModelMessages(messages),
         tools,
-        system: await this.getSystemPrompt(
+        system: await buildSystemPrompt(
           webSearch,
           enableMCP,
           Object.keys(tools).length
         ),
-        stopWhen: stepCountIs(await this.calculateMaxSteps(Object.keys(tools).length)), // Dynamic step count based on available tools
+        stopWhen: stepCountIs(await calculateMaxSteps(Object.keys(tools).length)),
       });
 
       // Use full stream to handle tool calls
@@ -403,7 +156,7 @@ export class AIService {
               toolNameLength: chunk.toolName?.length,
               hasArguments: !!(chunk as any).arguments
             });
-            
+
             // Debug: Check if tool name is empty
             if (!chunk.toolName || chunk.toolName.trim() === '') {
               this.logger.aiSdk.error("ERROR: Tool call with empty name detected!", {
@@ -414,11 +167,11 @@ export class AIService {
                 availableTools: Object.keys(tools),
                 fullChunk: JSON.stringify(chunk, null, 2)
               });
-              
+
               // Don't yield this problematic tool call
               continue;
             }
-            
+
             yield {
               toolCall: {
                 id: chunk.toolCallId,
@@ -431,18 +184,18 @@ export class AIService {
             break;
 
           case "tool-result":
-            this.logger.aiSdk.debug("Tool result RAW chunk", { 
-              chunk: JSON.stringify(chunk, null, 2) 
+            this.logger.aiSdk.debug("Tool result RAW chunk", {
+              chunk: JSON.stringify(chunk, null, 2)
             });
             this.logger.aiSdk.debug("Tool result details", {
               output: (chunk as any).output,
               chunkKeys: Object.keys(chunk)
             });
-            
+
             // Use 'output' property as per AI SDK documentation
             const toolResult = (chunk as any).output || {};
             this.logger.aiSdk.debug("Final tool result being yielded", { toolResult });
-            
+
             yield {
               toolResult: {
                 id: chunk.toolCallId,
@@ -460,7 +213,7 @@ export class AIService {
               error: (chunk as any).error,
               availableTools: Object.keys(tools)
             });
-            
+
             yield {
               toolResult: {
                 id: chunk.toolCallId,
@@ -475,7 +228,7 @@ export class AIService {
 
           case "error":
             // Check if this is a tool use not supported error
-            const isToolUseError = this.isToolUseNotSupportedError(chunk.error);
+            const isToolUseError = isToolUseNotSupportedError(chunk.error);
 
             if (isToolUseError && enableMCP) {
               this.logger.aiSdk.warn("Model does not support tool execution. Retrying without tools", {
@@ -546,30 +299,30 @@ export class AIService {
 
     try {
       // Get the appropriate model provider
-      const modelProvider = await this.getModelProvider(model);
+      const modelProvider = await getModelProvider(model);
 
       // Get MCP tools if enabled
       let tools = {};
       if (enableMCP) {
-        tools = await this.getMCPTools();
+        tools = await getMCPTools();
       }
 
       const result = await generateText({
         model: modelProvider,
         messages: convertToModelMessages(messages),
         tools,
-        system: await this.getSystemPrompt(
+        system: await buildSystemPrompt(
           webSearch,
           enableMCP,
           Object.keys(tools).length
         ),
-        stopWhen: stepCountIs(await this.calculateMaxSteps(Object.keys(tools).length)), // Dynamic step count based on available tools
+        stopWhen: stepCountIs(await calculateMaxSteps(Object.keys(tools).length)),
       });
 
       return {
         response: result.text,
-        sources: undefined, // Sources would come from the model response if supported
-        reasoning: undefined, // Reasoning would come from the model response if supported
+        sources: undefined,
+        reasoning: undefined,
       };
     } catch (error) {
       // Extract error details for better logging
@@ -591,7 +344,7 @@ export class AIService {
       });
 
       // Check if this is a tool use not supported error
-      const isToolUseError = this.isToolUseNotSupportedError(error);
+      const isToolUseError = isToolUseNotSupportedError(error);
 
       if (isToolUseError && enableMCP) {
         this.logger.aiSdk.warn(`Model '${model}' does not support tool execution. Retrying without tools...`);
@@ -616,461 +369,5 @@ export class AIService {
         error instanceof Error ? error.message : "Unknown error occurred"
       );
     }
-  }
-
-  /**
-   * Detects if an error is related to the model not supporting tool use
-   * Handles multiple error formats from different AI providers
-   */
-  private isToolUseNotSupportedError(error: unknown): boolean {
-    if (!error) return false;
-
-    // Patterns that indicate tool/function calling is not supported
-    const toolUseErrorPatterns = [
-      // OpenRouter
-      'no endpoints found that support tool use',
-      'tool use is not supported',
-      'tools are not supported',
-      'does not support tool',
-      'tool calling is not supported',
-      // OpenAI / Anthropic
-      'function calling is not supported',
-      'functions are not supported',
-      'does not support function calling',
-      // Generic patterns
-      'tool_choice is not supported',
-      'tools parameter is not supported',
-      'model does not support tools',
-      'model does not support functions',
-    ];
-
-    // Check error message (Error object)
-    if (error instanceof Error) {
-      const message = error.message.toLowerCase();
-      if (toolUseErrorPatterns.some(pattern => message.includes(pattern))) {
-        return true;
-      }
-    }
-
-    // Check structured error data (from AI SDK APICallError)
-    if (error && typeof error === 'object') {
-      const statusCode = (error as any).statusCode;
-      const errorData = (error as any).data;
-      const responseBody = (error as any).responseBody;
-
-      // Check if there's an error message in the data
-      const nestedMessage = errorData?.error?.message;
-      if (nestedMessage && typeof nestedMessage === 'string') {
-        const msg = nestedMessage.toLowerCase();
-        if (toolUseErrorPatterns.some(pattern => msg.includes(pattern))) {
-          return true;
-        }
-      }
-
-      // Check response body for error messages
-      if (typeof responseBody === 'string') {
-        const body = responseBody.toLowerCase();
-        if (toolUseErrorPatterns.some(pattern => body.includes(pattern))) {
-          return true;
-        }
-      }
-
-      // Status code hints (4xx errors related to invalid parameters)
-      // Combined with message patterns above for more accuracy
-      if (statusCode === 404 || statusCode === 400) {
-        // Already checked messages above, just log for debugging
-        this.logger.aiSdk.debug('Received 4xx error with tools enabled', {
-          statusCode,
-          hasErrorMessage: !!nestedMessage
-        });
-      }
-    }
-
-    return false;
-  }
-
-  private async getMCPTools(): Promise<Record<string, any>> {
-    try {
-      const config = await configManager.loadConfiguration();
-      const allTools: Record<string, any> = {};
-
-      // ONLY iterate over mcpServers (active servers)
-      // Servers in "disabled" are IGNORED completely
-      for (const [serverId, serverConfig] of Object.entries(
-        config.mcpServers
-      )) {
-        try {
-          // Ensure server is connected
-          if (!mcpService.isConnected(serverId)) {
-            await mcpService.connectServer({
-              id: serverId,
-              ...serverConfig,
-            });
-          }
-
-          // Get tools from this server
-          const serverTools = await mcpService.listTools(serverId);
-
-          // Convert MCP tools to AI SDK format
-          for (const mcpTool of serverTools) {
-            if (!mcpTool.name || mcpTool.name.trim() === "") {
-              this.logger.aiSdk.error("Invalid tool name from server", {
-                serverId,
-                tool: mcpTool
-              });
-              continue;
-            }
-
-            const toolId = `${serverId}_${mcpTool.name}`;
-            this.logger.aiSdk.debug("Creating tool", { toolId, originalName: mcpTool.name });
-
-            // Additional validation before creating tool
-            if (!toolId || toolId.includes('undefined') || toolId.includes('null')) {
-              this.logger.aiSdk.error("Invalid toolId detected", { toolId, tool: mcpTool });
-              continue;
-            }
-
-            const aiTool = this.createAISDKTool(serverId, mcpTool);
-            if (!aiTool) {
-              this.logger.aiSdk.error("Failed to create AI SDK tool", { toolId });
-              continue;
-            }
-
-            allTools[toolId] = aiTool;
-            this.logger.aiSdk.debug("Successfully registered tool", { toolId });
-          }
-
-          this.logger.aiSdk.info("Loaded tools from MCP server", {
-            toolCount: serverTools.length,
-            serverId
-          });
-        } catch (error) {
-          this.logger.aiSdk.error("Error loading tools from server", { serverId, error: error instanceof Error ? error.message : error });
-          // Continue with next server instead of failing everything
-        }
-      }
-
-      // Log info about disabled servers
-      const disabledCount = Object.keys(config.disabled || {}).length;
-      this.logger.aiSdk.debug('MCP tools loaded', {
-        activeServers: Object.keys(config.mcpServers).length,
-        disabledServers: disabledCount,
-        toolCount: Object.keys(allTools).length
-      });
-
-      this.logger.aiSdk.info("MCP tools summary", {
-        totalCount: Object.keys(allTools).length,
-        toolNames: Object.keys(allTools)
-      });
-      return allTools;
-    } catch (error) {
-      this.logger.aiSdk.error("Error loading MCP tools", { error: error instanceof Error ? error.message : error });
-      return {};
-    }
-  }
-
-  private createAISDKTool(serverId: string, mcpTool: Tool) {
-    this.logger.aiSdk.debug("Creating AI SDK tool", { serverId, toolName: mcpTool.name });
-
-    // Validate tool name
-    if (!mcpTool.name || mcpTool.name.trim() === "") {
-      throw new Error(
-        `Invalid tool name for server ${serverId}: ${JSON.stringify(mcpTool)}`
-      );
-    }
-
-    // Create a schema from MCP tool input schema
-    let inputSchema = z.object({});
-
-    try {
-      if (mcpTool.inputSchema && mcpTool.inputSchema.properties) {
-        const schemaObj: Record<string, any> = {};
-
-        for (const [propName, propDef] of Object.entries(
-          mcpTool.inputSchema.properties
-        )) {
-          const propInfo = propDef as any;
-
-          // Map common schema types to Zod
-          switch (propInfo.type) {
-            case "string":
-              schemaObj[propName] = z
-                .string()
-                .describe(propInfo.description || "");
-              break;
-            case "number":
-              schemaObj[propName] = z
-                .number()
-                .describe(propInfo.description || "");
-              break;
-            case "boolean":
-              schemaObj[propName] = z
-                .boolean()
-                .describe(propInfo.description || "");
-              break;
-            case "array":
-              schemaObj[propName] = z
-                .array(z.any())
-                .describe(propInfo.description || "");
-              break;
-            default:
-              schemaObj[propName] = z
-                .any()
-                .describe(propInfo.description || "");
-          }
-
-          // Handle required fields
-          if (!mcpTool.inputSchema.required?.includes(propName)) {
-            schemaObj[propName] = schemaObj[propName].optional();
-          }
-        }
-
-        inputSchema = z.object(schemaObj);
-      }
-    } catch (error) {
-      this.logger.aiSdk.warn("Failed to parse schema for tool", { toolName: mcpTool.name, error });
-    }
-
-    const aiTool = tool({
-      description: mcpTool.description || `Tool from MCP server ${serverId}`,
-      inputSchema: inputSchema,
-      execute: async (args: any) => {
-        try {
-          this.logger.aiSdk.debug("Executing MCP tool", { 
-            serverId, 
-            toolName: mcpTool.name, 
-            args 
-          });
-
-          const result = await mcpService.callTool(serverId, {
-            name: mcpTool.name,
-            arguments: args,
-          });
-
-          this.logger.aiSdk.debug("Raw MCP result", { result });
-
-          // Convert MCP result to string format for AI SDK
-          if (result.content && Array.isArray(result.content)) {
-            const resultText = result.content
-              .map((item) => {
-                if (item.type === "text") {
-                  return item.text || "";
-                } else if (item.type === "resource") {
-                  return `[Resource: ${item.data}]`;
-                } else {
-                  return `[${item.type}: ${JSON.stringify(item.data)}]`;
-                }
-              })
-              .join("\n");
-
-            this.logger.aiSdk.debug("Converted result text", { resultText });
-
-            // Record successful tool call
-            mcpHealthService.recordSuccess(serverId, mcpTool.name);
-
-            // AI SDK expects the raw result, not wrapped in an object
-            return resultText;
-          }
-
-          // For non-content results, return JSON string
-          const jsonResult = JSON.stringify(result);
-          this.logger.aiSdk.debug("Returning JSON result", { jsonResult });
-
-          // Record successful tool call
-          mcpHealthService.recordSuccess(serverId, mcpTool.name);
-
-          return jsonResult;
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : "Tool execution failed";
-          
-          this.logger.aiSdk.error("Error executing MCP tool", { 
-            serverId, 
-            toolName: mcpTool.name, 
-            error 
-          });
-
-          // Record failed tool call
-          mcpHealthService.recordError(serverId, mcpTool.name, errorMessage);
-
-          // For tool execution errors, we should throw to let the AI SDK handle it
-          // This will trigger the 'tool-error' event in the stream
-          throw new Error(errorMessage);
-        }
-      },
-    });
-
-    this.logger.aiSdk.debug("Successfully created AI SDK tool", { serverId, toolName: mcpTool.name });
-    return aiTool;
-  }
-
-  private async calculateMaxSteps(toolCount: number): Promise<number> {
-    // Get configuration from preferences
-    let baseSteps = 5;
-    let maxStepsLimit = 20;
-    
-    try {
-      const { preferencesService } = await import('../services/preferencesService');
-      const aiConfig = preferencesService.get('ai');
-      
-      if (aiConfig) {
-        baseSteps = aiConfig.baseSteps || 5;
-        maxStepsLimit = aiConfig.maxSteps || 20;
-      }
-    } catch (error) {
-      this.logger.aiSdk.warn("Could not load steps configuration, using defaults", { error });
-    }
-    
-    // Additional steps based on available tools
-    // For every 5 tools, add 2 more steps to allow for more complex operations
-    const additionalSteps = Math.floor(toolCount / 5) * 2;
-    
-    // Apply configured limits
-    const calculatedSteps = Math.min(Math.max(baseSteps + additionalSteps, baseSteps), maxStepsLimit);
-    
-    this.logger.aiSdk.debug("Calculated max steps", { 
-      calculatedSteps, 
-      baseSteps, 
-      maxStepsLimit, 
-      toolCount 
-    });
-    
-    return calculatedSteps;
-  }
-
-  private async getSystemPrompt(
-    webSearch: boolean,
-    enableMCP: boolean,
-    toolCount: number
-  ): Promise<string> {
-    // Add current date information
-    const currentDate = new Date();
-    const dateString = currentDate.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-    const timeString = currentDate.toLocaleTimeString('en-US', {
-      hour12: true,
-      hour: 'numeric',
-      minute: '2-digit'
-    });
-
-    // Load personalization from user profile
-    const { userProfileService } = await import('./userProfileService');
-    const userProfile = await userProfileService.getProfile();
-    const personalization = userProfile.personalization;
-
-    // Base system prompt with personalization
-    let basePersonality = 'You are a helpful assistant';
-
-    if (personalization?.enabled) {
-      // Apply personality style
-      switch (personalization.personality) {
-        case 'cynic':
-          basePersonality = 'You are a critical and sarcastic assistant who questions assumptions and provides realistic, sometimes cynical perspectives';
-          break;
-        case 'robot':
-          basePersonality = 'You are an efficient and blunt assistant who prioritizes directness and clarity over politeness';
-          break;
-        case 'listener':
-          basePersonality = 'You are a thoughtful and supportive assistant who carefully considers user needs and provides empathetic responses';
-          break;
-        case 'nerd':
-          basePersonality = 'You are an exploratory and enthusiastic assistant who loves diving deep into topics with curiosity and excitement';
-          break;
-        default:
-          basePersonality = 'You are a cheerful and adaptive assistant who adjusts to user needs with a positive attitude';
-      }
-
-      // Add user context if available
-      if (personalization.nickname) {
-        basePersonality += `. The user's name is ${personalization.nickname}`;
-      }
-      if (personalization.occupation) {
-        basePersonality += ` and they work as a ${personalization.occupation}`;
-      }
-      if (personalization.aboutUser) {
-        basePersonality += `. Additional context about the user: ${personalization.aboutUser}`;
-      }
-    }
-
-    let systemPrompt = `${basePersonality}. Today's date is ${dateString} and the current time is ${timeString}.`;
-
-    // Add custom instructions if provided
-    if (personalization?.enabled && personalization.customInstructions) {
-      systemPrompt += `\n\nCUSTOM INSTRUCTIONS:\n${personalization.customInstructions}`;
-    }
-
-    if (webSearch) {
-      systemPrompt +=
-        " with access to web search. Provide accurate and up-to-date information.";
-    }
-
-    if (enableMCP && toolCount > 0) {
-      systemPrompt += ` You have access to ${toolCount} specialized tools through the Model Context Protocol (MCP). These tools can help you perform various tasks like file operations, database queries, web automation, and more. 
-
-IMPORTANT: When you use tools, ALWAYS provide a complete response based on the tool results. After calling a tool and receiving its output, analyze the results and provide a comprehensive answer to the user. Do not just say you're going to use a tool - actually use it AND then explain the results in detail.
-
-For example:
-- If listing directories, show the actual directory contents
-- If searching files, display the search results
-- If querying data, present the retrieved information
-
-Always explain what tools you're using and provide meaningful responses based on the tool outputs.`;
-    }
-
-    if (!webSearch && (!enableMCP || toolCount === 0)) {
-      systemPrompt += " that can answer questions and help with tasks.";
-    }
-
-    // Add Mermaid diagram capabilities
-    systemPrompt += `
-
-DIAGRAM CAPABILITIES:
-You can create visual diagrams using Mermaid syntax. When users request diagrams, charts, or visual representations, use Mermaid code blocks. Supported diagram types include:
-
-- **Flowcharts**: For processes, workflows, decision trees
-- **Sequence diagrams**: For interactions between systems/users over time
-- **Class diagrams**: For object-oriented designs and relationships
-- **State diagrams**: For state machines and transitions  
-- **ER diagrams**: For database relationships
-- **Gantt charts**: For project timelines
-- **Pie charts**: For data visualization
-- **Git graphs**: For version control workflows
-
-**Usage**: Wrap Mermaid code in \`\`\`mermaid code blocks. Examples:
-
-\`\`\`mermaid
-graph TD
-    A[Start] --> B{Decision}
-    B -->|Yes| C[Action 1]
-    B -->|No| D[Action 2]
-\`\`\`
-
-\`\`\`mermaid
-sequenceDiagram
-    Alice->>Bob: Hello Bob!
-    Bob-->>Alice: Hello Alice!
-\`\`\`
-
-Always provide diagrams when users request visual representations, flowcharts, process maps, or any kind of diagram. Be proactive in offering diagrams for complex explanations.`;
-
-    // Debug log for final system prompt
-    this.logger.aiSdk.debug('Final system prompt generated', {
-      enabled: personalization?.enabled || false,
-      personality: personalization?.personality || 'none',
-      hasNickname: !!personalization?.nickname,
-      hasOccupation: !!personalization?.occupation,
-      hasAboutUser: !!personalization?.aboutUser,
-      hasCustomInstructions: !!personalization?.customInstructions,
-      webSearch,
-      enableMCP,
-      toolCount,
-      promptLength: systemPrompt.length,
-      fullPrompt: systemPrompt
-    });
-
-    return systemPrompt;
   }
 }
