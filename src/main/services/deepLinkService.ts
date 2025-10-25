@@ -66,6 +66,44 @@ export class DeepLinkService {
   }
 
   /**
+   * Sanitize an object to prevent prototype pollution
+   * Removes dangerous keys that can pollute Object.prototype
+   */
+  private sanitizeObject(obj: any): any {
+    if (obj === null || typeof obj !== 'object') {
+      return obj;
+    }
+
+    // Create a clean object without prototype chain
+    const sanitized = Object.create(null);
+
+    // Dangerous keys that can cause prototype pollution
+    const dangerousKeys = ['__proto__', 'constructor', 'prototype'];
+
+    for (const key in obj) {
+      // Skip dangerous keys
+      if (dangerousKeys.includes(key)) {
+        logger.core.warn('Blocked dangerous key in object', { key });
+        continue;
+      }
+
+      // Only copy own properties
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        const value = obj[key];
+
+        // Recursively sanitize nested objects
+        if (typeof value === 'object' && value !== null) {
+          sanitized[key] = this.sanitizeObject(value);
+        } else {
+          sanitized[key] = value;
+        }
+      }
+    }
+
+    return sanitized;
+  }
+
+  /**
    * Parse MCP server addition deep link
    * Format: levante://mcp/add?name=server&transport=stdio&command=npx&args=package-name
    */
@@ -112,7 +150,33 @@ export class DeepLinkService {
       }
 
       serverConfig.baseUrl = url;
-      serverConfig.headers = headers ? JSON.parse(headers) : {};
+
+      // Parse and sanitize headers to prevent prototype pollution
+      if (headers) {
+        try {
+          const parsedHeaders = JSON.parse(headers);
+
+          // Sanitize the parsed object to remove dangerous keys
+          const sanitizedHeaders = this.sanitizeObject(parsedHeaders);
+
+          // Convert back to regular object for compatibility
+          serverConfig.headers = { ...sanitizedHeaders };
+
+          logger.core.debug('Parsed and sanitized headers', {
+            originalKeys: Object.keys(parsedHeaders),
+            sanitizedKeys: Object.keys(sanitizedHeaders)
+          });
+        } catch (error) {
+          logger.core.error('Failed to parse headers JSON', {
+            error: error instanceof Error ? error.message : String(error),
+            headers
+          });
+          // Use empty headers on parse error
+          serverConfig.headers = {};
+        }
+      } else {
+        serverConfig.headers = {};
+      }
     }
 
     logger.core.info('Parsed MCP add deep link', { serverConfig });

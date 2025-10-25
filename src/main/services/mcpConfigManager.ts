@@ -10,7 +10,7 @@ export class MCPConfigurationManager {
 
   constructor() {
     this.configPath = directoryService.getMcpConfigPath();
-    
+
     // Ensure directory exists (synchronously for constructor)
     try {
       const fs = require('fs');
@@ -19,6 +19,44 @@ export class MCPConfigurationManager {
     } catch (error) {
       // Directory might already exist, ignore error
     }
+  }
+
+  /**
+   * Sanitize server config to prevent prototype pollution
+   * Removes dangerous keys before spreading/merging
+   */
+  private sanitizeServerConfig(config: any): any {
+    if (!config || typeof config !== 'object') {
+      return config;
+    }
+
+    // Dangerous keys that can cause prototype pollution
+    const dangerousKeys = ['__proto__', 'constructor', 'prototype'];
+
+    // Create a clean copy without dangerous keys
+    const sanitized: any = {};
+
+    for (const key in config) {
+      // Skip dangerous keys
+      if (dangerousKeys.includes(key)) {
+        this.logger.mcp.warn('Blocked dangerous key in server config', { key });
+        continue;
+      }
+
+      // Only copy own properties
+      if (Object.prototype.hasOwnProperty.call(config, key)) {
+        const value = config[key];
+
+        // Recursively sanitize nested objects
+        if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+          sanitized[key] = this.sanitizeServerConfig(value);
+        } else {
+          sanitized[key] = value;
+        }
+      }
+    }
+
+    return sanitized;
   }
 
   async loadConfiguration(): Promise<MCPConfiguration> {
@@ -74,11 +112,14 @@ export class MCPConfigurationManager {
 
   async addServer(config: MCPServerConfig): Promise<void> {
     const currentConfig = await this.loadConfiguration();
-    
+
+    // Sanitize config to prevent prototype pollution
+    const sanitizedConfig = this.sanitizeServerConfig(config);
+
     // Extract id and create server config without id
-    const { id, ...serverConfig } = config;
+    const { id, ...serverConfig } = sanitizedConfig;
     currentConfig.mcpServers[id] = serverConfig;
-    
+
     await this.saveConfiguration(currentConfig);
   }
 
@@ -107,11 +148,14 @@ export class MCPConfigurationManager {
 
   async updateServer(serverId: string, config: Partial<Omit<MCPServerConfig, 'id'>>): Promise<void> {
     const currentConfig = await this.loadConfiguration();
-    
+
     if (currentConfig.mcpServers[serverId]) {
+      // Sanitize config to prevent prototype pollution
+      const sanitizedConfig = this.sanitizeServerConfig(config);
+
       currentConfig.mcpServers[serverId] = {
         ...currentConfig.mcpServers[serverId],
-        ...config
+        ...sanitizedConfig
       };
       await this.saveConfiguration(currentConfig);
     } else {
