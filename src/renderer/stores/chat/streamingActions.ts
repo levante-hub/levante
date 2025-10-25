@@ -179,7 +179,7 @@ export function createStreamingActions(
                       ...state.streamingMessage,
                       parts: [
                         ...(state.streamingMessage.parts?.filter(
-                          (p) =>
+                          (p: any) =>
                             !(p.type === 'tool-call' && p.toolCall?.id === chunk.toolCall!.id)
                         ) || []),
                         {
