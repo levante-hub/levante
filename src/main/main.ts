@@ -292,7 +292,16 @@ ipcMain.handle("levante/chat/stream", async (event, request: ChatRequest) => {
   setTimeout(async () => {
     try {
       logger.aiSdk.debug("Starting AI stream", { streamId });
+      let chunkCount = 0;
       for await (const chunk of aiService.streamChat(request)) {
+        chunkCount++;
+        logger.aiSdk.debug("Received chunk from AI service", {
+          streamId,
+          chunkCount,
+          chunkType: chunk.delta ? 'delta' : chunk.done ? 'done' : chunk.error ? 'error' : 'other',
+          chunk
+        });
+
         // Check if stream was cancelled
         if (isCancelled) {
           logger.aiSdk.info("Stream cancelled, stopping generation", { streamId });
@@ -304,20 +313,23 @@ ipcMain.handle("levante/chat/stream", async (event, request: ChatRequest) => {
         }
 
         // Send chunk immediately without buffering (pattern from Expo)
+        logger.aiSdk.debug("Sending chunk to renderer", { streamId, chunkCount });
         event.sender.send(`levante/chat/stream/${streamId}`, chunk);
         // Small yield to prevent blocking the event loop
         await new Promise((resolve) => setImmediate(resolve));
 
         // Log when stream completes
         if (chunk.done) {
-          logger.aiSdk.info("AI stream completed successfully", { streamId });
+          logger.aiSdk.info("AI stream completed successfully", { streamId, totalChunks: chunkCount });
           break;
         }
       }
+      logger.aiSdk.info("Exited streaming loop", { streamId, totalChunks: chunkCount });
     } catch (error) {
       logger.aiSdk.error("AI Stream error", {
         streamId,
-        error: error instanceof Error ? error.message : error
+        error: error instanceof Error ? error.message : error,
+        stack: error instanceof Error ? error.stack : undefined
       });
       event.sender.send(`levante/chat/stream/${streamId}`, {
         error: error instanceof Error ? error.message : "Stream error",
@@ -326,6 +338,7 @@ ipcMain.handle("levante/chat/stream", async (event, request: ChatRequest) => {
     } finally {
       // Clean up active stream tracking
       activeStreams.delete(streamId);
+      logger.aiSdk.debug("Stream cleanup complete", { streamId });
     }
   }, 10); // Reduced delay following Expo patterns
 
