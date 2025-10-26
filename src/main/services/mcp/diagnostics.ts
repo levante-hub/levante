@@ -47,6 +47,40 @@ export async function diagnoseSystem(): Promise<{
     );
   }
 
+  try {
+    // Check Python
+    const { stdout } = await execAsync("python3 --version");
+    logger.mcp.debug("Python is available", { version: stdout.trim() });
+  } catch {
+    issues.push("Python 3 is not installed or not in PATH");
+    recommendations.push(
+      "Install Python 3 from https://www.python.org/ or using Homebrew: brew install python3"
+    );
+  }
+
+  try {
+    // Check pip
+    await execAsync("pip3 --version");
+    logger.mcp.debug("pip3 is available");
+  } catch {
+    issues.push("pip3 is not installed or not in PATH");
+    recommendations.push(
+      "pip3 should come with Python 3. Try reinstalling Python or install pip separately."
+    );
+  }
+
+  try {
+    // Check uvx (optional but recommended for Python MCP servers)
+    await execAsync("uvx --version");
+    logger.mcp.debug("uvx is available");
+  } catch {
+    // uvx is optional, so we just log this as info
+    logger.mcp.debug("uvx is not available (optional)");
+    recommendations.push(
+      "Consider installing uv for better Python MCP server support: pip3 install uv"
+    );
+  }
+
   // Check PATH
   const currentPath = process.env.PATH || "";
   if (

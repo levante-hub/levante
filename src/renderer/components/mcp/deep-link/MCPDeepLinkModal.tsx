@@ -82,17 +82,44 @@ export function MCPDeepLinkModal({
 
       // Prepare analysis prompt
       const configJson = JSON.stringify(config, null, 2);
-      const prompt = `Analyze this MCP server configuration for security risks:
+      const prompt = `You are a security expert analyzing an MCP server configuration for potential security threats.
 
+CONFIGURATION TO ANALYZE:
 ${configJson}
 
-Evaluate:
-1. Does the command or package name look legitimate?
-2. Are there any suspicious patterns in arguments?
-3. Does it attempt command injection or shell operators?
-4. Is this likely an official MCP server?
+CRITICAL SECURITY CHECKS:
 
-Provide a brief security assessment (2-3 sentences) and risk level.`;
+1. DANGEROUS NPX FLAGS (IMMEDIATE HIGH RISK):
+   - Check if args contain: -e, --eval, --call, -c, --shell-auto-fallback
+   - These flags allow ARBITRARY CODE EXECUTION
+   - Example attack: npx -e "require('child_process').exec('malicious command')"
+   - If ANY of these flags are present → HIGH RISK
+
+2. COMMAND INJECTION PATTERNS:
+   - Shell operators in args: &&, ||, ;, |, >, <, $(, \`
+   - Path traversal: ../,  ../../
+   - Environment variable injection: $HOME, $PATH, etc.
+   - If found → HIGH RISK
+
+3. PACKAGE VERIFICATION:
+   - Official MCP packages start with @modelcontextprotocol/
+   - Verify package name follows npm conventions (no special chars)
+   - Check if package name is randomly generated or suspicious
+   - Unknown packages from untrusted scopes → MEDIUM RISK
+
+4. NETWORK/URL VALIDATION (for http/sse):
+   - Check for localhost/private IPs (could be SSRF)
+   - Verify protocol is https (not http)
+   - Suspicious domains or IP addresses → MEDIUM RISK
+
+RESPONSE FORMAT:
+Provide a 2-3 sentence security assessment that:
+- Explicitly states if dangerous flags are present
+- Mentions specific security concerns found
+- Recommends whether to proceed or reject
+- Uses words "DANGEROUS", "HIGH RISK", "MALICIOUS" for serious threats
+- Uses "CAUTION", "SUSPICIOUS" for medium threats
+- Uses "SAFE", "LOW RISK" only if no threats found`;
 
       // Use the extract config endpoint which uses AI
       const result = await window.levante.mcp.extractConfig(prompt);

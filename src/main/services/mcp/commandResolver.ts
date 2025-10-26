@@ -2,6 +2,7 @@ import { promisify } from "util";
 import { exec } from "child_process";
 import path from "path";
 import { getLogger } from "../logging";
+import { validateRuntimeSecurity } from "./packageValidator";
 
 const execAsync = promisify(exec);
 const logger = getLogger();
@@ -9,11 +10,17 @@ const logger = getLogger();
 /**
  * Resolve the command and arguments for MCP server execution
  * Handles npx commands and PATH resolution for Electron environments
+ *
+ * Security: Validates dangerous patterns for ALL commands (npx, uvx, python, node, system commands)
+ * Does NOT enforce whitelist - that's only for deep links
  */
 export async function resolveCommand(
   command: string,
   args: string[] = []
 ): Promise<{ command: string; args: string[] }> {
+  // Security: Validate runtime security for ALL commands
+  validateRuntimeSecurity(command, args);
+
   // If command starts with npx, we need to resolve it properly
   if (command.startsWith("npx ")) {
     const parts = command.split(" ");
@@ -59,6 +66,55 @@ export async function resolveCommand(
     logger.mcp.error("npx not found. Please ensure Node.js and npm are properly installed");
     throw new Error(
       `npx command not found. Please install Node.js and npm, then try again. Package: ${packageName}`
+    );
+  }
+
+  // Handle case where command is just "npx" (without space)
+  if (command === "npx" && args.length > 0) {
+    // Security validation already done above (line 22)
+
+    // Find npx in system
+    try {
+      const { stdout } = await execAsync("which npx");
+      const npxPath = stdout.trim();
+
+      if (npxPath) {
+        logger.mcp.debug("Found npx at path (direct command)", { npxPath });
+        return {
+          command: npxPath,
+          args: args  // Keep all args including package name
+        };
+      }
+    } catch {
+      logger.mcp.warn("npx not found in system PATH");
+    }
+
+    // Try fallback paths
+    const fallbackPaths = [
+      "/usr/local/bin/npx",
+      "/opt/homebrew/bin/npx",
+      path.join(process.env.HOME || "", "n/bin/npx")
+    ];
+
+    for (const tryPath of fallbackPaths) {
+      try {
+        await execAsync(`ls ${tryPath}`);
+        logger.mcp.debug("Found npx at fallback location", { tryPath });
+        return {
+          command: tryPath,
+          args: args
+        };
+      } catch {
+        continue;
+      }
+    }
+
+    // Extract package name for error message
+    const safeFlags = ['-y', '--yes', '-q', '--quiet'];
+    const packageArg = args.find(arg => !safeFlags.includes(arg) && !arg.startsWith('-')) || args[0];
+
+    throw new Error(
+      `npx command not found. Please install Node.js and npm, then try again. Package: ${packageArg}`
     );
   }
 

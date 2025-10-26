@@ -28,19 +28,19 @@ export class ChatService {
         id,
         title: input.title,
         model: input.model,
-        folder_id: input.folder_id,
+        folder_id: input.folder_id ?? null, // Convert undefined to null for SQLite
         created_at: now,
         updated_at: now
       };
 
       await databaseService.execute(
-        `INSERT INTO chat_sessions (id, title, model, folder_id, created_at, updated_at) 
+        `INSERT INTO chat_sessions (id, title, model, folder_id, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?)`,
         [
           session.id as InValue,
           session.title as InValue,
           session.model as InValue,
-          session.folder_id as InValue,
+          (session.folder_id ?? null) as InValue, // Ensure null instead of undefined
           session.created_at as InValue,
           session.updated_at as InValue
         ]
