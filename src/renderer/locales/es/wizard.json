@@ -69,7 +69,12 @@
     "testing_connection": "Probando Conexión...",
     "connection_verified": "Conexión Verificada",
     "validation_success": "¡Clave de API validada exitosamente! Puedes proceder al siguiente paso.",
-    "select_to_continue": "Selecciona un proveedor para continuar"
+    "select_to_continue": "Selecciona un proveedor para continuar",
+    "oauth": {
+      "sign_in": "Inicia sesión con OpenRouter",
+      "waiting": "Esperando autorización...",
+      "connect_message": "Conecta tu cuenta de forma segura con un click"
+    }
   },
   "directory": {
     "title": "Ubicación de Tus Datos",

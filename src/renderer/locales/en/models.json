@@ -22,6 +22,11 @@
     "optional": "API key is optional for model listing but required for inference",
     "get_key": "Get your key"
   },
+  "oauth": {
+    "sign_in": "Sign in with OpenRouter",
+    "waiting": "Waiting for authorization...",
+    "connect_message": "Connect your account securely with one click"
+  },
   "base_url": {
     "label": "Base URL",
     "help_gateway": "Configure your Vercel AI Gateway at",

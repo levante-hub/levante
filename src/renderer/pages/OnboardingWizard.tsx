@@ -166,6 +166,59 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps = {}) {
     }
   };
 
+  const handleOAuthSuccess = async (newApiKey: string) => {
+    // Update state immediately
+    setApiKey(newApiKey);
+
+    // Validate with the new API key (passed directly to avoid closure issues)
+    setValidationStatus('validating');
+    setValidationError('');
+
+    try {
+      const config: ProviderValidationConfig = {
+        type: selectedProvider as any,
+        apiKey: newApiKey, // Use the passed key directly, not from state
+        endpoint: endpoint || undefined,
+      };
+
+      const result = await window.levante.wizard.validateProvider(config);
+
+      if (result.success && result.data?.isValid) {
+        setValidationStatus('valid');
+        setValidationError('');
+
+        // Save provider configuration with the new API key
+        const updates: any = { apiKey: newApiKey };
+
+        // Only add endpoint for specific providers
+        if (selectedProvider === 'local' || selectedProvider === 'gateway') {
+          updates.baseUrl = endpoint;
+        }
+
+        // Update provider
+        await updateProvider(selectedProvider, updates);
+
+        // Set as active provider
+        await setActiveProvider(selectedProvider);
+
+        // Sync models from provider
+        await syncProviderModels(selectedProvider);
+      } else {
+        setValidationStatus('invalid');
+        setValidationError(
+          result.data?.error ||
+            result.error ||
+            'Validation failed. Please check your credentials.'
+        );
+      }
+    } catch (error) {
+      setValidationStatus('invalid');
+      setValidationError(
+        error instanceof Error ? error.message : 'Unknown error occurred'
+      );
+    }
+  };
+
   const handleComplete = async () => {
     try {
       // Complete wizard
@@ -231,6 +284,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps = {}) {
           onApiKeyChange={setApiKey}
           onEndpointChange={setEndpoint}
           onValidate={handleValidateProvider}
+          onOAuthSuccess={handleOAuthSuccess}
         />
       )}
       {currentStep === 5 && <DirectoryStep />}
