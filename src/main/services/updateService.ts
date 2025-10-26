@@ -49,29 +49,30 @@ class UpdateService {
 
   /**
    * Initialize automatic updates (production only)
-   * Sets up background update checks using update-electron-app
+   * Sets up background update checks using update-electron-app or autoUpdater
    */
   initialize(): void {
     if (process.env.NODE_ENV === 'production' || app.isPackaged) {
       try {
-        const { updateElectronApp } = require('update-electron-app');
         const isBeta = this.isBetaVersion();
 
-        updateElectronApp({
-          repo: this.repo,
-          updateInterval: '1 hour',
-          notifyUser: true,
-          // Enable pre-release detection for beta/alpha/rc versions
-          updateSource: isBeta ? {
+        if (isBeta) {
+          // For beta versions, use autoUpdater directly with pre-release support
+          this.initializeBetaUpdates();
+        } else {
+          // For stable versions, use update-electron-app (simpler, battle-tested)
+          const { updateElectronApp } = require('update-electron-app');
+          updateElectronApp({
             repo: this.repo,
-            host: 'https://github.com',
-            includePrereleases: true
-          } : undefined,
-          logger: {
-            log: (...args: any[]) => logger.core.info('Auto-update:', ...args),
-            error: (...args: any[]) => logger.core.error('Auto-update error:', ...args)
-          }
-        });
+            updateInterval: '1 hour',
+            notifyUser: true,
+            logger: {
+              log: (...args: any[]) => logger.core.info('Auto-update:', ...args),
+              error: (...args: any[]) => logger.core.error('Auto-update error:', ...args)
+            }
+          });
+        }
+
         this.autoUpdateInitialized = true;
         logger.core.info('Auto-update system initialized', {
           repo: this.repo,
@@ -86,6 +87,76 @@ class UpdateService {
       }
     } else {
       logger.core.info('Auto-update disabled in development mode');
+    }
+  }
+
+  /**
+   * Initialize beta version updates using autoUpdater directly
+   * This allows us to include pre-releases in the update feed
+   */
+  private initializeBetaUpdates(): void {
+    const { platform } = process;
+    const version = app.getVersion();
+
+    // Construct feed URL with pre-release support
+    // Format: https://update.electronjs.org/:owner/:repo/:platform-:arch/:version
+    const feedUrl = `https://update.electronjs.org/levante-hub/levante/${platform}-${process.arch}/${version}`;
+
+    logger.core.info('Configuring beta auto-update', {
+      version,
+      platform: `${platform}-${process.arch}`,
+      feedUrl
+    });
+
+    try {
+      // Set feed URL for beta updates
+      autoUpdater.setFeedURL({
+        url: feedUrl,
+        serverType: 'default'
+      });
+
+      // Setup event handlers
+      autoUpdater.on('update-available', () => {
+        logger.core.info('Beta update available, downloading...');
+      });
+
+      autoUpdater.on('update-downloaded', (event, releaseNotes, releaseName) => {
+        logger.core.info('Beta update downloaded', { releaseName });
+
+        // Show notification to user
+        dialog.showMessageBox({
+          type: 'info',
+          title: 'Update Ready',
+          message: 'A new beta version has been downloaded',
+          detail: `Version ${releaseName} is ready to install. The application will restart to apply the update.`,
+          buttons: ['Restart Now', 'Later'],
+          icon: this.getAppIcon()
+        }).then((result) => {
+          if (result.response === 0) {
+            autoUpdater.quitAndInstall();
+          }
+        });
+      });
+
+      autoUpdater.on('error', (error) => {
+        logger.core.error('Beta auto-update error', {
+          error: error instanceof Error ? error.message : String(error)
+        });
+      });
+
+      // Check for updates every hour
+      const checkInterval = 60 * 60 * 1000; // 1 hour
+      setInterval(() => {
+        autoUpdater.checkForUpdates();
+      }, checkInterval);
+
+      // Initial check
+      autoUpdater.checkForUpdates();
+
+    } catch (error) {
+      logger.core.error('Failed to initialize beta auto-update', {
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   }
 
