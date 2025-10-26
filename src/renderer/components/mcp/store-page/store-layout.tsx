@@ -252,11 +252,29 @@ export function StoreLayout({ mode }: StoreLayoutProps) {
               </div>
             </>
           ) : (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground mb-4">{t('active.no_servers')}</p>
-              <p className="text-sm text-muted-foreground">
-                {t('active.switch_to_store')}
-              </p>
+            <div className="space-y-6">
+              <div className="text-center py-8">
+                <p className="text-muted-foreground mb-2">{t('active.no_servers')}</p>
+                <p className="text-sm text-muted-foreground">
+                  {t('active.switch_to_store')}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* Add New Card - shown even when no servers */}
+                <Card className="p-6 border-dashed border-2 hover:border-primary/50 transition-colors cursor-pointer">
+                  <div
+                    className="flex flex-col items-center justify-center text-center h-full min-h-[200px]"
+                    onClick={() => setIsFullJSONEditorOpen(true)}
+                  >
+                    <Plus className="w-12 h-12 text-muted-foreground mb-4" />
+                    <h3 className="font-semibold mb-2">{t('active.add_custom')}</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {t('active.edit_json')}
+                    </p>
+                  </div>
+                </Card>
+              </div>
             </div>
           )}
         </section>
