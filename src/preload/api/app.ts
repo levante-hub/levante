@@ -19,6 +19,8 @@ export const appApi = {
 
   checkForUpdates: () => ipcRenderer.invoke('levante/app/check-for-updates'),
 
+  openExternal: (url: string) => ipcRenderer.invoke('levante/app/open-external', url),
+
   onDeepLink: (callback: (action: DeepLinkAction) => void) => {
     const listener = (_event: any, action: DeepLinkAction) => {
       callback(action);
@@ -29,5 +31,22 @@ export const appApi = {
     return () => {
       ipcRenderer.removeListener('levante/deep-link/action', listener);
     };
+  },
+
+  // OAuth callback server
+  oauth: {
+    startServer: () => ipcRenderer.invoke('levante/oauth/start-server'),
+    stopServer: () => ipcRenderer.invoke('levante/oauth/stop-server'),
+    onCallback: (callback: (data: { success: boolean; provider?: string; code?: string; error?: string }) => void) => {
+      const listener = (_event: any, data: any) => {
+        callback(data);
+      };
+      ipcRenderer.on('levante/oauth/callback', listener);
+
+      // Return cleanup function
+      return () => {
+        ipcRenderer.removeListener('levante/oauth/callback', listener);
+      };
+    },
   },
 };

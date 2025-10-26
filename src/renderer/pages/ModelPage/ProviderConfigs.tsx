@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ExternalLink, RefreshCw } from 'lucide-react';
 import { useModelStore } from '@/stores/modelStore';
+import { useOpenRouterOAuth } from '@/hooks/useOpenRouterOAuth';
 import type { ProviderConfig } from '../../../types/models';
 import { useTranslation } from 'react-i18next';
 
@@ -11,6 +12,15 @@ export const OpenRouterConfig = ({ provider }: { provider: ProviderConfig }) => 
   const { t } = useTranslation('models');
   const { updateProvider, syncProviderModels, syncing } = useModelStore();
   const [apiKey, setApiKey] = React.useState(provider.apiKey || '');
+
+  // OAuth hook
+  const { isAuthenticating, initiateOAuthFlow } = useOpenRouterOAuth({
+    onSuccess: async (newApiKey) => {
+      setApiKey(newApiKey);
+      await updateProvider(provider.id, { apiKey: newApiKey });
+      syncProviderModels(provider.id);
+    }
+  });
 
   // Sync local state when provider changes
   React.useEffect(() => {
@@ -26,33 +36,65 @@ export const OpenRouterConfig = ({ provider }: { provider: ProviderConfig }) => 
   };
 
   return (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="openrouter-key">{t('api_key.label')}</Label>
-        <div className="flex gap-2">
-          <Input
-            id="openrouter-key"
-            type="password"
-            placeholder="sk-or-..."
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-          />
-          <Button onClick={handleSave}>{t('stats.save')}</Button>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          {t('api_key.optional')}{' '}
-          <a
-            href="https://openrouter.ai/keys"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline"
-          >
-            {t('api_key.get_key')} <ExternalLink className="w-3 h-3 inline" />
-          </a>
+    <div className="space-y-6">
+      {/* OAuth Login - Primary Option */}
+      <div className="space-y-3">
+        <Button
+          onClick={initiateOAuthFlow}
+          disabled={isAuthenticating}
+          className="w-full h-11"
+          variant="default"
+        >
+          <ExternalLink className="w-4 h-4 mr-2" />
+          {isAuthenticating ? t('oauth.waiting') : t('oauth.sign_in')}
+        </Button>
+        <p className="text-xs text-center text-muted-foreground">
+          {t('oauth.connect_message')}
         </p>
       </div>
 
-      <Button onClick={handleSync} disabled={syncing} variant="outline">
+      {/* Divider with "o" */}
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t" />
+        </div>
+        <div className="relative flex justify-center">
+          <span className="bg-background px-3 text-sm text-muted-foreground">o</span>
+        </div>
+      </div>
+
+      {/* Manual API Key - Secondary Option */}
+      <div className="space-y-3">
+        <div className="space-y-2">
+          <Label htmlFor="openrouter-key" className="text-sm font-normal">
+            {t('api_key.label')} (manual)
+          </Label>
+          <div className="flex gap-2">
+            <Input
+              id="openrouter-key"
+              type="password"
+              placeholder="sk-or-..."
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              className="font-mono text-sm"
+            />
+            <Button onClick={handleSave} variant="outline">{t('stats.save')}</Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            <a
+              href="https://openrouter.ai/keys"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-foreground inline-flex items-center gap-1"
+            >
+              {t('api_key.get_key')} <ExternalLink className="w-3 h-3" />
+            </a>
+          </p>
+        </div>
+      </div>
+
+      {/* Sync Button */}
+      <Button onClick={handleSync} disabled={syncing} variant="outline" className="w-full">
         <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
         {t('models.sync')}
       </Button>

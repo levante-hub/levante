@@ -22,6 +22,11 @@
     "optional": "La clave de API es opcional para listar modelos pero necesaria para inferencia",
     "get_key": "Obtener tu clave"
   },
+  "oauth": {
+    "sign_in": "Inicia sesión con OpenRouter",
+    "waiting": "Esperando autorización...",
+    "connect_message": "Conecta tu cuenta de forma segura con un click"
+  },
   "base_url": {
     "label": "URL Base",
     "help_gateway": "Configura tu Vercel AI Gateway en",

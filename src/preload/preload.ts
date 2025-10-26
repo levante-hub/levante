@@ -66,7 +66,13 @@ export interface LevanteAPI {
   getSystemTheme: () => Promise<{ shouldUseDarkColors: boolean; themeSource: string }>;
   onSystemThemeChanged: (callback: (theme: { shouldUseDarkColors: boolean; themeSource: string }) => void) => () => void;
   checkForUpdates: () => Promise<{ success: boolean; error?: string }>;
+  openExternal: (url: string) => Promise<{ success: boolean; error?: string }>;
   onDeepLink: (callback: (action: DeepLinkAction) => void) => () => void;
+  oauth: {
+    startServer: () => Promise<{ success: boolean; port?: number; callbackUrl?: string; error?: string }>;
+    stopServer: () => Promise<{ success: boolean; error?: string }>;
+    onCallback: (callback: (data: { success: boolean; provider?: string; code?: string; error?: string }) => void) => () => void;
+  };
 
   // Chat functionality
   sendMessage: (request: ChatRequest) => Promise<{ success: boolean; response: string; sources?: any[]; reasoning?: string }>;

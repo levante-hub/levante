@@ -69,7 +69,12 @@
     "testing_connection": "Testing Connection...",
     "connection_verified": "Connection Verified",
     "validation_success": "API key validated successfully! You can proceed to the next step.",
-    "select_to_continue": "Select a provider to continue"
+    "select_to_continue": "Select a provider to continue",
+    "oauth": {
+      "sign_in": "Sign in with OpenRouter",
+      "waiting": "Waiting for authorization...",
+      "connect_message": "Connect your account securely with one click"
+    }
   },
   "directory": {
     "title": "Your Data Location",

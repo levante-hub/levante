@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -12,7 +11,7 @@ import {
 } from '@/components/ui/select';
 import { CheckCircle2, XCircle, Loader2, ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { ProviderValidationConfig } from '../../../types/wizard';
+import { useOpenRouterOAuth } from '@/hooks/useOpenRouterOAuth';
 
 interface ProviderStepProps {
   selectedProvider: string;
@@ -24,6 +23,7 @@ interface ProviderStepProps {
   onApiKeyChange: (key: string) => void;
   onEndpointChange: (endpoint: string) => void;
   onValidate: () => void;
+  onOAuthSuccess?: (apiKey: string) => void;
 }
 
 const PROVIDERS = [
@@ -81,9 +81,27 @@ export function ProviderStep({
   onApiKeyChange,
   onEndpointChange,
   onValidate,
+  onOAuthSuccess,
 }: ProviderStepProps) {
   const { t } = useTranslation('wizard');
   const provider = PROVIDERS.find((p) => p.id === selectedProvider);
+
+  // OAuth hook for OpenRouter
+  const { isAuthenticating, initiateOAuthFlow } = useOpenRouterOAuth({
+    onSuccess: (newApiKey) => {
+      // If onOAuthSuccess is provided, use it (for onboarding with proper state handling)
+      // Otherwise fall back to the old behavior (for settings page)
+      if (onOAuthSuccess) {
+        onOAuthSuccess(newApiKey);
+      } else {
+        onApiKeyChange(newApiKey);
+        // Auto-validate after successful OAuth
+        setTimeout(() => {
+          onValidate();
+        }, 500);
+      }
+    }
+  });
 
   const showApiKeyField = provider?.requiresKey;
   const showEndpointField = provider?.requiresEndpoint;
@@ -131,10 +149,44 @@ export function ProviderStep({
 
         {selectedProvider && (
           <>
+            {/* OAuth Login for OpenRouter - Primary Option */}
+            {selectedProvider === 'openrouter' && showApiKeyField && (
+              <div className="space-y-3">
+                <Button
+                  onClick={initiateOAuthFlow}
+                  disabled={isAuthenticating}
+                  className="w-full h-11"
+                  variant="default"
+                  type="button"
+                >
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  {isAuthenticating ? t('provider.oauth.waiting') : t('provider.oauth.sign_in')}
+                </Button>
+                <p className="text-xs text-center text-muted-foreground">
+                  {t('provider.oauth.connect_message')}
+                </p>
+              </div>
+            )}
+
+            {/* Divider with "o" for OpenRouter */}
+            {selectedProvider === 'openrouter' && showApiKeyField && (
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center">
+                  <span className="bg-background px-3 text-sm text-muted-foreground">o</span>
+                </div>
+              </div>
+            )}
+
+            {/* API Key Field - Secondary for OpenRouter, Primary for others */}
             {showApiKeyField && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="apiKey">{t('provider.api_key')}</Label>
+                  <Label htmlFor="apiKey" className={selectedProvider === 'openrouter' ? 'text-sm font-normal' : ''}>
+                    {selectedProvider === 'openrouter' ? `${t('provider.api_key')} (manual)` : t('provider.api_key')}
+                  </Label>
                   {provider?.signupUrl && (
                     <a
                       href={provider.signupUrl}
