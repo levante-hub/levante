@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, nativeTheme } from "electron";
+import { app, BrowserWindow, ipcMain, nativeTheme } from "electron";
 import { join } from "path";
 import { config } from "dotenv";
 import { AIService, ChatRequest } from "./services/aiService";
@@ -18,6 +18,7 @@ import { createApplicationMenu } from "./menu";
 import { updateService } from "./services/updateService";
 import { deepLinkService } from "./services/deepLinkService";
 import { oauthCallbackServer } from "./services/oauthCallbackServer";
+import { safeOpenExternal } from "./utils/urlSecurity";
 
 // Load environment variables from .env.local and .env files
 config({ path: join(__dirname, "../../.env.local") });
@@ -136,9 +137,11 @@ function createWindow(): void {
     mainWindow = null;
   });
 
-  // Security: Handle external links
+  // Security: Handle external links with protocol validation
   mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url);
+    // Validate and open URL with protocol allowlist (http, https, mailto only)
+    // Blocks file://, javascript:, and other dangerous protocols
+    safeOpenExternal(details.url, 'window-open-handler');
     return { action: "deny" };
   });
 }
@@ -277,22 +280,10 @@ ipcMain.handle("levante/app/check-for-updates", async () => {
   }
 });
 
-// Handle opening external URLs
+// Handle opening external URLs with protocol validation
 ipcMain.handle("levante/app/open-external", async (event, url: string) => {
-  try {
-    logger.core.info('Opening external URL', { url });
-    await shell.openExternal(url);
-    return { success: true };
-  } catch (error) {
-    logger.core.error('Error opening external URL', {
-      url,
-      error: error instanceof Error ? error.message : error
-    });
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
-    };
-  }
+  // Use centralized validation to prevent RCE via file://, javascript:, etc.
+  return await safeOpenExternal(url, 'ipc-handler');
 });
 
 // OAuth callback server handlers
