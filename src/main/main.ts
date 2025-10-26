@@ -17,6 +17,7 @@ import { getLogger, initializeLogger } from "./services/logging";
 import { createApplicationMenu } from "./menu";
 import { updateService } from "./services/updateService";
 import { deepLinkService } from "./services/deepLinkService";
+import { oauthCallbackServer } from "./services/oauthCallbackServer";
 
 // Load environment variables from .env.local and .env files
 config({ path: join(__dirname, "../../.env.local") });
@@ -193,9 +194,10 @@ app.whenReady().then(async () => {
   // Create application menu after window is created
   createApplicationMenu(mainWindow);
 
-  // Register main window with deep link service
+  // Register main window with deep link service and OAuth callback server
   if (mainWindow) {
     deepLinkService.setMainWindow(mainWindow);
+    oauthCallbackServer.setMainWindow(mainWindow);
   }
 
   app.on("activate", function () {
@@ -250,6 +252,58 @@ ipcMain.handle("levante/app/check-for-updates", async () => {
     return { success: true };
   } catch (error) {
     logger.core.error('Error in manual update check', {
+      error: error instanceof Error ? error.message : error
+    });
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+});
+
+// Handle opening external URLs
+ipcMain.handle("levante/app/open-external", async (event, url: string) => {
+  try {
+    logger.core.info('Opening external URL', { url });
+    await shell.openExternal(url);
+    return { success: true };
+  } catch (error) {
+    logger.core.error('Error opening external URL', {
+      url,
+      error: error instanceof Error ? error.message : error
+    });
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+});
+
+// OAuth callback server handlers
+ipcMain.handle("levante/oauth/start-server", async () => {
+  try {
+    logger.core.info('Starting OAuth callback server');
+    const result = await oauthCallbackServer.start();
+    logger.core.info('OAuth callback server started', result);
+    return { success: true, ...result };
+  } catch (error) {
+    logger.core.error('Error starting OAuth callback server', {
+      error: error instanceof Error ? error.message : error
+    });
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+});
+
+ipcMain.handle("levante/oauth/stop-server", async () => {
+  try {
+    logger.core.info('Stopping OAuth callback server');
+    await oauthCallbackServer.stop();
+    return { success: true };
+  } catch (error) {
+    logger.core.error('Error stopping OAuth callback server', {
       error: error instanceof Error ? error.message : error
     });
     return {
