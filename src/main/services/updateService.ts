@@ -17,6 +17,14 @@ class UpdateService {
   private autoUpdateInitialized = false;
 
   /**
+   * Check if the current version is a pre-release (beta, alpha, rc)
+   */
+  private isBetaVersion(): boolean {
+    const version = app.getVersion();
+    return version.includes('-beta') || version.includes('-alpha') || version.includes('-rc');
+  }
+
+  /**
    * Get the app icon for dialogs
    */
   private getAppIcon(): Electron.NativeImage | undefined {
@@ -47,17 +55,30 @@ class UpdateService {
     if (process.env.NODE_ENV === 'production' || app.isPackaged) {
       try {
         const { updateElectronApp } = require('update-electron-app');
+        const isBeta = this.isBetaVersion();
+
         updateElectronApp({
           repo: this.repo,
           updateInterval: '1 hour',
           notifyUser: true,
+          // Enable pre-release detection for beta/alpha/rc versions
+          updateSource: isBeta ? {
+            repo: this.repo,
+            host: 'https://github.com',
+            includePrereleases: true
+          } : undefined,
           logger: {
             log: (...args: any[]) => logger.core.info('Auto-update:', ...args),
             error: (...args: any[]) => logger.core.error('Auto-update error:', ...args)
           }
         });
         this.autoUpdateInitialized = true;
-        logger.core.info('Auto-update system initialized', { repo: this.repo });
+        logger.core.info('Auto-update system initialized', {
+          repo: this.repo,
+          version: app.getVersion(),
+          isBeta,
+          includesPrereleases: isBeta
+        });
       } catch (error) {
         logger.core.error('Failed to initialize auto-update', {
           error: error instanceof Error ? error.message : error
