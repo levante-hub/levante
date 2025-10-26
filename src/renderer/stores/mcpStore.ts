@@ -2,6 +2,13 @@ import { create } from 'zustand';
 import { MCPRegistry, MCPServerConfig, MCPConnectionStatus } from '../types/mcp';
 import mcpRegistryData from '../data/mcpRegistry.json';
 
+interface SystemDiagnosis {
+  success: boolean;
+  issues: string[];
+  recommendations: string[];
+  lastChecked: number | null;
+}
+
 interface MCPStore {
   // State
   registry: MCPRegistry;
@@ -9,6 +16,7 @@ interface MCPStore {
   connectionStatus: Record<string, MCPConnectionStatus>;
   isLoading: boolean;
   error: string | null;
+  systemDiagnosis: SystemDiagnosis;
 
   // Actions
   loadRegistry: () => void;
@@ -22,7 +30,8 @@ interface MCPStore {
   removeServer: (serverId: string) => Promise<void>;
   importConfiguration: (config: any) => Promise<void>;
   exportConfiguration: () => Promise<any>;
-  
+  diagnoseSystem: () => Promise<void>;
+
   // Helper methods
   isServerActive: (serverId: string) => boolean;
   getServerById: (serverId: string) => MCPServerConfig | undefined;
@@ -36,6 +45,12 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
   connectionStatus: {},
   isLoading: false,
   error: null,
+  systemDiagnosis: {
+    success: true,
+    issues: [],
+    recommendations: [],
+    lastChecked: null,
+  },
 
   // Load curated registry from JSON
   loadRegistry: () => {
@@ -322,5 +337,27 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
   getRegistryEntryById: (entryId: string) => {
     const { registry } = get();
     return registry.entries.find(entry => entry.id === entryId);
+  },
+
+  // Diagnose system for MCP compatibility
+  diagnoseSystem: async () => {
+    try {
+      const result = await window.levante.mcp.diagnoseSystem();
+
+      if (result.success && result.data) {
+        set({
+          systemDiagnosis: {
+            success: result.data.success,
+            issues: result.data.issues,
+            recommendations: result.data.recommendations,
+            lastChecked: Date.now(),
+          }
+        });
+      } else {
+        console.error('Failed to diagnose system:', result.error);
+      }
+    } catch (error) {
+      console.error('Failed to diagnose system:', error);
+    }
   }
 }));

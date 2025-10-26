@@ -9,6 +9,7 @@ import { JSONEditorPanel } from '../config/json-editor-panel';
 import { FullJSONEditorPanel } from '../config/full-json-editor-panel';
 import { ImportExport } from '../config/import-export';
 import { NetworkStatus } from '../connection/connection-status';
+import { SystemDiagnosticAlert } from '../SystemDiagnosticAlert';
 import { getRendererLogger } from '@/services/logger';
 import { toast } from 'sonner';
 import { MCPServerConfig } from '@/types/mcp';
@@ -204,6 +205,9 @@ export function StoreLayout({ mode }: StoreLayoutProps) {
       {/* Active Mode: Show only active servers */}
       {mode === 'active' && (
         <section>
+          {/* System Diagnostic Alert */}
+          <SystemDiagnosticAlert />
+
           {activeServers.length > 0 ? (
             <>
               <div className="flex items-center justify-between mb-4">

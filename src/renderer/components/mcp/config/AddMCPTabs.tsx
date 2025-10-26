@@ -4,6 +4,7 @@ import { Sparkles, Code, AlertCircle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { AutomaticMCPConfig } from './AutomaticMCPConfig';
 import { CustomMCPConfig } from './CustomMCPConfig';
+import { SystemDiagnosticAlert } from '../SystemDiagnosticAlert';
 import { useTranslation } from 'react-i18next';
 
 interface AddMCPTabsProps {
@@ -28,11 +29,15 @@ export function AddMCPTabs({ serverId, onClose }: AddMCPTabsProps) {
   const [previewConfig, setPreviewConfig] = useState<ConfigPreview | null>(null);
 
   return (
-    <div className="grid grid-cols-2 gap-6">
-      {/* Left Column: Tabs */}
-      <div className="space-y-4">
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'automatic' | 'custom')}>
-          <TabsList className="grid w-full grid-cols-2">
+    <div className="space-y-4">
+      {/* System Diagnostic Alert */}
+      <SystemDiagnosticAlert />
+
+      <div className="grid grid-cols-2 gap-6">
+        {/* Left Column: Tabs */}
+        <div className="space-y-4">
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'automatic' | 'custom')}>
+            <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="automatic" className="flex items-center gap-2">
               <Sparkles className="h-4 w-4" />
               {t('config.add_tabs.automatic')}
@@ -135,6 +140,7 @@ export function AddMCPTabs({ serverId, onClose }: AddMCPTabsProps) {
             </CardContent>
           </Card>
         )}
+        </div>
       </div>
     </div>
   );

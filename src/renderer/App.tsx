@@ -172,7 +172,6 @@ function App() {
   const startNewChat = useChatStore((state) => state.startNewChat)
   const loadSession = useChatStore((state) => state.loadSession)
   const deleteSession = useChatStore((state) => state.deleteSession)
-  const sendMessage = useChatStore((state) => state.sendMessage)
   const setPendingPrompt = useChatStore((state) => state.setPendingPrompt)
 
   // Handle deep links
@@ -249,24 +248,14 @@ function App() {
                   return;
                 }
 
-                logger.core.info('Sending message from deep link', {
-                  model: defaultModel,
+                logger.core.info('Setting pending prompt from deep link', {
                   promptLength: prompt.length
                 });
 
-                // Send the message
-                await sendMessage(
-                  { text: prompt },
-                  {
-                    body: {
-                      model: defaultModel,
-                      webSearch: false,
-                      enableMCP: false
-                    }
-                  }
-                );
+                // Set the pending prompt - ChatPage will handle sending the message
+                setPendingPrompt(prompt);
 
-                logger.core.info('Message sent successfully from deep link');
+                logger.core.info('Pending prompt set successfully from deep link');
               } catch (error) {
                 logger.core.error('Failed to send message from deep link', {
                   error: error instanceof Error ? error.message : error
@@ -292,7 +281,7 @@ function App() {
     });
 
     return cleanup;
-  }, [startNewChat, sendMessage]);
+  }, [startNewChat, setPendingPrompt]);
 
   const getPageTitle = (page: string) => {
     switch (page) {
