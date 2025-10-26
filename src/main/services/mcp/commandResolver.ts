@@ -2,7 +2,7 @@ import { promisify } from "util";
 import { exec } from "child_process";
 import path from "path";
 import { getLogger } from "../logging";
-import { validateNpxPackage } from "./packageValidator";
+import { validateRuntimeSecurity } from "./packageValidator";
 
 const execAsync = promisify(exec);
 const logger = getLogger();
@@ -11,19 +11,20 @@ const logger = getLogger();
  * Resolve the command and arguments for MCP server execution
  * Handles npx commands and PATH resolution for Electron environments
  *
- * Security: Validates npx packages against whitelist and blocks dangerous flags
+ * Security: Validates dangerous patterns for ALL commands (npx, uvx, python, node, system commands)
+ * Does NOT enforce whitelist - that's only for deep links
  */
 export async function resolveCommand(
   command: string,
   args: string[] = []
 ): Promise<{ command: string; args: string[] }> {
+  // Security: Validate runtime security for ALL commands
+  validateRuntimeSecurity(command, args);
+
   // If command starts with npx, we need to resolve it properly
   if (command.startsWith("npx ")) {
     const parts = command.split(" ");
     const packageName = parts.slice(1).join(" "); // Everything after 'npx'
-
-    // Security: Validate package name and arguments
-    validateNpxPackage(packageName, args);
 
     try {
       // First try to find npx in system
@@ -68,14 +69,9 @@ export async function resolveCommand(
     );
   }
 
-  // Handle case where command is just "npx" (without space, from deep links)
+  // Handle case where command is just "npx" (without space)
   if (command === "npx" && args.length > 0) {
-    // First arg should be the package name
-    const packageName = args[0];
-    const remainingArgs = args.slice(1);
-
-    // Security: Validate package name and arguments
-    validateNpxPackage(packageName, remainingArgs);
+    // Security validation already done above (line 22)
 
     // Find npx in system
     try {
@@ -113,8 +109,12 @@ export async function resolveCommand(
       }
     }
 
+    // Extract package name for error message
+    const safeFlags = ['-y', '--yes', '-q', '--quiet'];
+    const packageArg = args.find(arg => !safeFlags.includes(arg) && !arg.startsWith('-')) || args[0];
+
     throw new Error(
-      `npx command not found. Please install Node.js and npm, then try again. Package: ${packageName}`
+      `npx command not found. Please install Node.js and npm, then try again. Package: ${packageArg}`
     );
   }
 

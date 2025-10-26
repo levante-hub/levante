@@ -35,11 +35,13 @@ updateService.initialize();
 if (process.defaultApp) {
   // Development mode with electron .
   if (process.argv.length >= 2) {
-    app.setAsDefaultProtocolClient('levante', process.execPath, [join(__dirname, '../../')]);
+    app.setAsDefaultProtocolClient("levante", process.execPath, [
+      join(__dirname, "../../"),
+    ]);
   }
 } else {
   // Production mode
-  app.setAsDefaultProtocolClient('levante');
+  app.setAsDefaultProtocolClient("levante");
 }
 
 // Keep a global reference of the window object
@@ -47,11 +49,11 @@ let mainWindow: BrowserWindow | null = null;
 
 function createWindow(): void {
   // IMPORTANT: Set nativeTheme to follow system BEFORE creating window
-  nativeTheme.themeSource = 'system';
+  nativeTheme.themeSource = "system";
 
-  logger.core.info('NativeTheme configured', {
+  logger.core.info("NativeTheme configured", {
     themeSource: nativeTheme.themeSource,
-    shouldUseDarkColors: nativeTheme.shouldUseDarkColors
+    shouldUseDarkColors: nativeTheme.shouldUseDarkColors,
   });
 
   // Create the browser window
@@ -65,8 +67,9 @@ function createWindow(): void {
     // macOS: hiddenInset (hide titlebar but keep traffic lights)
     // Windows/Linux: default (keep native titlebar for now, can use frame: false for custom titlebar)
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
-    backgroundColor: '#ffffff', // White background for titlebar
-    trafficLightPosition: process.platform === "darwin" ? { x: 10, y: 10 } : undefined, // Position traffic lights (macOS only)
+    backgroundColor: "#ffffff", // White background for titlebar
+    trafficLightPosition:
+      process.platform === "darwin" ? { x: 10, y: 10 } : undefined, // Position traffic lights (macOS only)
     // Note: For Windows/Linux without native titlebar, set frame: false and implement custom window controls
     webPreferences: {
       // Con Electron Forge + Vite, preload.js está en __dirname directamente
@@ -83,32 +86,37 @@ function createWindow(): void {
   // electron-vite usa ELECTRON_RENDERER_URL para dev
 
   // Debug: ver qué variables están disponibles
-  logger.core.debug('Environment variables', {
-    MAIN_WINDOW_VITE_DEV_SERVER_URL: process.env["MAIN_WINDOW_VITE_DEV_SERVER_URL"],
+  logger.core.debug("Environment variables", {
+    MAIN_WINDOW_VITE_DEV_SERVER_URL:
+      process.env["MAIN_WINDOW_VITE_DEV_SERVER_URL"],
     ELECTRON_RENDERER_URL: process.env["ELECTRON_RENDERER_URL"],
     NODE_ENV: process.env.NODE_ENV,
-    viteVars: Object.keys(process.env).filter(k => k.includes('VITE'))
+    viteVars: Object.keys(process.env).filter((k) => k.includes("VITE")),
   });
 
   if (process.env["MAIN_WINDOW_VITE_DEV_SERVER_URL"]) {
-    logger.core.info('Loading from Forge dev server', { url: process.env["MAIN_WINDOW_VITE_DEV_SERVER_URL"] });
+    logger.core.info("Loading from Forge dev server", {
+      url: process.env["MAIN_WINDOW_VITE_DEV_SERVER_URL"],
+    });
     mainWindow.loadURL(process.env["MAIN_WINDOW_VITE_DEV_SERVER_URL"]);
   } else if (
     process.env.NODE_ENV === "development" &&
     process.env["ELECTRON_RENDERER_URL"]
   ) {
-    logger.core.info('Loading from electron-vite dev server', { url: process.env["ELECTRON_RENDERER_URL"] });
+    logger.core.info("Loading from electron-vite dev server", {
+      url: process.env["ELECTRON_RENDERER_URL"],
+    });
     mainWindow.loadURL(process.env["ELECTRON_RENDERER_URL"]);
   } else {
     // En producción con Forge: main está en .vite/build/main.js
     // y renderer está en .vite/renderer/main_window/index.html
     const filePath = join(__dirname, "../renderer/main_window/index.html");
-    logger.core.info('Loading from file (production build)', { filePath });
+    logger.core.info("Loading from file (production build)", { filePath });
     mainWindow.loadFile(filePath);
   }
 
   // Force light theme for window (affects titlebar on macOS)
-  nativeTheme.themeSource = 'light';
+  nativeTheme.themeSource = "light";
 
   // Show window when ready to prevent visual flash
   mainWindow.on("ready-to-show", () => {
@@ -144,37 +152,43 @@ app.whenReady().then(async () => {
   // Initialize database
   try {
     await databaseService.initialize();
-    logger.core.info('Database initialized successfully');
+    logger.core.info("Database initialized successfully");
   } catch (error) {
-    logger.core.error('Failed to initialize database', { error: error instanceof Error ? error.message : error });
+    logger.core.error("Failed to initialize database", {
+      error: error instanceof Error ? error.message : error,
+    });
     // Could show error dialog or continue with degraded functionality
   }
 
   // Initialize preferences service
   try {
     await preferencesService.initialize();
-    logger.core.info('Preferences service initialized successfully');
+    logger.core.info("Preferences service initialized successfully");
   } catch (error) {
-    logger.core.error('Failed to initialize preferences service', { error: error instanceof Error ? error.message : error });
+    logger.core.error("Failed to initialize preferences service", {
+      error: error instanceof Error ? error.message : error,
+    });
     // Could show error dialog or continue with degraded functionality
   }
 
   // Initialize user profile service
   try {
     await userProfileService.initialize();
-    logger.core.info('User profile service initialized successfully');
+    logger.core.info("User profile service initialized successfully");
   } catch (error) {
-    logger.core.error('Failed to initialize user profile service', { error: error instanceof Error ? error.message : error });
+    logger.core.error("Failed to initialize user profile service", {
+      error: error instanceof Error ? error.message : error,
+    });
     // Could show error dialog or continue with degraded functionality
   }
 
   // Migrate MCP configuration to include disabled section
   try {
     await configManager.migrateConfiguration();
-    logger.core.info('MCP configuration migrated successfully');
+    logger.core.info("MCP configuration migrated successfully");
   } catch (error) {
-    logger.core.error('Failed to migrate MCP configuration', {
-      error: error instanceof Error ? error.message : error
+    logger.core.error("Failed to migrate MCP configuration", {
+      error: error instanceof Error ? error.message : error,
     });
   }
 
@@ -209,11 +223,13 @@ app.on("window-all-closed", async () => {
   // Close database connection before quitting
   try {
     await databaseService.close();
-    logger.core.info('Database connection closed');
+    logger.core.info("Database connection closed");
   } catch (error) {
-    logger.core.error('Error closing database', { error: error instanceof Error ? error.message : error });
+    logger.core.error("Error closing database", {
+      error: error instanceof Error ? error.message : error,
+    });
   }
-  
+
   if (process.platform !== "darwin") app.quit();
 });
 
@@ -229,16 +245,16 @@ ipcMain.handle("levante/app/platform", () => {
 ipcMain.handle("levante/app/theme", () => {
   return {
     shouldUseDarkColors: nativeTheme.shouldUseDarkColors,
-    themeSource: nativeTheme.themeSource
+    themeSource: nativeTheme.themeSource,
   };
 });
 
 // Listen for theme changes and notify renderer
-nativeTheme.on('updated', () => {
+nativeTheme.on("updated", () => {
   if (mainWindow) {
-    mainWindow.webContents.send('levante/app/theme-changed', {
+    mainWindow.webContents.send("levante/app/theme-changed", {
       shouldUseDarkColors: nativeTheme.shouldUseDarkColors,
-      themeSource: nativeTheme.themeSource
+      themeSource: nativeTheme.themeSource,
     });
   }
 });
@@ -249,12 +265,12 @@ ipcMain.handle("levante/app/check-for-updates", async () => {
     await updateService.checkForUpdates();
     return { success: true };
   } catch (error) {
-    logger.core.error('Error in manual update check', {
-      error: error instanceof Error ? error.message : error
+    logger.core.error("Error in manual update check", {
+      error: error instanceof Error ? error.message : error,
     });
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : "Unknown error",
     };
   }
 });
@@ -270,22 +286,22 @@ ipcMain.handle("levante/chat/stream", async (event, request: ChatRequest) => {
   const streamId = `stream_${Date.now()}_${Math.random()
     .toString(36)
     .substring(2, 11)}`;
-  
-  logger.aiSdk.debug("Received chat stream request", { 
-    requestId: streamId, 
+
+  logger.aiSdk.debug("Received chat stream request", {
+    requestId: streamId,
     model: request.model,
-    messagesCount: request.messages.length 
+    messagesCount: request.messages.length,
   });
-  
+
   // Track cancellation state
   let isCancelled = false;
-  
+
   // Store cancellation function
   activeStreams.set(streamId, {
     cancel: () => {
       isCancelled = true;
       logger.aiSdk.info("Stream cancelled", { streamId });
-    }
+    },
   });
 
   // Start streaming immediately - listeners should be ready (Expo pattern)
@@ -298,13 +314,21 @@ ipcMain.handle("levante/chat/stream", async (event, request: ChatRequest) => {
         logger.aiSdk.debug("Received chunk from AI service", {
           streamId,
           chunkCount,
-          chunkType: chunk.delta ? 'delta' : chunk.done ? 'done' : chunk.error ? 'error' : 'other',
-          chunk
+          chunkType: chunk.delta
+            ? "delta"
+            : chunk.done
+              ? "done"
+              : chunk.error
+                ? "error"
+                : "other",
+          chunk,
         });
 
         // Check if stream was cancelled
         if (isCancelled) {
-          logger.aiSdk.info("Stream cancelled, stopping generation", { streamId });
+          logger.aiSdk.info("Stream cancelled, stopping generation", {
+            streamId,
+          });
           event.sender.send(`levante/chat/stream/${streamId}`, {
             error: "Stream cancelled by user",
             done: true,
@@ -313,23 +337,29 @@ ipcMain.handle("levante/chat/stream", async (event, request: ChatRequest) => {
         }
 
         // Send chunk immediately without buffering (pattern from Expo)
-        logger.aiSdk.debug("Sending chunk to renderer", { streamId, chunkCount });
+        // logger.aiSdk.debug("Sending chunk to renderer", { streamId, chunkCount });
         event.sender.send(`levante/chat/stream/${streamId}`, chunk);
         // Small yield to prevent blocking the event loop
         await new Promise((resolve) => setImmediate(resolve));
 
         // Log when stream completes
         if (chunk.done) {
-          logger.aiSdk.info("AI stream completed successfully", { streamId, totalChunks: chunkCount });
+          logger.aiSdk.info("AI stream completed successfully", {
+            streamId,
+            totalChunks: chunkCount,
+          });
           break;
         }
       }
-      logger.aiSdk.info("Exited streaming loop", { streamId, totalChunks: chunkCount });
+      logger.aiSdk.info("Exited streaming loop", {
+        streamId,
+        totalChunks: chunkCount,
+      });
     } catch (error) {
       logger.aiSdk.error("AI Stream error", {
         streamId,
         error: error instanceof Error ? error.message : error,
-        stack: error instanceof Error ? error.stack : undefined
+        stack: error instanceof Error ? error.stack : undefined,
       });
       event.sender.send(`levante/chat/stream/${streamId}`, {
         error: error instanceof Error ? error.message : "Stream error",
@@ -349,7 +379,7 @@ ipcMain.handle("levante/chat/stream", async (event, request: ChatRequest) => {
 // Stop streaming handler
 ipcMain.handle("levante/chat/stop-stream", async (event, streamId: string) => {
   logger.aiSdk.debug("Received stop stream request", { streamId });
-  
+
   try {
     const streamControl = activeStreams.get(streamId);
     if (streamControl) {
@@ -362,13 +392,13 @@ ipcMain.handle("levante/chat/stop-stream", async (event, streamId: string) => {
       return { success: false, error: "Stream not found or already completed" };
     }
   } catch (error) {
-    logger.aiSdk.error("Error stopping stream", { 
+    logger.aiSdk.error("Error stopping stream", {
       streamId,
-      error: error instanceof Error ? error.message : error 
+      error: error instanceof Error ? error.message : error,
     });
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : "Unknown error" 
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
     };
   }
 });
@@ -391,9 +421,9 @@ ipcMain.handle("levante/chat/send", async (event, request: ChatRequest) => {
 
 // Deep link handlers
 // macOS: Handle protocol URLs via 'open-url' event
-app.on('open-url', (event, url) => {
+app.on("open-url", (event, url) => {
   event.preventDefault();
-  logger.core.info('Received deep link URL (open-url)', { url });
+  logger.core.info("Received deep link URL (open-url)", { url });
   deepLinkService.handleDeepLink(url);
 });
 
@@ -402,12 +432,14 @@ app.on('open-url', (event, url) => {
 app.whenReady().then(() => {
   // Check if app was launched with a deep link URL
   const args = process.argv;
-  logger.core.debug('Process arguments', { args });
+  logger.core.debug("Process arguments", { args });
 
   // Look for levante:// protocol in arguments
-  const deepLinkUrl = args.find(arg => arg.startsWith('levante://'));
+  const deepLinkUrl = args.find((arg) => arg.startsWith("levante://"));
   if (deepLinkUrl) {
-    logger.core.info('Received deep link URL (command-line)', { url: deepLinkUrl });
+    logger.core.info("Received deep link URL (command-line)", {
+      url: deepLinkUrl,
+    });
     // Wait a bit to ensure window is ready
     setTimeout(() => {
       deepLinkService.handleDeepLink(deepLinkUrl);
