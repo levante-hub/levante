@@ -161,6 +161,52 @@ class UpdateService {
   }
 
   /**
+   * Get latest release version from GitHub
+   * Includes pre-releases if current version is beta
+   */
+  private async getLatestRemoteVersion(): Promise<string | null> {
+    try {
+      const isBeta = this.isBetaVersion();
+      const url = `https://api.github.com/repos/${this.repo}/releases`;
+
+      const response = await fetch(url, {
+        headers: {
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'Levante-App'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`GitHub API error: ${response.status}`);
+      }
+
+      const releases = await response.json();
+
+      // Filter releases based on version type
+      const validReleases = releases.filter((release: any) => {
+        if (isBeta) {
+          // For beta versions, include all releases (stable and pre-release)
+          return true;
+        } else {
+          // For stable versions, only include stable releases
+          return !release.prerelease;
+        }
+      });
+
+      if (validReleases.length > 0) {
+        return validReleases[0].tag_name;
+      }
+
+      return null;
+    } catch (error) {
+      logger.core.error('Failed to fetch latest version from GitHub', {
+        error: error instanceof Error ? error.message : String(error)
+      });
+      return null;
+    }
+  }
+
+  /**
    * Manually check for updates
    * Triggers the same auto-update mechanism as background checks
    * Downloads and installs updates automatically, then prompts to restart
@@ -199,12 +245,25 @@ class UpdateService {
       logger.core.info('Triggering manual update check via autoUpdater');
 
       // Set up one-time event listeners for this manual check
-      const updateNotAvailableHandler = () => {
+      const updateNotAvailableHandler = async () => {
+        // Fetch latest remote version to show in dialog
+        const latestVersion = await this.getLatestRemoteVersion();
+        const currentVersion = app.getVersion();
+        const isBeta = this.isBetaVersion();
+
+        let detail = `Current version: ${currentVersion}`;
+        if (latestVersion) {
+          detail += `\nLatest version checked: ${latestVersion}`;
+          if (isBeta) {
+            detail += '\n\n(Beta channel: checking for pre-releases)';
+          }
+        }
+
         dialog.showMessageBox({
           type: 'info',
           title: 'No Updates Available',
           message: 'You are running the latest version',
-          detail: `Current version: ${app.getVersion()}`,
+          detail,
           buttons: ['OK'],
           icon: this.getAppIcon()
         }).finally(() => {
