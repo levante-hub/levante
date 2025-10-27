@@ -197,20 +197,20 @@ export const ModelList = ({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-yellow-500" />
-              Free Model Privacy Notice
+              {t('free_model_warning.title')}
             </DialogTitle>
             <DialogDescription className="space-y-3 pt-4">
               <p>
-                When you use a free model on OpenRouter, your prompts and completions may be shared with the provider team and published to public datasets.
+                {t('free_model_warning.description_1')}
               </p>
               <p>
-                If you're comfortable with this, you need to enable this in your OpenRouter privacy settings:
+                {t('free_model_warning.description_2')}
               </p>
               <div className="bg-muted p-3 rounded-md text-sm space-y-2">
-                <p className="font-medium">Required settings:</p>
+                <p className="font-medium">{t('free_model_warning.required_settings')}</p>
                 <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                  <li>Enable free endpoints that may publish prompts</li>
-                  <li>Allow free model providers to publish your prompts and completions to public datasets</li>
+                  <li>{t('free_model_warning.setting_1')}</li>
+                  <li>{t('free_model_warning.setting_2')}</li>
                 </ul>
               </div>
             </DialogDescription>
@@ -220,7 +220,7 @@ export const ModelList = ({
               variant="outline"
               onClick={handleCancelFreeModel}
             >
-              Cancel
+              {t('free_model_warning.cancel')}
             </Button>
             <div className="flex gap-2">
               <Button
@@ -230,12 +230,12 @@ export const ModelList = ({
                 }}
               >
                 <ExternalLink className="w-4 h-4 mr-2" />
-                Privacy Settings
+                {t('free_model_warning.privacy_settings')}
               </Button>
               <Button
                 onClick={handleConfirmFreeModel}
               >
-                Continue
+                {t('free_model_warning.continue')}
               </Button>
             </div>
           </DialogFooter>
