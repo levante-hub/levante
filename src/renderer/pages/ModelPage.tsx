@@ -308,6 +308,7 @@ const ModelPage = () => {
                     showSelection={activeProvider.modelSource === 'dynamic'}
                     onModelToggle={handleModelToggle}
                     searchQuery={searchQuery}
+                    providerType={activeProvider.type}
                   />
                 </>
               )}
