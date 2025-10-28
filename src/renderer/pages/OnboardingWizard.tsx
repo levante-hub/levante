@@ -161,6 +161,21 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps = {}) {
 
       // Sync models from provider
       await syncProviderModels(selectedProvider);
+
+      // Auto-select Claude 4.5 Haiku for OpenRouter
+      if (selectedProvider === 'openrouter') {
+        try {
+          const claudeHaikuId = 'anthropic/claude-haiku-4.5';
+          await updateProvider(selectedProvider, {
+            selectedModelIds: [claudeHaikuId]
+          });
+
+          // Re-sync to apply the selection
+          await syncProviderModels(selectedProvider);
+        } catch (error) {
+          console.error('Failed to auto-select Claude 4.5 Haiku:', error);
+        }
+      }
     } catch (error) {
       console.error('Failed to save provider config:', error);
     }
@@ -203,6 +218,21 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps = {}) {
 
         // Sync models from provider
         await syncProviderModels(selectedProvider);
+
+        // Auto-select Claude 4.5 Haiku for OpenRouter
+        if (selectedProvider === 'openrouter') {
+          try {
+            const claudeHaikuId = 'anthropic/claude-haiku-4.5';
+            await updateProvider(selectedProvider, {
+              selectedModelIds: [claudeHaikuId]
+            });
+
+            // Re-sync to apply the selection
+            await syncProviderModels(selectedProvider);
+          } catch (error) {
+            console.error('Failed to auto-select Claude 4.5 Haiku:', error);
+          }
+        }
       } else {
         setValidationStatus('invalid');
         setValidationError(
