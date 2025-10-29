@@ -1,4 +1,3 @@
-import * as fs from 'fs/promises';
 import { directoryService } from './directoryService';
 import { getLogger } from './logging';
 import type { UserProfile, WizardCompletionData } from '../../types/userProfile';
@@ -8,6 +7,7 @@ export class UserProfileService {
   private logger = getLogger();
   private initialized = false;
   private profile: UserProfile | null = null;
+  private store: any;
 
   constructor() {}
 
@@ -18,13 +18,62 @@ export class UserProfileService {
     if (this.initialized) return;
 
     try {
+      const Store = (await import('electron-store')).default;
+
       await directoryService.ensureBaseDir();
-      this.profile = await this.loadProfile();
+
+      // Initialize electron-store for user-profile (no encryption needed)
+      this.store = new Store({
+        name: 'user-profile',
+        cwd: directoryService.getBaseDir(),
+        // No encryption - user-profile doesn't contain sensitive data
+        defaults: DEFAULT_USER_PROFILE,
+        schema: {
+          wizard: {
+            type: 'string',
+            enum: ['not_started', 'in_progress', 'completed'],
+            default: 'not_started'
+          },
+          completedAt: {
+            type: 'string'
+          },
+          initialProvider: {
+            type: 'string'
+          },
+          version: {
+            type: 'string',
+            default: '1.0.0'
+          },
+          userId: {
+            type: 'string'
+          },
+          installedAt: {
+            type: 'string'
+          },
+          personalization: {
+            type: 'object',
+            properties: {
+              enabled: { type: 'boolean', default: false },
+              personality: {
+                type: 'string',
+                enum: ['default', 'cynic', 'robot', 'listener', 'nerd'],
+                default: 'default'
+              },
+              customInstructions: { type: 'string', default: '' },
+              nickname: { type: 'string' },
+              occupation: { type: 'string' },
+              aboutUser: { type: 'string' }
+            }
+          }
+        }
+      });
+
+      this.profile = this.store.store;
       this.initialized = true;
 
       this.logger.core.info('UserProfileService initialized', {
-        wizardStatus: this.profile.wizard,
-        profileExists: !!this.profile,
+        wizardStatus: this.profile?.wizard,
+        storePath: this.store.path
       });
     } catch (error) {
       this.logger.core.error('Failed to initialize UserProfileService', {
@@ -35,74 +84,11 @@ export class UserProfileService {
   }
 
   /**
-   * Load user profile from ~/levante/user-profile.json
+   * Ensure service is initialized
    */
-  private async loadProfile(): Promise<UserProfile> {
-    const profilePath = directoryService.getUserProfilePath();
-
-    try {
-      const exists = await directoryService.fileExists('user-profile.json');
-
-      if (!exists) {
-        this.logger.core.info('User profile does not exist, creating default', {
-          profilePath,
-        });
-
-        // Create default profile with installation timestamp
-        const defaultProfile: UserProfile = {
-          ...DEFAULT_USER_PROFILE,
-          installedAt: new Date().toISOString(),
-        };
-
-        await this.saveProfile(defaultProfile);
-        return defaultProfile;
-      }
-
-      const content = await fs.readFile(profilePath, 'utf-8');
-      const profile = JSON.parse(content) as UserProfile;
-
-      this.logger.core.debug('User profile loaded', {
-        profilePath,
-        wizardStatus: profile.wizard,
-      });
-
-      return profile;
-    } catch (error) {
-      this.logger.core.error('Failed to load user profile', {
-        profilePath,
-        error: error instanceof Error ? error.message : error,
-      });
-
-      // Return default profile on error
-      return { ...DEFAULT_USER_PROFILE };
-    }
-  }
-
-  /**
-   * Save user profile to ~/levante/user-profile.json
-   */
-  private async saveProfile(profile: UserProfile): Promise<void> {
-    const profilePath = directoryService.getUserProfilePath();
-
-    try {
-      await fs.writeFile(
-        profilePath,
-        JSON.stringify(profile, null, 2),
-        'utf-8'
-      );
-
-      this.profile = profile;
-
-      this.logger.core.debug('User profile saved', {
-        profilePath,
-        wizardStatus: profile.wizard,
-      });
-    } catch (error) {
-      this.logger.core.error('Failed to save user profile', {
-        profilePath,
-        error: error instanceof Error ? error.message : error,
-      });
-      throw error;
+  private ensureInitialized(): void {
+    if (!this.initialized || !this.store) {
+      throw new Error('UserProfileService not initialized. Call initialize() first.');
     }
   }
 
@@ -114,7 +100,15 @@ export class UserProfileService {
       await this.initialize();
     }
 
-    return this.profile || { ...DEFAULT_USER_PROFILE };
+    this.ensureInitialized();
+    const profile = this.store.store as UserProfile;
+
+    // Ensure installedAt is set for existing profiles
+    if (!profile.installedAt) {
+      this.store.set('installedAt', new Date().toISOString());
+    }
+
+    return profile;
   }
 
   /**
@@ -125,16 +119,19 @@ export class UserProfileService {
       await this.initialize();
     }
 
-    const currentProfile = await this.getProfile();
-    const updatedProfile: UserProfile = {
-      ...currentProfile,
-      ...updates,
-    };
+    this.ensureInitialized();
 
-    await this.saveProfile(updatedProfile);
+    // Update each field individually
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value !== undefined) {
+        this.store.set(key, value);
+      }
+    });
+
+    const updatedProfile = this.store.store as UserProfile;
 
     this.logger.core.info('User profile updated', {
-      updates,
+      updates: Object.keys(updates),
       wizardStatus: updatedProfile.wizard,
     });
 
@@ -145,11 +142,16 @@ export class UserProfileService {
    * Check if wizard is completed
    */
   async isWizardCompleted(): Promise<boolean> {
-    const profile = await this.getProfile();
-    const isCompleted = profile.wizard === 'completed';
+    if (!this.initialized) {
+      await this.initialize();
+    }
+
+    this.ensureInitialized();
+    const wizardStatus = this.store.get('wizard');
+    const isCompleted = wizardStatus === 'completed';
 
     this.logger.core.debug('Wizard completion check', {
-      wizardStatus: profile.wizard,
+      wizardStatus,
       isCompleted,
     });
 
@@ -160,18 +162,24 @@ export class UserProfileService {
    * Check wizard status
    */
   async getWizardStatus(): Promise<'not_started' | 'in_progress' | 'completed'> {
-    const profile = await this.getProfile();
-    return profile.wizard;
+    if (!this.initialized) {
+      await this.initialize();
+    }
+
+    this.ensureInitialized();
+    return this.store.get('wizard');
   }
 
   /**
    * Mark wizard as in progress
    */
   async markWizardInProgress(): Promise<void> {
-    await this.updateProfile({
-      wizard: 'in_progress',
-    });
+    if (!this.initialized) {
+      await this.initialize();
+    }
 
+    this.ensureInitialized();
+    this.store.set('wizard', 'in_progress');
     this.logger.core.info('Wizard marked as in progress');
   }
 
@@ -179,12 +187,16 @@ export class UserProfileService {
    * Complete wizard with provider information
    */
   async completeWizard(data: WizardCompletionData): Promise<void> {
-    await this.updateProfile({
-      wizard: 'completed',
-      completedAt: data.timestamp,
-      initialProvider: data.provider,
-      version: data.version,
-    });
+    if (!this.initialized) {
+      await this.initialize();
+    }
+
+    this.ensureInitialized();
+
+    this.store.set('wizard', 'completed');
+    this.store.set('completedAt', data.timestamp);
+    this.store.set('initialProvider', data.provider);
+    this.store.set('version', data.version);
 
     this.logger.core.info('Wizard completed', {
       provider: data.provider,
@@ -197,11 +209,15 @@ export class UserProfileService {
    * Reset wizard (for testing/debugging)
    */
   async resetWizard(): Promise<void> {
-    await this.updateProfile({
-      wizard: 'not_started',
-      completedAt: undefined,
-      initialProvider: undefined,
-    });
+    if (!this.initialized) {
+      await this.initialize();
+    }
+
+    this.ensureInitialized();
+
+    this.store.set('wizard', 'not_started');
+    this.store.delete('completedAt');
+    this.store.delete('initialProvider');
 
     this.logger.core.warn('Wizard reset');
   }
@@ -209,8 +225,13 @@ export class UserProfileService {
   /**
    * Get user profile file path
    */
-  getProfilePath(): string {
-    return directoryService.getUserProfilePath();
+  async getProfilePath(): Promise<string> {
+    if (!this.initialized) {
+      await this.initialize();
+    }
+
+    this.ensureInitialized();
+    return this.store.path;
   }
 }
 

@@ -34,7 +34,6 @@ export interface UIPreferences {
     maxSteps: number;
   };
   hasAcceptedFreeModelWarning?: boolean;
-  hasAcceptedPaidModelWarning?: boolean;
 }
 
 export type PreferenceKey = keyof UIPreferences;
@@ -76,6 +75,5 @@ export const DEFAULT_PREFERENCES: UIPreferences = {
     baseSteps: 5,
     maxSteps: 20
   },
-  hasAcceptedFreeModelWarning: false,
-  hasAcceptedPaidModelWarning: false
+  hasAcceptedFreeModelWarning: false
 };

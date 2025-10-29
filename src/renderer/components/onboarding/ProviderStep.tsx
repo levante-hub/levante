@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -9,9 +10,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { CheckCircle2, XCircle, Loader2, ExternalLink } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { CheckCircle2, XCircle, Loader2, ExternalLink, ChevronDown, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useOpenRouterOAuth } from '@/hooks/useOpenRouterOAuth';
+import type { Model } from '../../../types/models';
 
 interface ProviderStepProps {
   selectedProvider: string;
@@ -19,10 +22,13 @@ interface ProviderStepProps {
   endpoint: string;
   validationStatus: 'idle' | 'validating' | 'valid' | 'invalid';
   validationError: string;
+  availableModels: Model[];
+  selectedModel: string | null;
   onProviderChange: (provider: string) => void;
   onApiKeyChange: (key: string) => void;
   onEndpointChange: (endpoint: string) => void;
   onValidate: () => void;
+  onModelSelect: (modelId: string) => void;
   onOAuthSuccess?: (apiKey: string) => void;
 }
 
@@ -35,7 +41,7 @@ const PROVIDERS = [
     signupUrl: 'https://openrouter.ai/keys',
   },
   {
-    id: 'gateway',
+    id: 'vercel-gateway',
     name: 'Vercel AI Gateway',
     description: 'Enterprise AI routing and fallback',
     requiresKey: true,
@@ -77,14 +83,19 @@ export function ProviderStep({
   endpoint,
   validationStatus,
   validationError,
+  availableModels,
+  selectedModel,
   onProviderChange,
   onApiKeyChange,
   onEndpointChange,
   onValidate,
+  onModelSelect,
   onOAuthSuccess,
 }: ProviderStepProps) {
   const { t } = useTranslation('wizard');
   const provider = PROVIDERS.find((p) => p.id === selectedProvider);
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
+  const [modelSearchQuery, setModelSearchQuery] = useState('');
 
   // OAuth hook for OpenRouter
   const { isAuthenticating, initiateOAuthFlow } = useOpenRouterOAuth({
@@ -180,97 +191,236 @@ export function ProviderStep({
               </div>
             )}
 
-            {/* API Key Field - Secondary for OpenRouter, Primary for others */}
-            {showApiKeyField && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="apiKey" className={selectedProvider === 'openrouter' ? 'text-sm font-normal' : ''}>
-                    {selectedProvider === 'openrouter' ? `${t('provider.api_key')} (manual)` : t('provider.api_key')}
-                  </Label>
-                  {provider?.signupUrl && (
-                    <a
-                      href={provider.signupUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-primary hover:underline flex items-center gap-1"
+            {/* OpenRouter: Collapsible Advanced Section */}
+            {selectedProvider === 'openrouter' && (
+              <Collapsible open={isAdvancedOpen} onOpenChange={setIsAdvancedOpen}>
+                <div className="border rounded-lg">
+                  <CollapsibleTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-between p-3 h-auto font-normal hover:bg-accent rounded-lg"
+                      type="button"
                     >
-                      {t('provider.get_api_key')}
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  )}
+                      <span className="text-sm text-muted-foreground">{t('provider.advanced')}</span>
+                      <ChevronDown
+                        className={`h-4 w-4 text-muted-foreground transition-transform ${
+                          isAdvancedOpen ? 'transform rotate-180' : ''
+                        }`}
+                      />
+                    </Button>
+                  </CollapsibleTrigger>
+
+                  <CollapsibleContent className="space-y-4 px-3 pb-3">
+                    {/* API Key Field - Manual for OpenRouter */}
+                    {showApiKeyField && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="apiKey" className="text-sm font-normal">
+                            {t('provider.api_key')} (manual)
+                          </Label>
+                          {provider?.signupUrl && (
+                            <a
+                              href={provider.signupUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-primary hover:underline flex items-center gap-1"
+                            >
+                              {t('provider.get_api_key')}
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          )}
+                        </div>
+                        <Input
+                          id="apiKey"
+                          type="password"
+                          placeholder={t('provider.enter_api_key')}
+                          value={apiKey}
+                          onChange={(e) => onApiKeyChange(e.target.value)}
+                          className="font-mono text-sm"
+                        />
+                      </div>
+                    )}
+
+                    <div className="pt-2">
+                      <Button
+                        onClick={onValidate}
+                        disabled={validationStatus === 'validating' || !canValidate()}
+                        className="w-full"
+                        variant={validationStatus === 'valid' ? 'default' : 'outline'}
+                      >
+                        {validationStatus === 'validating' ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            {t('provider.testing_connection')}
+                          </>
+                        ) : validationStatus === 'valid' ? (
+                          <>
+                            <CheckCircle2 className="mr-2 h-4 w-4" />
+                            {t('provider.connection_verified')}
+                          </>
+                        ) : (
+                          t('provider.test_connection')
+                        )}
+                      </Button>
+                    </div>
+                  </CollapsibleContent>
                 </div>
-                <Input
-                  id="apiKey"
-                  type="password"
-                  placeholder={t('provider.enter_api_key')}
-                  value={apiKey}
-                  onChange={(e) => onApiKeyChange(e.target.value)}
-                  className="font-mono text-sm"
-                />
-              </div>
+              </Collapsible>
             )}
 
-            {showEndpointField && (
-              <div className="space-y-2">
-                <Label htmlFor="endpoint">{t('provider.endpoint')}</Label>
-                <Input
-                  id="endpoint"
-                  type="url"
-                  placeholder="http://localhost:11434"
-                  value={endpoint}
-                  onChange={(e) => onEndpointChange(e.target.value)}
-                  className="font-mono text-sm"
-                />
-                <p className="text-xs text-muted-foreground">
-                  {t('provider.endpoint_description')}
-                </p>
-              </div>
-            )}
-
-            {selectedProvider === 'gateway' && (
-              <div className="space-y-2">
-                <Label htmlFor="gateway-endpoint">{t('provider.base_url_optional')}</Label>
-                <Input
-                  id="gateway-endpoint"
-                  type="url"
-                  placeholder="https://your-gateway.vercel.app"
-                  value={endpoint}
-                  onChange={(e) => onEndpointChange(e.target.value)}
-                  className="font-mono text-sm"
-                />
-              </div>
-            )}
-
-            <div className="pt-2">
-              <Button
-                onClick={onValidate}
-                disabled={validationStatus === 'validating' || !canValidate()}
-                className="w-full"
-                variant={validationStatus === 'valid' ? 'default' : 'outline'}
-              >
-                {validationStatus === 'validating' ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {t('provider.testing_connection')}
-                  </>
-                ) : validationStatus === 'valid' ? (
-                  <>
-                    <CheckCircle2 className="mr-2 h-4 w-4" />
-                    {t('provider.connection_verified')}
-                  </>
-                ) : (
-                  t('provider.test_connection')
+            {/* Other Providers: Direct API Key and Connection Test */}
+            {selectedProvider !== 'openrouter' && (
+              <>
+                {/* API Key Field - Primary for non-OpenRouter */}
+                {showApiKeyField && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="apiKey">{t('provider.api_key')}</Label>
+                      {provider?.signupUrl && (
+                        <a
+                          href={provider.signupUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-primary hover:underline flex items-center gap-1"
+                        >
+                          {t('provider.get_api_key')}
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
+                    </div>
+                    <Input
+                      id="apiKey"
+                      type="password"
+                      placeholder={t('provider.enter_api_key')}
+                      value={apiKey}
+                      onChange={(e) => onApiKeyChange(e.target.value)}
+                      className="font-mono text-sm"
+                    />
+                  </div>
                 )}
-              </Button>
-            </div>
+
+                {showEndpointField && (
+                  <div className="space-y-2">
+                    <Label htmlFor="endpoint">{t('provider.endpoint')}</Label>
+                    <Input
+                      id="endpoint"
+                      type="url"
+                      placeholder="http://localhost:11434"
+                      value={endpoint}
+                      onChange={(e) => onEndpointChange(e.target.value)}
+                      className="font-mono text-sm"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {t('provider.endpoint_description')}
+                    </p>
+                  </div>
+                )}
+
+                {selectedProvider === 'vercel-gateway' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="gateway-endpoint">{t('provider.base_url_optional')}</Label>
+                    <Input
+                      id="gateway-endpoint"
+                      type="url"
+                      placeholder="https://your-gateway.vercel.app"
+                      value={endpoint}
+                      onChange={(e) => onEndpointChange(e.target.value)}
+                      className="font-mono text-sm"
+                    />
+                  </div>
+                )}
+
+                <div className="pt-2">
+                  <Button
+                    onClick={onValidate}
+                    disabled={validationStatus === 'validating' || !canValidate()}
+                    className="w-full"
+                    variant={validationStatus === 'valid' ? 'default' : 'outline'}
+                  >
+                    {validationStatus === 'validating' ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        {t('provider.testing_connection')}
+                      </>
+                    ) : validationStatus === 'valid' ? (
+                      <>
+                        <CheckCircle2 className="mr-2 h-4 w-4" />
+                        {t('provider.connection_verified')}
+                      </>
+                    ) : (
+                      t('provider.test_connection')
+                    )}
+                  </Button>
+                </div>
+              </>
+            )}
 
             {validationStatus === 'valid' && (
-              <Alert className="border-green-500/50 bg-green-500/10 dark:bg-green-500/20 [&>svg]:top-3.5">
-                <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
-                <AlertDescription className="text-green-700 dark:text-green-300">
-                  {t('provider.validation_success')}
-                </AlertDescription>
-              </Alert>
+              <>
+                <Alert className="border-green-500/50 bg-green-500/10 dark:bg-green-500/20 [&>svg]:top-3.5">
+                  <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  <AlertDescription className="text-green-700 dark:text-green-300">
+                    {t('provider.validation_success')}
+                  </AlertDescription>
+                </Alert>
+
+                {/* Model Selector */}
+                {availableModels.length > 0 && (
+                  <div className="space-y-2">
+                    <Label htmlFor="model-select">
+                      {t('provider.select_model')}
+                    </Label>
+                    <Select
+                      value={selectedModel || ''}
+                      onValueChange={onModelSelect}
+                    >
+                      <SelectTrigger id="model-select">
+                        <SelectValue placeholder={t('provider.select_model_placeholder')} />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[400px]">
+                        {/* Search Input */}
+                        <div className="sticky top-0 bg-popover p-2 border-b z-10">
+                          <div className="relative">
+                            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              placeholder={t('provider.search_models')}
+                              value={modelSearchQuery}
+                              onChange={(e) => setModelSearchQuery(e.target.value)}
+                              className="pl-8 h-9"
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                        </div>
+                        {/* Models List */}
+                        <div className="max-h-[300px] overflow-y-auto">
+                          {availableModels
+                            .filter((model) =>
+                              model.name.toLowerCase().includes(modelSearchQuery.toLowerCase()) ||
+                              model.id.toLowerCase().includes(modelSearchQuery.toLowerCase())
+                            )
+                            .map((model) => (
+                              <SelectItem key={model.id} value={model.id}>
+                                {model.name}
+                              </SelectItem>
+                            ))}
+                          {availableModels.filter((model) =>
+                            model.name.toLowerCase().includes(modelSearchQuery.toLowerCase()) ||
+                            model.id.toLowerCase().includes(modelSearchQuery.toLowerCase())
+                          ).length === 0 && (
+                            <div className="py-6 text-center text-sm text-muted-foreground">
+                              {t('provider.no_models_found')}
+                            </div>
+                          )}
+                        </div>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      {t('provider.can_change_later')}
+                    </p>
+                  </div>
+                )}
+              </>
             )}
 
             {validationStatus === 'invalid' && (

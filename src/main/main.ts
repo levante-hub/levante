@@ -13,6 +13,7 @@ import { setupWizardHandlers } from "./ipc/wizardHandlers";
 import { setupProfileHandlers } from "./ipc/profileHandlers";
 import { preferencesService } from "./services/preferencesService";
 import { userProfileService } from "./services/userProfileService";
+import { configMigrationService } from "./services/configMigrationService";
 import { getLogger, initializeLogger } from "./services/logging";
 import { createApplicationMenu } from "./menu";
 import { updateService } from "./services/updateService";
@@ -141,7 +142,7 @@ function createWindow(): void {
   mainWindow.webContents.setWindowOpenHandler((details) => {
     // Validate and open URL with protocol allowlist (http, https, mailto only)
     // Blocks file://, javascript:, and other dangerous protocols
-    safeOpenExternal(details.url, 'window-open-handler');
+    safeOpenExternal(details.url, "window-open-handler");
     return { action: "deny" };
   });
 }
@@ -162,6 +163,18 @@ app.whenReady().then(async () => {
       error: error instanceof Error ? error.message : error,
     });
     // Could show error dialog or continue with degraded functionality
+  }
+
+  // Run configuration migrations BEFORE initializing services
+  // This ensures old JSON files are migrated before electron-store loads them
+  try {
+    await configMigrationService.runMigrations();
+    logger.core.info("Config migrations completed successfully");
+  } catch (error) {
+    logger.core.error("Failed to run config migrations", {
+      error: error instanceof Error ? error.message : error,
+    });
+    // Continue with degraded functionality
   }
 
   // Initialize preferences service
@@ -283,39 +296,39 @@ ipcMain.handle("levante/app/check-for-updates", async () => {
 // Handle opening external URLs with protocol validation
 ipcMain.handle("levante/app/open-external", async (event, url: string) => {
   // Use centralized validation to prevent RCE via file://, javascript:, etc.
-  return await safeOpenExternal(url, 'ipc-handler');
+  return await safeOpenExternal(url, "ipc-handler");
 });
 
 // OAuth callback server handlers
 ipcMain.handle("levante/oauth/start-server", async () => {
   try {
-    logger.core.info('Starting OAuth callback server');
+    logger.core.info("Starting OAuth callback server");
     const result = await oauthCallbackServer.start();
-    logger.core.info('OAuth callback server started', result);
+    logger.core.info("OAuth callback server started", result);
     return { success: true, ...result };
   } catch (error) {
-    logger.core.error('Error starting OAuth callback server', {
-      error: error instanceof Error ? error.message : error
+    logger.core.error("Error starting OAuth callback server", {
+      error: error instanceof Error ? error.message : error,
     });
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : "Unknown error",
     };
   }
 });
 
 ipcMain.handle("levante/oauth/stop-server", async () => {
   try {
-    logger.core.info('Stopping OAuth callback server');
+    logger.core.info("Stopping OAuth callback server");
     await oauthCallbackServer.stop();
     return { success: true };
   } catch (error) {
-    logger.core.error('Error stopping OAuth callback server', {
-      error: error instanceof Error ? error.message : error
+    logger.core.error("Error stopping OAuth callback server", {
+      error: error instanceof Error ? error.message : error,
     });
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : "Unknown error",
     };
   }
 });
@@ -356,18 +369,18 @@ ipcMain.handle("levante/chat/stream", async (event, request: ChatRequest) => {
       let chunkCount = 0;
       for await (const chunk of aiService.streamChat(request)) {
         chunkCount++;
-        logger.aiSdk.debug("Received chunk from AI service", {
-          streamId,
-          chunkCount,
-          chunkType: chunk.delta
-            ? "delta"
-            : chunk.done
-              ? "done"
-              : chunk.error
-                ? "error"
-                : "other",
-          chunk,
-        });
+        // logger.aiSdk.debug("Received chunk from AI service", {
+        //   streamId,
+        //   chunkCount,
+        //   chunkType: chunk.delta
+        //     ? "delta"
+        //     : chunk.done
+        //       ? "done"
+        //       : chunk.error
+        //         ? "error"
+        //         : "other",
+        //   chunk,
+        // });
 
         // Check if stream was cancelled
         if (isCancelled) {

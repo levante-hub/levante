@@ -59,9 +59,9 @@ export function setupProfileHandlers() {
 
   // Get profile file path
   ipcMain.removeHandler('levante/profile/get-path');
-  ipcMain.handle('levante/profile/get-path', () => {
+  ipcMain.handle('levante/profile/get-path', async () => {
     try {
-      const path = userProfileService.getProfilePath();
+      const path = await userProfileService.getProfilePath();
 
       logger.ipc.debug('Profile path retrieved', { path });
 

@@ -2,6 +2,7 @@ import { BrowserWindow } from 'electron';
 import { UIPreferences, PreferenceKey, DEFAULT_PREFERENCES, PreferenceChangeEvent } from '../../types/preferences';
 import { getLogger } from './logging';
 import { directoryService } from './directoryService';
+import { encryptProvidersApiKeys, decryptProvidersApiKeys } from '../utils/encryption';
 
 export class PreferencesService {
   private logger = getLogger();
@@ -17,13 +18,14 @@ export class PreferencesService {
 
     try {
       const Store = (await import('electron-store')).default;
-      
+
       // Ensure ~/levante directory exists
       await directoryService.ensureBaseDir();
-      
+
       this.store = new Store({
       name: 'ui-preferences',
       cwd: directoryService.getBaseDir(), // Store preferences in ~/levante/ directory
+      // No encryption key - we'll encrypt specific values manually
       defaults: DEFAULT_PREFERENCES,
       schema: {
         theme: {
@@ -131,35 +133,46 @@ export class PreferencesService {
 
   get<K extends PreferenceKey>(key: K): UIPreferences[K] {
     this.ensureInitialized();
-    const value = this.store.get(key);
-    
+    let value = this.store.get(key);
+
+    // Decrypt providers' API keys when reading
+    if (key === 'providers' && Array.isArray(value)) {
+      value = decryptProvidersApiKeys(value);
+    }
+
     // Use models category for provider/model related preferences
     const isModelRelated = key === 'providers' || key === 'activeProvider';
     const logger = isModelRelated ? this.logger.models : this.logger.preferences;
-    
-    logger.debug("Retrieved preference", { 
-      key, 
-      value: isModelRelated ? this.summarizeModelData(value) : value 
+
+    logger.debug("Retrieved preference", {
+      key,
+      value: isModelRelated ? this.summarizeModelData(value) : value
     });
-    
+
     return value;
   }
 
   set<K extends PreferenceKey>(key: K, value: UIPreferences[K]): void {
     this.ensureInitialized();
     const previousValue = this.store.get(key);
-    
+
+    // Encrypt providers' API keys before storing
+    let valueToStore = value;
+    if (key === 'providers' && Array.isArray(value)) {
+      valueToStore = encryptProvidersApiKeys(value) as any;
+    }
+
     // Use models category for provider/model related preferences
     const isModelRelated = key === 'providers' || key === 'activeProvider';
     const logger = isModelRelated ? this.logger.models : this.logger.preferences;
-    
+
     logger.debug("Setting preference", {
       key,
       previousValue: isModelRelated ? this.summarizeModelData(previousValue) : previousValue,
       newValue: isModelRelated ? this.summarizeModelData(value) : value
     });
-    
-    this.store.set(key, value);
+
+    this.store.set(key, valueToStore);
     
     // Broadcast change to all renderer processes
     const changeEvent: PreferenceChangeEvent<K> = {
@@ -189,7 +202,13 @@ export class PreferencesService {
 
   getAll(): UIPreferences {
     this.ensureInitialized();
-    const preferences = this.store.store;
+    const preferences = { ...this.store.store };
+
+    // Decrypt providers' API keys
+    if (Array.isArray(preferences.providers)) {
+      preferences.providers = decryptProvidersApiKeys(preferences.providers);
+    }
+
     this.logger.preferences.debug("Retrieved all preferences", { count: Object.keys(preferences).length });
     return preferences;
   }
@@ -229,21 +248,24 @@ export class PreferencesService {
   export(): UIPreferences {
     this.ensureInitialized();
     this.logger.preferences.debug("Exporting preferences");
-    return this.store.store;
+
+    // Use getAll() to ensure decryption
+    return this.getAll();
   }
 
   // Import preferences from JSON
   import(preferences: Partial<UIPreferences>): void {
     this.ensureInitialized();
-    this.logger.preferences.debug("Importing preferences", { 
+    this.logger.preferences.debug("Importing preferences", {
       keys: Object.keys(preferences),
-      count: Object.keys(preferences).length 
+      count: Object.keys(preferences).length
     });
-    
+
     // Validate and merge with existing preferences
     Object.entries(preferences).forEach(([key, value]) => {
       if (key in DEFAULT_PREFERENCES && value !== undefined) {
-        this.store.set(key as PreferenceKey, value);
+        // Use set() method to ensure encryption is applied
+        this.set(key as PreferenceKey, value as any);
       }
     });
   }

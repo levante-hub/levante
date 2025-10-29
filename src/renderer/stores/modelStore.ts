@@ -160,3 +160,7 @@ export const useModelStore = create<ModelState>((set, get) => ({
   setSuccess: (message: string | null) => set({ success: message }),
   clearMessages: () => set({ error: null, success: null }),
 }));
+
+// Helper to get current state outside of React components
+// Useful for imperative operations like polling
+export const getModelStoreState = () => useModelStore.getState();

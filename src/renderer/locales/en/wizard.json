@@ -4,7 +4,8 @@
     "title_bilingual": "Choose your language / Elige tu idioma",
     "description": "Select your preferred language for Levante",
     "detected": "Detected from your system",
-    "change_later": "You can change this later in Settings"
+    "change_later": "You can change this later in Settings",
+    "select_language": "Select your language"
   },
   "welcome": {
     "title": "Welcome to Levante",
@@ -70,6 +71,15 @@
     "connection_verified": "Connection Verified",
     "validation_success": "API key validated successfully! You can proceed to the next step.",
     "select_to_continue": "Select a provider to continue",
+    "select_model": "Select a Model",
+    "select_model_placeholder": "Choose a model",
+    "search_models": "Search models...",
+    "no_models_found": "No models found",
+    "select_model_description": "Choose a model to use as your default. You'll be able to add more or change it later.",
+    "context_length": "Context: {{length}} tokens",
+    "pricing": "Input: ${{input}} / Output: ${{output}} per 1M tokens",
+    "can_change_later": "You can change this at any time",
+    "advanced": "Advanced",
     "oauth": {
       "sign_in": "Sign in with OpenRouter",
       "waiting": "Waiting for authorization...",
