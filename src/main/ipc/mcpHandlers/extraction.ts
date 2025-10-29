@@ -117,65 +117,46 @@ export function registerExtractionHandlers(mcpService: any) {
         hasApiKey: !!finalApiKey,
       });
 
-      // Step 4: Set API key as environment variable temporarily
-      const envVarName = `${finalProvider.toUpperCase()}_API_KEY`;
-      const originalEnvValue = process.env[envVarName];
+      // Security: Pass API key directly to extraction service
+      // DO NOT store in process.env as it can be accessed by child processes
+      logger.mcp.info("Step 4: Starting AI extraction process");
+      const result = await mcpExtractionService.extractConfig({
+        text,
+        userModel: finalModel,
+        userProvider: finalProvider,
+        apiKey: finalApiKey,
+      });
 
-      if (finalApiKey) {
-        logger.mcp.debug("Setting temporary API key in environment", {
-          envVarName,
-        });
-        process.env[envVarName] = finalApiKey;
-      }
+      logger.mcp.debug("Extraction service returned result", {
+        success: result.success,
+        hasConfig: !!result.config,
+        error: result.error,
+      });
 
-      try {
-        // Extract configuration using AI
-        logger.mcp.info("Step 4: Starting AI extraction process");
-        const result = await mcpExtractionService.extractConfig({
-          text,
-          userModel: finalModel,
-          userProvider: finalProvider,
-          apiKey: finalApiKey,
-        });
-
-        logger.mcp.debug("Extraction service returned result", {
-          success: result.success,
-          hasConfig: !!result.config,
+      if (!result.success) {
+        logger.mcp.warn("Extraction unsuccessful", {
           error: result.error,
+          suggestion: result.suggestion,
         });
-
-        if (!result.success) {
-          logger.mcp.warn("Extraction unsuccessful", {
-            error: result.error,
-            suggestion: result.suggestion,
-          });
-          return {
-            success: false,
-            error: result.error,
-            suggestion: result.suggestion,
-          };
-        }
-
-        logger.mcp.info("MCP config extracted successfully", {
-          name: result.config?.name,
-          type: result.config?.type,
-          command: result.config?.command,
-          hasArgs: !!result.config?.args,
-          hasEnv: !!result.config?.env,
-        });
-
         return {
-          success: true,
-          data: result.config,
+          success: false,
+          error: result.error,
+          suggestion: result.suggestion,
         };
-      } finally {
-        // Restore original environment variable
-        if (originalEnvValue !== undefined) {
-          process.env[envVarName] = originalEnvValue;
-        } else if (finalApiKey) {
-          delete process.env[envVarName];
-        }
       }
+
+      logger.mcp.info("MCP config extracted successfully", {
+        name: result.config?.name,
+        type: result.config?.type,
+        command: result.config?.command,
+        hasArgs: !!result.config?.args,
+        hasEnv: !!result.config?.env,
+      });
+
+      return {
+        success: true,
+        data: result.config,
+      };
     } catch (error: any) {
       logger.mcp.error("MCP extraction IPC handler failed", {
         error: error.message,

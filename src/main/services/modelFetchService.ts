@@ -1,4 +1,5 @@
 import { getLogger } from './logging';
+import { validateLocalEndpoint, validatePublicUrl, logBlockedUrl, safeFetch } from '../utils/urlValidator';
 
 interface ModelResponse {
   object: string;
@@ -47,12 +48,19 @@ export class ModelFetchService {
   // Fetch Vercel AI Gateway models
   static async fetchGatewayModels(apiKey: string, baseUrl: string = 'https://ai-gateway.vercel.sh/v1'): Promise<any[]> {
     try {
+      // Security: Validate baseUrl to prevent SSRF if user provides custom gateway
+      const validation = validatePublicUrl(baseUrl);
+      if (!validation.valid) {
+        logBlockedUrl(baseUrl, validation.error || 'Invalid URL', 'fetchGatewayModels');
+        throw new Error(validation.error || 'Invalid gateway URL');
+      }
+
       // For model listing, always use /v1 endpoint (not /v1/ai)
-      const modelsEndpoint = baseUrl.includes('/v1/ai') 
-        ? baseUrl.replace('/v1/ai', '/v1') 
+      const modelsEndpoint = baseUrl.includes('/v1/ai')
+        ? baseUrl.replace('/v1/ai', '/v1')
         : baseUrl;
-        
-      const response = await fetch(`${modelsEndpoint}/models`, {
+
+      const response = await safeFetch(`${modelsEndpoint}/models`, {
         headers: {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json'
@@ -66,7 +74,7 @@ export class ModelFetchService {
       const data: ModelResponse = await response.json();
       return data.data || [];
     } catch (error) {
-      logger.models.error("Failed to fetch Gateway models", { 
+      logger.models.error("Failed to fetch Gateway models", {
         error: error instanceof Error ? error.message : error,
         baseUrl,
         modelsEndpoint: baseUrl.includes('/v1/ai') ? baseUrl.replace('/v1/ai', '/v1') : baseUrl
@@ -78,7 +86,21 @@ export class ModelFetchService {
   // Fetch local models (Ollama)
   static async fetchLocalModels(endpoint: string): Promise<any[]> {
     try {
-      const response = await fetch(`${endpoint}/api/tags`);
+      // Security: Validate endpoint URL to prevent SSRF attacks
+      const validation = validateLocalEndpoint(endpoint);
+      if (!validation.valid) {
+        logBlockedUrl(endpoint, validation.error || 'Invalid URL', 'fetchLocalModels');
+        throw new Error(validation.error || 'Invalid endpoint URL');
+      }
+
+      const url = `${endpoint}/api/tags`;
+
+      // Security: Use safeFetch with 30s timeout to prevent hanging on malicious endpoints
+      const response = await safeFetch(url, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
 
       if (!response.ok) {
         throw new Error(`Local API error: ${response.statusText}`);
@@ -122,8 +144,11 @@ export class ModelFetchService {
   // Fetch Google AI models
   static async fetchGoogleModels(apiKey: string): Promise<any[]> {
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1/models?key=${apiKey}`, {
+      // Security: API key in Authorization header instead of URL query string
+      // This prevents API key exposure in logs, browser history, and network monitoring
+      const response = await safeFetch('https://generativelanguage.googleapis.com/v1/models', {
         headers: {
+          'x-goog-api-key': apiKey,
           'Content-Type': 'application/json'
         }
       });
