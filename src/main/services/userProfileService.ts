@@ -142,6 +142,10 @@ export class UserProfileService {
    * Check if wizard is completed
    */
   async isWizardCompleted(): Promise<boolean> {
+    if (!this.initialized) {
+      await this.initialize();
+    }
+
     this.ensureInitialized();
     const wizardStatus = this.store.get('wizard');
     const isCompleted = wizardStatus === 'completed';
@@ -158,6 +162,10 @@ export class UserProfileService {
    * Check wizard status
    */
   async getWizardStatus(): Promise<'not_started' | 'in_progress' | 'completed'> {
+    if (!this.initialized) {
+      await this.initialize();
+    }
+
     this.ensureInitialized();
     return this.store.get('wizard');
   }
@@ -166,6 +174,10 @@ export class UserProfileService {
    * Mark wizard as in progress
    */
   async markWizardInProgress(): Promise<void> {
+    if (!this.initialized) {
+      await this.initialize();
+    }
+
     this.ensureInitialized();
     this.store.set('wizard', 'in_progress');
     this.logger.core.info('Wizard marked as in progress');
@@ -175,6 +187,10 @@ export class UserProfileService {
    * Complete wizard with provider information
    */
   async completeWizard(data: WizardCompletionData): Promise<void> {
+    if (!this.initialized) {
+      await this.initialize();
+    }
+
     this.ensureInitialized();
 
     this.store.set('wizard', 'completed');
@@ -193,6 +209,10 @@ export class UserProfileService {
    * Reset wizard (for testing/debugging)
    */
   async resetWizard(): Promise<void> {
+    if (!this.initialized) {
+      await this.initialize();
+    }
+
     this.ensureInitialized();
 
     this.store.set('wizard', 'not_started');
@@ -205,7 +225,11 @@ export class UserProfileService {
   /**
    * Get user profile file path
    */
-  getProfilePath(): string {
+  async getProfilePath(): Promise<string> {
+    if (!this.initialized) {
+      await this.initialize();
+    }
+
     this.ensureInitialized();
     return this.store.path;
   }
