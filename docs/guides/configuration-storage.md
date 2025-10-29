@@ -21,14 +21,15 @@ This guide explains Levante's configuration storage architecture, encryption imp
 
 ## Overview
 
-Levante uses **electron-store** for all configuration storage with **automatic encryption** for sensitive data. All configuration files are stored in `~/levante/` directory.
+Levante uses **electron-store** for all configuration storage with **selective encryption** for sensitive data. All configuration files are stored in `~/levante/` directory.
 
 ### Key Features
 
-- ✅ **Encrypted at rest** - Uses Electron's safeStorage API
+- ✅ **Selective encryption** - Only sensitive values (API keys) encrypted using safeStorage API
 - ✅ **Automatic migrations** - Version-controlled schema updates
 - ✅ **Type-safe** - Full TypeScript support with JSON schema validation
 - ✅ **Centralized** - All config in one directory
+- ✅ **Readable JSON** - Files remain human-readable with encrypted values marked
 
 ---
 
@@ -38,10 +39,9 @@ Levante uses **electron-store** for all configuration storage with **automatic e
 
 ```
 ~/levante/
-├── .encryption-key          # Encrypted encryption key (DO NOT commit)
 ├── .config-version          # Migration version tracker
-├── ui-preferences.json      # User interface preferences (encrypted)
-├── user-profile.json        # User profile data (encrypted)
+├── ui-preferences.json      # User interface preferences (API keys encrypted)
+├── user-profile.json        # User profile data (no encryption)
 ├── levante.db              # SQLite database
 └── logs/                   # Application logs
 ```
@@ -138,38 +138,65 @@ Levante uses **electron-store** for all configuration storage with **automatic e
 
 ## Encryption
 
-### How Encryption Works
+### Selective Encryption Approach
 
-1. **Key Generation:**
-   ```typescript
-   // Generate 32-byte random key
-   const key = crypto.randomBytes(32).toString('hex');
-   ```
+Levante uses **selective field-level encryption** - only sensitive values are encrypted, not entire files. This provides:
+- ✅ Security for sensitive data (API keys)
+- ✅ Human-readable configuration files
+- ✅ Easy debugging and troubleshooting
+- ✅ No performance overhead for non-sensitive data
 
-2. **Key Storage:**
-   ```typescript
-   // Encrypt key using Electron's safeStorage
-   const encrypted = safeStorage.encryptString(key);
-   fs.writeFileSync('~/levante/.encryption-key', encrypted);
-   ```
+### How It Works
 
-3. **Key Retrieval:**
-   ```typescript
-   // Decrypt key when needed
-   const encryptedKey = fs.readFileSync('~/levante/.encryption-key');
-   const key = safeStorage.decryptString(encryptedKey);
-   ```
+**1. Configure Encrypted Fields:**
 
-4. **File Encryption:**
-   ```typescript
-   // electron-store automatically encrypts with the key
-   const store = new Store({
-     name: 'ui-preferences',
-     encryptionKey: key  // All data encrypted
-   });
-   ```
+```typescript
+// src/main/utils/encryption.ts
+export const ENCRYPTED_FIELDS = [
+  'providers[].apiKey',  // Encrypt all API keys in providers array
+];
+```
+
+**2. Automatic Encryption on Write:**
+
+```typescript
+// When saving preferences
+await window.levante.preferences.set('providers', [
+  {
+    id: 'openai',
+    apiKey: 'sk-...' // Plain text from user
+  }
+]);
+
+// PreferencesService automatically encrypts API keys
+// Result in ui-preferences.json:
+{
+  "providers": [{
+    "id": "openai",
+    "apiKey": "ENCRYPTED:base64encodeddata..."
+  }]
+}
+```
+
+**3. Automatic Decryption on Read:**
+
+```typescript
+// When reading preferences
+const result = await window.levante.preferences.get('providers');
+
+// PreferencesService automatically decrypts API keys
+// User receives:
+{
+  providers: [{
+    id: 'openai',
+    apiKey: 'sk-...' // Decrypted plain text
+  }]
+}
+```
 
 ### Platform-Specific Protection
+
+Electron's `safeStorage` API provides OS-level encryption:
 
 - **macOS:** Keychain
 - **Windows:** DPAPI (Data Protection API)
@@ -177,12 +204,55 @@ Levante uses **electron-store** for all configuration storage with **automatic e
 
 ### What Gets Encrypted
 
-| File | Encrypted | Contains Secrets |
-|------|-----------|------------------|
-| `ui-preferences.json` | ✅ Yes | ✅ API keys |
-| `user-profile.json` | ✅ Yes | ❌ No secrets |
-| `.encryption-key` | ✅ Yes (by OS) | ✅ Encryption key |
-| `.config-version` | ❌ No | ❌ Version number only |
+| File | Encrypted Fields | Contains Secrets |
+|------|-----------------|------------------|
+| `ui-preferences.json` | `providers[].apiKey` only | ✅ API keys |
+| `user-profile.json` | None | ❌ No secrets |
+| `.config-version` | None | ❌ Version number only |
+
+### Encryption Utility
+
+**Location:** `src/main/utils/encryption.ts`
+
+**Key Functions:**
+
+```typescript
+// Encrypt a single value
+encryptValue(plaintext: string): string
+// Returns: "ENCRYPTED:base64data..."
+
+// Decrypt a single value
+decryptValue(ciphertext: string): string
+// Returns: original plaintext
+
+// Check if value is encrypted
+isEncrypted(value: string): boolean
+// Returns: true if starts with "ENCRYPTED:"
+
+// Encrypt/decrypt provider API keys
+encryptProvidersApiKeys(providers: any[]): any[]
+decryptProvidersApiKeys(providers: any[]): any[]
+```
+
+### Example Encrypted File
+
+**ui-preferences.json:**
+```json
+{
+  "theme": "dark",
+  "language": "en",
+  "providers": [
+    {
+      "id": "openai",
+      "name": "OpenAI",
+      "apiKey": "ENCRYPTED:SGVsbG8gV29ybGQ=",
+      "isActive": true
+    }
+  ]
+}
+```
+
+Note how only the `apiKey` value is encrypted while the rest remains readable.
 
 ---
 
@@ -588,16 +658,18 @@ When modifying configuration:
 ## Security Considerations
 
 ### DO:
-- ✅ Store API keys in encrypted config files
-- ✅ Use electron-store's encryption
-- ✅ Keep `.encryption-key` out of git
-- ✅ Use safeStorage for key management
+- ✅ Store API keys with selective encryption
+- ✅ Use safeStorage for encryption
+- ✅ Add new sensitive fields to `ENCRYPTED_FIELDS` configuration
+- ✅ Test encryption/decryption when adding encrypted fields
+- ✅ Keep config files human-readable for debugging
 
 ### DON'T:
 - ❌ Store secrets in plaintext
-- ❌ Commit encryption keys
-- ❌ Disable encryption for "convenience"
-- ❌ Store passwords (even encrypted - use OS keychain)
+- ❌ Encrypt entire files unnecessarily
+- ❌ Store passwords (use OS keychain/password manager instead)
+- ❌ Skip encryption for API keys or tokens
+- ❌ Remove `ENCRYPTED:` prefix manually from files
 
 ---
 

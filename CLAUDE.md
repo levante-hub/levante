@@ -63,16 +63,15 @@ SQLite database with migrations in `database/migrations/`:
 
 ## Configuration Storage
 
-All configuration is stored in `~/levante/` directory with **automatic encryption**:
+All configuration is stored in `~/levante/` directory with **selective encryption**:
 
 **Files:**
 - `ui-preferences.json` - UI settings, providers (with encrypted API keys), theme, language
 - `user-profile.json` - User profile, wizard status, personalization
-- `.encryption-key` - Encrypted encryption key (managed by Electron's safeStorage)
 - `.config-version` - Migration version tracker
 
 **Key Features:**
-- **Encryption:** All config files encrypted using electron-store + safeStorage API
+- **Selective Encryption:** Only sensitive values (API keys) are encrypted using safeStorage API
 - **Migrations:** Automatic schema migrations with semantic versioning
 - **Type-safe:** Full TypeScript support with JSON schema validation
 - **Services:** `PreferencesService` and `UserProfileService` manage access
@@ -80,11 +79,16 @@ All configuration is stored in `~/levante/` directory with **automatic encryptio
 **Storage Architecture:**
 ```
 ~/levante/
-├── ui-preferences.json      (encrypted) → theme, language, providers, ai config
-├── user-profile.json        (encrypted) → wizard, personalization
-├── .encryption-key          (OS-protected) → AES-256 key
-└── .config-version          (plaintext) → "1.1.0"
+├── ui-preferences.json      → theme, language, providers (API keys encrypted), ai config
+├── user-profile.json        → wizard, personalization (no encryption)
+└── .config-version          → "1.1.0"
 ```
+
+**Encryption Details:**
+- Only `providers[].apiKey` values are encrypted
+- Uses Electron's safeStorage (Keychain/DPAPI/libsecret)
+- Encrypted values prefixed with `ENCRYPTED:` marker
+- Files remain readable JSON with selective field encryption
 
 **Migration System:**
 - Version-controlled schema updates in `ConfigMigrationService`
