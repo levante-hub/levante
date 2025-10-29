@@ -14,11 +14,21 @@ const TOTAL_STEPS = 5;
 
 const PROVIDER_NAMES: Record<string, string> = {
   openrouter: 'OpenRouter',
-  gateway: 'Vercel AI Gateway',
+  'vercel-gateway': 'Vercel AI Gateway',
   local: 'Local Server',
   openai: 'OpenAI',
   anthropic: 'Anthropic',
   google: 'Google AI',
+};
+
+// Map provider IDs to validation types (some providers have different IDs for storage vs validation)
+const PROVIDER_ID_TO_VALIDATION_TYPE: Record<string, string> = {
+  'vercel-gateway': 'gateway', // Storage ID → Validation type
+  openrouter: 'openrouter',
+  local: 'local',
+  openai: 'openai',
+  anthropic: 'anthropic',
+  google: 'google',
 };
 
 interface OnboardingWizardProps {
@@ -135,8 +145,11 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps = {}) {
     setValidationError('');
 
     try {
+      // Map provider ID to validation type
+      const validationType = PROVIDER_ID_TO_VALIDATION_TYPE[selectedProvider] || selectedProvider;
+
       const config: ProviderValidationConfig = {
-        type: selectedProvider as any,
+        type: validationType as any,
         apiKey: apiKey || undefined,
         endpoint: endpoint || undefined,
       };
@@ -175,8 +188,11 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps = {}) {
       }
 
       // Only add endpoint for specific providers
-      if (selectedProvider === 'local' || selectedProvider === 'gateway') {
+      if (selectedProvider === 'local') {
         updates.baseUrl = endpoint;
+      } else if (selectedProvider === 'vercel-gateway') {
+        // Use provided endpoint or default
+        updates.baseUrl = endpoint || 'https://ai-gateway.vercel.sh/v1';
       }
 
       // Update provider with API key/endpoint if we have updates
@@ -225,8 +241,11 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps = {}) {
     setValidationError('');
 
     try {
+      // Map provider ID to validation type
+      const validationType = PROVIDER_ID_TO_VALIDATION_TYPE[selectedProvider] || selectedProvider;
+
       const config: ProviderValidationConfig = {
-        type: selectedProvider as any,
+        type: validationType as any,
         apiKey: newApiKey, // Use the passed key directly, not from state
         endpoint: endpoint || undefined,
       };
@@ -241,8 +260,11 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps = {}) {
         const updates: any = { apiKey: newApiKey };
 
         // Only add endpoint for specific providers
-        if (selectedProvider === 'local' || selectedProvider === 'gateway') {
+        if (selectedProvider === 'local') {
           updates.baseUrl = endpoint;
+        } else if (selectedProvider === 'vercel-gateway') {
+          // Use provided endpoint or default
+          updates.baseUrl = endpoint || 'https://ai-gateway.vercel.sh/v1';
         }
 
         // Update provider

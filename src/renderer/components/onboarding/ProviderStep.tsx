@@ -41,7 +41,7 @@ const PROVIDERS = [
     signupUrl: 'https://openrouter.ai/keys',
   },
   {
-    id: 'gateway',
+    id: 'vercel-gateway',
     name: 'Vercel AI Gateway',
     description: 'Enterprise AI routing and fallback',
     requiresKey: true,
@@ -316,7 +316,7 @@ export function ProviderStep({
                   </div>
                 )}
 
-                {selectedProvider === 'gateway' && (
+                {selectedProvider === 'vercel-gateway' && (
                   <div className="space-y-2">
                     <Label htmlFor="gateway-endpoint">{t('provider.base_url_optional')}</Label>
                     <Input
