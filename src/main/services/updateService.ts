@@ -25,6 +25,50 @@ class UpdateService {
   }
 
   /**
+   * Compare two semver versions
+   * Returns: 1 if v1 > v2, -1 if v1 < v2, 0 if equal
+   */
+  private compareVersions(v1: string, v2: string): number {
+    // Remove 'v' prefix if present
+    const cleanV1 = v1.replace(/^v/, '');
+    const cleanV2 = v2.replace(/^v/, '');
+
+    // Split into parts: [major, minor, patch, prerelease]
+    const parseVersion = (v: string) => {
+      const match = v.match(/^(\d+)\.(\d+)\.(\d+)(?:-(.+))?$/);
+      if (!match) return null;
+
+      return {
+        major: parseInt(match[1], 10),
+        minor: parseInt(match[2], 10),
+        patch: parseInt(match[3], 10),
+        prerelease: match[4] || null
+      };
+    };
+
+    const parsed1 = parseVersion(cleanV1);
+    const parsed2 = parseVersion(cleanV2);
+
+    if (!parsed1 || !parsed2) {
+      logger.core.warn('Failed to parse versions for comparison', { v1, v2 });
+      return 0;
+    }
+
+    // Compare major.minor.patch
+    if (parsed1.major !== parsed2.major) return parsed1.major > parsed2.major ? 1 : -1;
+    if (parsed1.minor !== parsed2.minor) return parsed1.minor > parsed2.minor ? 1 : -1;
+    if (parsed1.patch !== parsed2.patch) return parsed1.patch > parsed2.patch ? 1 : -1;
+
+    // If versions are equal in major.minor.patch, compare prerelease
+    if (!parsed1.prerelease && !parsed2.prerelease) return 0; // Both stable, equal
+    if (!parsed1.prerelease) return 1;  // v1 is stable, v2 is prerelease -> v1 is newer
+    if (!parsed2.prerelease) return -1; // v2 is stable, v1 is prerelease -> v2 is newer
+
+    // Both have prerelease, compare strings (beta.4 vs beta.5)
+    return parsed1.prerelease.localeCompare(parsed2.prerelease);
+  }
+
+  /**
    * Get the app icon for dialogs
    */
   private getAppIcon(): Electron.NativeImage | undefined {
@@ -251,18 +295,45 @@ class UpdateService {
         const currentVersion = app.getVersion();
         const isBeta = this.isBetaVersion();
 
+        // Compare versions to determine if update is truly not available
+        let isUpToDate = true;
+        let message = 'You are running the latest version';
+        let title = 'No Updates Available';
+
+        if (latestVersion) {
+          const comparison = this.compareVersions(currentVersion, latestVersion);
+
+          if (comparison < 0) {
+            // Current version is older than latest version
+            isUpToDate = false;
+            message = 'A newer version is available but could not be installed';
+            title = 'Update Available';
+
+            logger.core.warn('Update available but autoUpdater reported not available', {
+              currentVersion,
+              latestVersion,
+              comparison
+            });
+          }
+        }
+
         let detail = `Current version: ${currentVersion}`;
         if (latestVersion) {
           detail += `\nLatest version checked: ${latestVersion}`;
           if (isBeta) {
             detail += '\n\n(Beta channel: checking for pre-releases)';
           }
+
+          if (!isUpToDate) {
+            detail += '\n\nThe update system detected a newer version but could not download it automatically. ';
+            detail += 'Please download the latest version manually from:\nhttps://github.com/levante-hub/levante/releases';
+          }
         }
 
         dialog.showMessageBox({
-          type: 'info',
-          title: 'No Updates Available',
-          message: 'You are running the latest version',
+          type: isUpToDate ? 'info' : 'warning',
+          title,
+          message,
           detail,
           buttons: ['OK'],
           icon: this.getAppIcon()
