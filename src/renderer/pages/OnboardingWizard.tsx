@@ -6,7 +6,7 @@ import { McpStep } from '@/components/onboarding/McpStep';
 import { ProviderStep } from '@/components/onboarding/ProviderStep';
 import { DirectoryStep } from '@/components/onboarding/DirectoryStep';
 import { CompletionStep } from '@/components/onboarding/CompletionStep';
-import { useModelStore } from '@/stores/modelStore';
+import { useModelStore, getModelStoreState } from '@/stores/modelStore';
 import { detectSystemLanguage } from '@/i18n/languageDetector';
 import type { ProviderValidationConfig } from '../../types/wizard';
 
@@ -233,10 +233,13 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps = {}) {
   };
 
   const handleOAuthSuccess = async (newApiKey: string) => {
+    console.log('OAuth success - starting provider configuration', {
+      provider: selectedProvider,
+      keyPrefix: newApiKey.substring(0, 10) + '...'
+    });
+
     // Update state immediately
     setApiKey(newApiKey);
-
-    // Validate with the new API key (passed directly to avoid closure issues)
     setValidationStatus('validating');
     setValidationError('');
 
@@ -246,49 +249,96 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps = {}) {
 
       const config: ProviderValidationConfig = {
         type: validationType as any,
-        apiKey: newApiKey, // Use the passed key directly, not from state
+        apiKey: newApiKey,
         endpoint: endpoint || undefined,
       };
 
+      console.log('Validating OAuth credentials...');
       const result = await window.levante.wizard.validateProvider(config);
 
-      if (result.success && result.data?.isValid) {
-        setValidationStatus('valid');
-        setValidationError('');
-
-        // Save provider configuration with the new API key
-        const updates: any = { apiKey: newApiKey };
-
-        // Only add endpoint for specific providers
-        if (selectedProvider === 'local') {
-          updates.baseUrl = endpoint;
-        } else if (selectedProvider === 'vercel-gateway') {
-          // Use provided endpoint or default
-          updates.baseUrl = endpoint || 'https://ai-gateway.vercel.sh/v1';
-        }
-
-        // Update provider
-        await updateProvider(selectedProvider, updates);
-
-        // Set as active provider
-        await setActiveProvider(selectedProvider);
-
-        // Sync models from provider
-        await syncProviderModels(selectedProvider);
-
-        // Wait a bit for store to update, then load available models
-        setTimeout(() => {
-          loadAvailableModels();
-        }, 200);
-      } else {
+      if (!result.success || !result.data?.isValid) {
         setValidationStatus('invalid');
         setValidationError(
           result.data?.error ||
             result.error ||
-            'Validation failed. Please check your credentials.'
+            'OAuth validation failed'
         );
+        console.error('OAuth validation failed', result);
+        return;
       }
+
+      console.log('OAuth validation successful, configuring provider...');
+      setValidationStatus('valid');
+      setValidationError('');
+
+      // Save provider configuration
+      const updates: any = { apiKey: newApiKey };
+
+      // Only add endpoint for specific providers
+      if (selectedProvider === 'local') {
+        updates.baseUrl = endpoint;
+      } else if (selectedProvider === 'vercel-gateway') {
+        updates.baseUrl = endpoint || 'https://ai-gateway.vercel.sh/v1';
+      }
+
+      // Update provider configuration
+      console.log('Updating provider configuration...');
+      await updateProvider(selectedProvider, updates);
+
+      // Set as active provider
+      console.log('Setting active provider...');
+      await setActiveProvider(selectedProvider);
+
+      // Sync models from provider API
+      console.log('Syncing models from provider...');
+      await syncProviderModels(selectedProvider);
+
+      // Force immediate refresh after sync completes
+      console.log('Sync complete, loading models into UI...');
+
+      // Poll for models with retry mechanism
+      // This is necessary because Zustand updates are async
+      const pollForModels = async (): Promise<void> => {
+        const maxAttempts = 10;
+        const pollInterval = 300; // Check every 300ms
+
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+          // Get fresh provider data from store
+          const currentProviders = getModelStoreState().providers;
+          const provider = currentProviders.find((p: any) => p.id === selectedProvider);
+
+          console.log(`📡 Polling for models (attempt ${attempt}/${maxAttempts})`, {
+            hasProvider: !!provider,
+            modelCount: provider?.models?.length || 0
+          });
+
+          if (provider?.models && provider.models.length > 0) {
+            const availableModels = provider.models.filter((m: any) => m.isAvailable);
+            setAvailableModels(availableModels);
+            console.log('✅ Models loaded successfully:', availableModels.length);
+            return; // Success!
+          }
+
+          // Wait before next attempt
+          if (attempt < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, pollInterval));
+          }
+        }
+
+        // If we get here, polling failed
+        console.error('❌ Failed to load models after', maxAttempts, 'attempts');
+        console.log('Forcing final load attempt from providers state...');
+        loadAvailableModels();
+      };
+
+      // Start polling
+      pollForModels().catch(error => {
+        console.error('Polling error:', error);
+        loadAvailableModels();
+      });
+
     } catch (error) {
+      console.error('OAuth configuration error:', error);
       setValidationStatus('invalid');
       setValidationError(
         error instanceof Error ? error.message : 'Unknown error occurred'
