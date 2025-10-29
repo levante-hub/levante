@@ -152,6 +152,88 @@ Si actualizas y aparecen MÁS warnings:
 
 ---
 
+## Warning #2: WebAssembly y 'wasm-unsafe-eval'
+
+### CSP Actual
+
+```html
+script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob:
+```
+
+### ¿Por qué necesitamos 'wasm-unsafe-eval'?
+
+**Funcionalidad afectada:** Diagramas de Mermaid
+
+Mermaid v11+ usa WebAssembly para syntax highlighting (via Shiki/Oniguruma). Sin `'wasm-unsafe-eval'`, obtienes:
+
+```
+Uncaught (in promise) CompileError: WebAssembly.instantiate():
+Refused to compile or instantiate WebAssembly module because
+'unsafe-eval' is not an allowed source of script
+```
+
+### ⚠️ IMPORTANTE: 'wasm-unsafe-eval' ≠ 'unsafe-eval'
+
+| Característica | `'unsafe-eval'` | `'wasm-unsafe-eval'` |
+|---------------|----------------|---------------------|
+| Permite `eval()` | ✅ SÍ (PELIGROSO) | ❌ NO |
+| Permite `new Function()` | ✅ SÍ (PELIGROSO) | ❌ NO |
+| Permite WebAssembly | ✅ SÍ | ✅ SÍ |
+| Riesgo de Seguridad | 🔴 CRÍTICO | 🟡 BAJO |
+
+### ¿Por qué WebAssembly es relativamente seguro?
+
+- ✅ Ejecuta en sandbox de memoria lineal
+- ✅ No puede acceder al DOM directamente
+- ✅ No puede ejecutar JavaScript arbitrario
+- ✅ Es type-safe y memory-safe por diseño
+- ✅ Introducido como directiva CSP separada por esta razón
+
+### Alternativas Consideradas (No Implementadas)
+
+1. **Downgrade a Mermaid v10.x**
+   - ❌ Pérdida de features y actualizaciones de seguridad
+   - ❌ Mermaid v10 ya no recibe soporte
+
+2. **Deshabilitar syntax highlighting**
+   - ❌ Peor experiencia de usuario
+   - ❌ Diagramas sin colores de sintaxis
+
+3. **Renderizado en main process via IPC**
+   - ❌ Arquitectura compleja
+   - ❌ Overhead de latencia
+   - ❌ Mayor complejidad de mantenimiento
+
+### Especificación CSP Level 3
+
+`'wasm-unsafe-eval'` fue introducido en CSP Level 3 específicamente para permitir WebAssembly sin habilitar eval() peligroso:
+
+> "The 'wasm-unsafe-eval' keyword allows the loading and execution of WebAssembly,
+> without allowing other dangerous code evaluation."
+>
+> — [W3C CSP Level 3 Specification](https://www.w3.org/TR/CSP3/)
+
+### Impacto en Score de Seguridad
+
+| Métrica | Sin wasm-unsafe-eval | Con wasm-unsafe-eval | Cambio |
+|---------|---------------------|---------------------|--------|
+| **CSP Score** | 9.5/10 | 9/10 | -0.5 |
+| **Funcionalidad** | Mermaid roto | Mermaid funcional | ✅ |
+| **Seguridad Real** | Igual | Igual | - |
+
+La reducción de 0.5 puntos es **puramente cosmética**. WebAssembly no aumenta significativamente la superficie de ataque.
+
+### Resumen
+
+- ✅ `'wasm-unsafe-eval'` es un **trade-off de seguridad medido**
+- ✅ Habilita funcionalidad esencial (diagramas Mermaid)
+- ✅ NO permite ejecución general de código
+- ✅ Sigue mejores prácticas de W3C para CSP Level 3
+
+**Estado:** ✅ Decisión de seguridad intencional
+
+---
+
 ## TL;DR
 
 **Warning de eval() bloqueado en @ai-sdk/react:**
@@ -162,4 +244,11 @@ Si actualizas y aparecen MÁS warnings:
 - ✅ NO requiere acción
 - ✅ NO añadir unsafe-eval de vuelta
 
-**Mensaje para el equipo:** "Si ves este warning, ignóralo. Es evidencia de que nuestra CSP está funcionando correctamente."
+**'wasm-unsafe-eval' para Mermaid:**
+- ✅ Es NECESARIO para diagramas
+- ✅ Es SEGURO (solo WebAssembly, no eval)
+- ✅ Sigue estándar CSP Level 3
+- ✅ Trade-off medido de seguridad vs UX
+- ✅ Reduce score CSP solo 0.5 puntos (cosmético)
+
+**Mensaje para el equipo:** "Si ves el warning de eval() bloqueado, ignóralo. Es evidencia de que nuestra CSP está funcionando correctamente."

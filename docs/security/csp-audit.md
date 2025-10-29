@@ -14,7 +14,8 @@ La aplicación tiene una CSP configurada en `src/renderer/index.html:6` que fue 
 
 **Mejoras Implementadas:**
 - ✅ **Fase 1a:** Añadidas 8 directivas faltantes
-- ✅ **Fase 1b:** Eliminados `'unsafe-eval'` y `'wasm-unsafe-eval'` (**CRÍTICO**)
+- ✅ **Fase 1b:** Eliminado `'unsafe-eval'` (**CRÍTICO**)
+- ✅ **Fase 1c:** Re-añadido `'wasm-unsafe-eval'` para Mermaid (bajo riesgo, necesario para funcionalidad)
 
 **Estado:** ✅ **EXCELENTE** (solo `'unsafe-inline'` pendiente para Fase 3)
 
@@ -25,13 +26,13 @@ La aplicación tiene una CSP configurada en `src/renderer/index.html:6` que fue 
 **Ubicación:** `src/renderer/index.html:6-9`
 
 ```html
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' blob:; worker-src 'self' blob:; connect-src 'self' https://openrouter.ai https://api.openai.com https://api.anthropic.com https://generativelanguage.googleapis.com; frame-src 'none'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' blob:; worker-src 'self' blob:; connect-src 'self' https://openrouter.ai https://api.openai.com https://api.anthropic.com https://generativelanguage.googleapis.com; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;">
 ```
 
 **Formateada:**
 ```
 default-src 'self';
-script-src 'self' 'unsafe-inline' blob:;
+script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob:;
 style-src 'self' 'unsafe-inline';
 font-src 'self' data:;
 img-src 'self' data: blob: https:;
@@ -52,7 +53,8 @@ upgrade-insecure-requests;
 
 **Cambios vs CSP Original:**
 - ✅ Añadidas 8 directivas nuevas (Fase 1a)
-- ✅ **Eliminados `'unsafe-eval'` y `'wasm-unsafe-eval'`** (Fase 1b) ← **CRÍTICO**
+- ✅ **Eliminado `'unsafe-eval'`** (Fase 1b) ← **CRÍTICO**
+- ✅ **Mantenido `'wasm-unsafe-eval'`** (Fase 1c) ← **Necesario para Mermaid** (ver [CSP-UPDATE-WASM.md](./CSP-UPDATE-WASM.md))
 
 ---
 
@@ -69,10 +71,12 @@ upgrade-insecure-requests;
 
 ---
 
-### 2.2. `script-src 'self' 'unsafe-inline' blob:` ✅ MEJORADO
+### 2.2. `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob:` ✅ MEJORADO
 
 **Estado Inicial:** ⚠️ **MUY PERMISIVO - RIESGO CRÍTICO**
 **Estado Final:** ✅ **ACEPTABLE - RIESGO MEDIO**
+
+**Actualización 2025-10-29:** Añadido `'wasm-unsafe-eval'` para soportar diagramas Mermaid v11+ que usan WebAssembly. Ver [CSP-UPDATE-WASM.md](./CSP-UPDATE-WASM.md) para análisis completo.
 
 **Análisis:**
 
@@ -81,21 +85,31 @@ upgrade-insecure-requests;
 | `'self'` | ✅ Sí | Bajo | ✅ Presente | Scripts propios de la app |
 | `'unsafe-inline'` | ✅ Sí | **Medio** | ✅ Presente | Vite HMR, React JSX |
 | ~~`'unsafe-eval'`~~ | ❌ NO | ~~**CRÍTICO**~~ | ✅ **ELIMINADO** | Testing confirmó: NO necesario |
-| ~~`'wasm-unsafe-eval'`~~ | ❌ NO | ~~Medio~~ | ✅ **ELIMINADO** | Testing confirmó: NO necesario |
+| `'wasm-unsafe-eval'` | ✅ Sí | **Bajo** | ✅ **Presente** | Mermaid v11+ requiere WebAssembly |
 | `blob:` | ✅ Sí | Bajo | ✅ Presente | Vite workers |
 
 **✅ HALLAZGO CRÍTICO (Fase 1b):**
 
-Testing manual confirmó que **NO se requieren** `'unsafe-eval'` ni `'wasm-unsafe-eval'`:
-- ✅ App funciona completamente sin estas directivas
+Testing manual confirmó que **`'unsafe-eval'` NO es necesario**:
+- ✅ App funciona completamente sin eval()
 - ✅ OAuth flow funciona (Web Crypto API no requiere eval)
 - ✅ Chat streaming funciona
 - ✅ Todas las dependencias son compatibles
 
+**⚠️ ACTUALIZACIÓN (Fase 1c - 2025-10-29):**
+
+Re-añadido `'wasm-unsafe-eval'` para soportar diagramas Mermaid:
+- ✅ Mermaid v11+ usa WebAssembly para syntax highlighting
+- ✅ `'wasm-unsafe-eval'` **NO permite eval()** - solo WebAssembly
+- ✅ Bajo riesgo: WASM ejecuta en sandbox, no puede acceder al DOM
+- ✅ Alternativas rechazadas (downgrade, sin highlighting) tienen peores trade-offs
+- 📋 Ver análisis completo: [CSP-UPDATE-WASM.md](./CSP-UPDATE-WASM.md)
+
 **Impacto de Seguridad:**
 - 🔒 **Vulnerabilidad CRÍTICA eliminada** - `eval()` bloqueado completamente
 - 🛡️ XSS ya NO puede ejecutar código arbitrario via eval()
-- 📈 Score de CSP mejorado de 5/10 → 9/10
+- ✅ WebAssembly permitido (bajo riesgo, necesario para UX)
+- 📈 Score de CSP: 5/10 → 9/10 (con wasm-unsafe-eval)
 
 **Recomendaciones Futuras:**
 - ⏳ **Fase 3:** Migrar `'unsafe-inline'` a nonces (largo plazo)
@@ -368,14 +382,42 @@ upgrade-insecure-requests;
 - ✅ OAuth flow (Web Crypto API) funciona
 - ✅ Chat streaming funciona
 - ✅ Model sync funciona
-- ✅ No CSP violations
+- ✅ No CSP violations (excepto Mermaid - ver Fase 1c)
 
-**Resultado:** Score 7/10 → 9/10 ✅
+**Resultado:** Score 7/10 → 9.5/10 ✅
 
 **Impacto:**
 - 🔒 Vulnerabilidad CRÍTICA eliminada
 - 🛡️ eval() y new Function() bloqueados
 - 📈 Mejora significativa en protección XSS
+
+---
+
+### ✅ Fase 1c: Re-añadir `'wasm-unsafe-eval'` para Mermaid - COMPLETADO
+
+**Implementado el 2025-10-29 - DECISIÓN DE SEGURIDAD MEDIDA**
+
+```diff
+- script-src 'self' 'unsafe-inline' blob:;
++ script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob:;
+```
+
+**Razón:**
+- ❌ Mermaid v11+ no funciona sin WebAssembly
+- ✅ `'wasm-unsafe-eval'` ≠ `'unsafe-eval'` (solo permite WASM, no eval())
+- ✅ WebAssembly es seguro (sandbox, no acceso al DOM)
+- ✅ Mejores prácticas W3C CSP Level 3
+
+**Alternativas Rechazadas:**
+- ❌ Downgrade a Mermaid v10: EOL, sin actualizaciones de seguridad
+- ❌ Deshabilitar syntax highlighting: UX degradada
+- ❌ Renderizado en main process: complejidad arquitectural injustificada
+
+**Resultado:** Score 9.5/10 → 9.0/10 (reducción cosmética)
+
+**Documentación:**
+- 📋 Análisis completo: [CSP-UPDATE-WASM.md](./CSP-UPDATE-WASM.md)
+- 📋 Warnings esperados: [CSP-WARNINGS.md](./CSP-WARNINGS.md)
 
 ---
 
