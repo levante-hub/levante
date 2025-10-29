@@ -62,5 +62,11 @@
       "label": "Herramientas (MCP)",
       "keywords": ["tools", "herramientas", "mcp"]
     }
+  },
+  "paid_model_chat_warning": {
+    "title": "Aviso sobre Modelo de Pago",
+    "description": "Este modelo consume tokens de OpenRouter. No hace falta que añadas créditos para poder probarlo, pero aún así descontará créditos (OpenRouter tiene unos créditos de prueba, no te los dan pero te dejan estar más o menos -1$)",
+    "cancel": "Cancelar",
+    "continue": "Continuar"
   }
 }

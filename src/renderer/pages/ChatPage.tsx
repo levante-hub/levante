@@ -26,6 +26,16 @@ import { WelcomeScreen } from '@/components/chat/WelcomeScreen';
 import { ChatPromptInput } from '@/components/chat/ChatPromptInput';
 import { useTranslation } from 'react-i18next';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { AlertTriangle, ExternalLink } from 'lucide-react';
+import {
   Source,
   Sources,
   SourcesContent,
@@ -61,6 +71,9 @@ const ChatPage = () => {
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [pendingFirstMessage, setPendingFirstMessage] = useState<string | null>(null);
   const [pendingMessageAfterStop, setPendingMessageAfterStop] = useState<string | null>(null);
+  const [showPaidModelWarning, setShowPaidModelWarning] = useState(false);
+  const [pendingMessageForWarning, setPendingMessageForWarning] = useState<string | null>(null);
+  const [hasAcceptedPaidModelWarning, setHasAcceptedPaidModelWarning] = useState(false);
 
   // Chat store
   const currentSession = useChatStore((state) => state.currentSession);
@@ -212,8 +225,17 @@ const ChatPage = () => {
 
     // Otherwise, send a new message
     if (input.trim()) {
+      const messageText = input;
+
+      // Check if we need to show the paid model warning (for non-free OpenRouter models)
+      if (isSelectedModelPaidOpenRouter() && !hasAcceptedPaidModelWarning) {
+        setPendingMessageForWarning(messageText);
+        setInput(''); // Clear input
+        setShowPaidModelWarning(true);
+        return;
+      }
+
       try {
-        const messageText = input;
         setInput('');
 
         // If no session exists, create one and save message for later
@@ -306,7 +328,21 @@ const ChatPage = () => {
   useEffect(() => {
     loadAvailableModels();
     loadUserName();
+    loadPaidModelWarningPreference();
   }, []);
+
+  const loadPaidModelWarningPreference = async () => {
+    try {
+      const result = await window.levante.preferences.get('hasAcceptedPaidModelWarning');
+      if (result.success && result.data) {
+        setHasAcceptedPaidModelWarning(true);
+      }
+    } catch (error) {
+      logger.preferences.error('Failed to load paid model warning preference:', {
+        error: error instanceof Error ? error.message : error
+      });
+    }
+  };
 
   const loadUserName = async () => {
     try {
@@ -319,6 +355,91 @@ const ChatPage = () => {
         error: error instanceof Error ? error.message : error,
       });
     }
+  };
+
+  // Check if the selected model is a PAID OpenRouter model (not free)
+  const isSelectedModelPaidOpenRouter = (): boolean => {
+    const selectedModel = availableModels.find(m => m.id === model);
+    if (!selectedModel) return false;
+
+    // Return true if it's OpenRouter AND NOT free (has pricing > 0)
+    return (
+      selectedModel.provider === 'openrouter' &&
+      selectedModel.pricing !== undefined &&
+      (selectedModel.pricing.input > 0 || selectedModel.pricing.output > 0)
+    );
+  };
+
+  // Handle paid model warning confirmation
+  const handleConfirmPaidModel = async () => {
+    try {
+      // Save preference permanently
+      await window.levante.preferences.set('hasAcceptedPaidModelWarning', true);
+      setHasAcceptedPaidModelWarning(true);
+    } catch (error) {
+      logger.preferences.error('Failed to save paid model warning preference:', {
+        error: error instanceof Error ? error.message : error
+      });
+    }
+
+    setShowPaidModelWarning(false);
+
+    // Send the pending message
+    if (pendingMessageForWarning) {
+      const messageText = pendingMessageForWarning;
+      setPendingMessageForWarning(null);
+
+      try {
+        // If no session exists, create one and save message for later
+        if (!currentSession) {
+          logger.core.info('Creating new session for first message', { model });
+
+          justCreatedSessionRef.current = true;
+
+          const newSession = await createSession('New Chat', model || 'openai/gpt-4o');
+
+          if (!newSession) {
+            logger.core.error('Failed to create session');
+            justCreatedSessionRef.current = false;
+            setInput(messageText);
+            return;
+          }
+
+          logger.core.info('Session created, storing pending message', { sessionId: newSession.id });
+          setPendingFirstMessage(messageText);
+          return;
+        }
+
+        // Send the message for existing session
+        logger.core.info('Sending message', {
+          sessionId: currentSession.id,
+          messageText: messageText.substring(0, 50) + '...',
+        });
+
+        sendMessageAI({ text: messageText });
+
+        const userMessage = {
+          id: `user-${Date.now()}`,
+          role: 'user' as const,
+          parts: [{ type: 'text' as const, text: messageText }],
+        };
+        await persistMessage(userMessage);
+      } catch (error) {
+        logger.core.error('Error in handleConfirmFreeModel', {
+          error: error instanceof Error ? error.message : error,
+        });
+      }
+    }
+  };
+
+  // Handle paid model warning cancellation
+  const handleCancelPaidModel = () => {
+    // Restore input
+    if (pendingMessageForWarning) {
+      setInput(pendingMessageForWarning);
+      setPendingMessageForWarning(null);
+    }
+    setShowPaidModelWarning(false);
   };
 
   const loadAvailableModels = async () => {
@@ -531,6 +652,34 @@ const ChatPage = () => {
           </div>
         </>
       )}
+
+      {/* Paid Model Warning Dialog */}
+      <Dialog open={showPaidModelWarning} onOpenChange={setShowPaidModelWarning}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-yellow-500" />
+              {t('paid_model_chat_warning.title')}
+            </DialogTitle>
+            <DialogDescription className="pt-4">
+              {t('paid_model_chat_warning.description')}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="!flex-row !justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={handleCancelPaidModel}
+            >
+              {t('paid_model_chat_warning.cancel')}
+            </Button>
+            <Button
+              onClick={handleConfirmPaidModel}
+            >
+              {t('paid_model_chat_warning.continue')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

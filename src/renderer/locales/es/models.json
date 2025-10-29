@@ -75,5 +75,16 @@
   },
   "links": {
     "vercel_dashboard": "Panel de Vercel"
+  },
+  "free_model_warning": {
+    "title": "Aviso de Privacidad de Modelos Gratuitos",
+    "description_1": "Cuando usas un modelo gratuito en OpenRouter, tus prompts y respuestas pueden ser compartidos con el equipo del proveedor y publicados en datasets públicos.",
+    "description_2": "Si estás de acuerdo con esto, necesitas habilitarlo en tu configuración de privacidad de OpenRouter:",
+    "required_settings": "Configuraciones requeridas:",
+    "setting_1": "Habilitar endpoints gratuitos que pueden publicar prompts",
+    "setting_2": "Permitir que los proveedores de modelos gratuitos publiquen tus prompts y respuestas en datasets públicos",
+    "cancel": "Cancelar",
+    "privacy_settings": "Configuración de Privacidad",
+    "continue": "Continuar"
   }
 }
