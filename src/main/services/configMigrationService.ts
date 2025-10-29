@@ -42,6 +42,16 @@ export class ConfigMigrationService {
       }
     });
 
+    // Migration 1.1 → 1.2: Detect and remove old encrypted files
+    this.migrations.push({
+      version: '1.2.0',
+      name: 'remove-old-encrypted-files',
+      description: 'Detect old fully-encrypted config files and mark for regeneration',
+      migrate: async () => {
+        await this.removeOldEncryptedFiles();
+      }
+    });
+
     // Future migrations can be added here
     // this.migrations.push({ ... });
   }
@@ -150,6 +160,48 @@ export class ConfigMigrationService {
       logger.core.error('Failed to run config migrations', {
         error: error instanceof Error ? error.message : error
       });
+    }
+  }
+
+  /**
+   * Migration 1.1 → 1.2: Remove old encrypted files
+   * Detects files encrypted with old full-file encryption and backs them up
+   */
+  private async removeOldEncryptedFiles(): Promise<void> {
+    const filesToCheck = ['ui-preferences.json', 'user-profile.json'];
+
+    for (const fileName of filesToCheck) {
+      try {
+        const filePath = path.join(directoryService.getBaseDir(), fileName);
+        const exists = await directoryService.fileExists(fileName);
+
+        if (!exists) continue;
+
+        // Try to read as JSON
+        const content = await fs.readFile(filePath, 'utf-8');
+
+        // Check if it's valid JSON
+        try {
+          JSON.parse(content);
+          logger.core.info(`File ${fileName} is valid JSON, no migration needed`);
+        } catch (jsonError) {
+          // File is not valid JSON - likely old encrypted format
+          logger.core.info(`Detected old encrypted format in ${fileName}, backing up and marking for regeneration`);
+
+          // Backup old file
+          const backupPath = `${filePath}.old-encrypted`;
+          await fs.rename(filePath, backupPath);
+
+          logger.core.info(`Backed up old encrypted file`, {
+            original: fileName,
+            backup: `${fileName}.old-encrypted`
+          });
+        }
+      } catch (error) {
+        logger.core.error(`Failed to check/migrate ${fileName}`, {
+          error: error instanceof Error ? error.message : error
+        });
+      }
     }
   }
 
