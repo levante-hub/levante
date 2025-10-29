@@ -77,7 +77,7 @@ function createWindow(): void {
     webPreferences: {
       // Con Electron Forge + Vite, preload.js está en __dirname directamente
       preload: join(__dirname, "preload.js"),
-      sandbox: false, // Required for some native modules
+      sandbox: true, // ✅ Enabled - renderer uses only Web APIs
       contextIsolation: true,
       nodeIntegration: false,
       webSecurity: true,
@@ -144,6 +144,35 @@ function createWindow(): void {
     // Blocks file://, javascript:, and other dangerous protocols
     safeOpenExternal(details.url, "window-open-handler");
     return { action: "deny" };
+  });
+
+  // Security: Prevent navigation to external/malicious URLs
+  mainWindow.webContents.on("will-navigate", (event, url) => {
+    const parsedUrl = new URL(url);
+
+    // Allow navigation within the app
+    const isDevServer = url.startsWith(process.env["MAIN_WINDOW_VITE_DEV_SERVER_URL"] || "");
+    const isLocalhost = parsedUrl.hostname === "localhost" || parsedUrl.hostname === "127.0.0.1";
+    const isAppFile = parsedUrl.protocol === "file:";
+
+    if (isDevServer || (isLocalhost && process.env.NODE_ENV === "development") || isAppFile) {
+      // Allow internal navigation
+      logger.core.debug("Allowing internal navigation", {
+        url: parsedUrl.host + parsedUrl.pathname,
+        protocol: parsedUrl.protocol
+      });
+      return;
+    }
+
+    // Block and open externally
+    event.preventDefault();
+    logger.core.info("Blocked external navigation, opening in browser", {
+      protocol: parsedUrl.protocol,
+      host: parsedUrl.host
+    });
+
+    // Open in external browser with validation
+    safeOpenExternal(url, "will-navigate");
   });
 }
 
