@@ -84,8 +84,9 @@ const SettingsPage = () => {
 
       const languageResult = await window.levante.preferences.get('language');
       if (languageResult?.data) {
-        setLanguage(languageResult.data);
-        i18n.changeLanguage(languageResult.data);
+        const lang = languageResult.data as 'en' | 'es';
+        setLanguage(lang);
+        i18n.changeLanguage(lang);
       }
     } catch (error) {
       logger.preferences.error('Error loading personalization settings', { error: error instanceof Error ? error.message : error });

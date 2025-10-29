@@ -72,7 +72,7 @@ export class UserProfileService {
       this.initialized = true;
 
       this.logger.core.info('UserProfileService initialized', {
-        wizardStatus: this.profile.wizard,
+        wizardStatus: this.profile?.wizard,
         storePath: this.store.path
       });
     } catch (error) {

@@ -14,7 +14,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { CheckCircle2, XCircle, Loader2, ExternalLink, ChevronDown, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useOpenRouterOAuth } from '@/hooks/useOpenRouterOAuth';
-import type { Model } from '../../types/models';
+import type { Model } from '../../../types/models';
 
 interface ProviderStepProps {
   selectedProvider: string;
