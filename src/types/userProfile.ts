@@ -41,21 +41,6 @@ export interface UserProfile {
    * Personalization settings
    */
   personalization?: PersonalizationSettings;
-
-  /**
-   * Theme preference
-   * - "system": Follow system settings
-   * - "light": Light theme
-   * - "dark": Dark theme
-   */
-  theme?: 'light' | 'dark' | 'system';
-
-  /**
-   * Language preference
-   * - "en": English
-   * - "es": Español (Spanish)
-   */
-  language?: 'en' | 'es';
 }
 
 /**

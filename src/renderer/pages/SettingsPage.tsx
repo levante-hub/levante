@@ -70,17 +70,22 @@ const SettingsPage = () => {
 
   const loadPersonalization = async () => {
     try {
+      // Load personalization from user-profile.json
       const profile = await window.levante.profile.get();
-
       if (profile?.data?.personalization) {
         setPersonalization(profile.data.personalization);
       }
-      if (profile?.data?.theme) {
-        setThemeState(profile.data.theme);
+
+      // Load theme and language from ui-preferences.json
+      const themeResult = await window.levante.preferences.get('theme');
+      if (themeResult?.data) {
+        setThemeState(themeResult.data);
       }
-      if (profile?.data?.language) {
-        setLanguage(profile.data.language);
-        i18n.changeLanguage(profile.data.language);
+
+      const languageResult = await window.levante.preferences.get('language');
+      if (languageResult?.data) {
+        setLanguage(languageResult.data);
+        i18n.changeLanguage(languageResult.data);
       }
     } catch (error) {
       logger.preferences.error('Error loading personalization settings', { error: error instanceof Error ? error.message : error });
@@ -92,9 +97,7 @@ const SettingsPage = () => {
     setThemeState(newTheme);
 
     try {
-      await window.levante.profile.update({
-        theme: newTheme
-      });
+      await window.levante.preferences.set('theme', newTheme);
 
       setThemeSaveState({ saving: false, saved: true });
 
@@ -115,9 +118,7 @@ const SettingsPage = () => {
     setLanguage(newLanguage);
 
     try {
-      await window.levante.profile.update({
-        language: newLanguage
-      });
+      await window.levante.preferences.set('language', newLanguage);
 
       // Show restart dialog
       // TODO: Implement restart dialog and app.restart() IPC handler

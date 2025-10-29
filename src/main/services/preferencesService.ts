@@ -1,7 +1,8 @@
-import { BrowserWindow } from 'electron';
+import { BrowserWindow, safeStorage } from 'electron';
 import { UIPreferences, PreferenceKey, DEFAULT_PREFERENCES, PreferenceChangeEvent } from '../../types/preferences';
 import { getLogger } from './logging';
 import { directoryService } from './directoryService';
+import * as crypto from 'crypto';
 
 export class PreferencesService {
   private logger = getLogger();
@@ -12,18 +13,68 @@ export class PreferencesService {
     // Store will be initialized asynchronously
   }
 
+  /**
+   * Get or generate encryption key for electron-store
+   * Uses Electron's safeStorage API for secure key management
+   */
+  private getEncryptionKey(): string {
+    const keyPath = directoryService.getFilePath('.encryption-key');
+
+    try {
+      // Try to read existing key
+      const fs = require('fs');
+      if (fs.existsSync(keyPath)) {
+        const encryptedKey = fs.readFileSync(keyPath);
+
+        // Decrypt using Electron's safeStorage
+        if (safeStorage.isEncryptionAvailable()) {
+          const decrypted = safeStorage.decryptString(encryptedKey);
+          this.logger.preferences.debug('Loaded existing encryption key');
+          return decrypted;
+        } else {
+          this.logger.preferences.warn('safeStorage not available, using fallback key');
+          return crypto.randomBytes(32).toString('hex');
+        }
+      }
+
+      // Generate new key
+      const newKey = crypto.randomBytes(32).toString('hex');
+
+      // Encrypt and save using Electron's safeStorage
+      if (safeStorage.isEncryptionAvailable()) {
+        const encrypted = safeStorage.encryptString(newKey);
+        fs.writeFileSync(keyPath, encrypted);
+        this.logger.preferences.info('Generated and saved new encryption key');
+      } else {
+        this.logger.preferences.warn('safeStorage not available, encryption key not persisted');
+      }
+
+      return newKey;
+    } catch (error) {
+      this.logger.preferences.error('Failed to get encryption key, using session key', {
+        error: error instanceof Error ? error.message : error
+      });
+      // Fallback to session-only key
+      return crypto.randomBytes(32).toString('hex');
+    }
+  }
+
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
     try {
       const Store = (await import('electron-store')).default;
-      
+
       // Ensure ~/levante directory exists
       await directoryService.ensureBaseDir();
-      
+
+      // Get encryption key for sensitive data
+      const encryptionKey = this.getEncryptionKey();
+
       this.store = new Store({
       name: 'ui-preferences',
       cwd: directoryService.getBaseDir(), // Store preferences in ~/levante/ directory
+      encryptionKey, // Enable encryption for the entire store
       defaults: DEFAULT_PREFERENCES,
       schema: {
         theme: {

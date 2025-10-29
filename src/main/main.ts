@@ -13,6 +13,7 @@ import { setupWizardHandlers } from "./ipc/wizardHandlers";
 import { setupProfileHandlers } from "./ipc/profileHandlers";
 import { preferencesService } from "./services/preferencesService";
 import { userProfileService } from "./services/userProfileService";
+import { configMigrationService } from "./services/configMigrationService";
 import { getLogger, initializeLogger } from "./services/logging";
 import { createApplicationMenu } from "./menu";
 import { updateService } from "./services/updateService";
@@ -162,6 +163,18 @@ app.whenReady().then(async () => {
       error: error instanceof Error ? error.message : error,
     });
     // Could show error dialog or continue with degraded functionality
+  }
+
+  // Run configuration migrations BEFORE initializing services
+  // This ensures old JSON files are migrated before electron-store loads them
+  try {
+    await configMigrationService.runMigrations();
+    logger.core.info("Config migrations completed successfully");
+  } catch (error) {
+    logger.core.error("Failed to run config migrations", {
+      error: error instanceof Error ? error.message : error,
+    });
+    // Continue with degraded functionality
   }
 
   // Initialize preferences service

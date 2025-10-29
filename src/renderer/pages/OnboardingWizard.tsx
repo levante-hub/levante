@@ -58,7 +58,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps = {}) {
     // Step 1 (Language): Save language selection
     if (currentStep === 1) {
       try {
-        await window.levante.profile.update({ language: selectedLanguage });
+        await window.levante.preferences.set('language', selectedLanguage);
         i18n.changeLanguage(selectedLanguage);
         await window.levante.wizard.start();
       } catch (error) {
