@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { WizardStep } from '@/components/onboarding/WizardStep';
-import { LanguageStep } from '@/components/onboarding/LanguageStep';
 import { WelcomeStep } from '@/components/onboarding/WelcomeStep';
 import { McpStep } from '@/components/onboarding/McpStep';
 import { ProviderStep } from '@/components/onboarding/ProviderStep';
@@ -11,7 +10,7 @@ import { useModelStore } from '@/stores/modelStore';
 import { detectSystemLanguage } from '@/i18n/languageDetector';
 import type { ProviderValidationConfig } from '../../types/wizard';
 
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 5;
 
 const PROVIDER_NAMES: Record<string, string> = {
   openrouter: 'OpenRouter',
@@ -27,7 +26,7 @@ interface OnboardingWizardProps {
 }
 
 export function OnboardingWizard({ onComplete }: OnboardingWizardProps = {}) {
-  const { updateProvider, setActiveProvider, syncProviderModels } = useModelStore();
+  const { updateProvider, setActiveProvider, syncProviderModels, providers } = useModelStore();
   const { i18n } = useTranslation();
 
   // Language step state
@@ -46,6 +45,10 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps = {}) {
   >('idle');
   const [validationError, setValidationError] = useState('');
 
+  // Model selection state
+  const [availableModels, setAvailableModels] = useState<any[]>([]);
+  const [selectedModel, setSelectedModel] = useState<string | null>(null);
+
   // Detect system language on mount
   useEffect(() => {
     const detected = detectSystemLanguage();
@@ -54,8 +57,19 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps = {}) {
     i18n.changeLanguage(detected);
   }, [i18n]);
 
+  // Load models when providers change (after sync)
+  useEffect(() => {
+    if (selectedProvider && validationStatus === 'valid') {
+      // Small delay to ensure store is updated after sync
+      const timer = setTimeout(() => {
+        loadAvailableModels();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [providers, selectedProvider, validationStatus]);
+
   const handleNext = async () => {
-    // Step 1 (Language): Save language selection
+    // Step 1 (Welcome): Save language selection and start wizard
     if (currentStep === 1) {
       try {
         await window.levante.preferences.set('language', selectedLanguage);
@@ -66,8 +80,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps = {}) {
       }
     }
 
-    // Step 4 (Provider): Must validate before proceeding
-    if (currentStep === 4 && validationStatus !== 'valid') {
+    // Step 3 (Provider): Must validate before proceeding
+    if (currentStep === 3 && validationStatus !== 'valid') {
       return;
     }
 
@@ -98,6 +112,20 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps = {}) {
     );
     setValidationStatus('idle');
     setValidationError('');
+    setAvailableModels([]);
+    setSelectedModel(null);
+  };
+
+  const handleModelSelect = async (modelId: string) => {
+    setSelectedModel(modelId);
+    // Mark this model as selected in the provider configuration
+    try {
+      await updateProvider(selectedProvider, {
+        selectedModelIds: [modelId]
+      });
+    } catch (error) {
+      console.error('Failed to select model:', error);
+    }
   };
 
   const handleValidateProvider = async () => {
@@ -162,22 +190,29 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps = {}) {
       // Sync models from provider
       await syncProviderModels(selectedProvider);
 
-      // Auto-select Claude 4.5 Haiku for OpenRouter
-      if (selectedProvider === 'openrouter') {
-        try {
-          const claudeHaikuId = 'anthropic/claude-haiku-4.5';
-          await updateProvider(selectedProvider, {
-            selectedModelIds: [claudeHaikuId]
-          });
-
-          // Re-sync to apply the selection
-          await syncProviderModels(selectedProvider);
-        } catch (error) {
-          console.error('Failed to auto-select Claude 4.5 Haiku:', error);
-        }
-      }
+      // Wait a bit for store to update, then load available models
+      setTimeout(() => {
+        loadAvailableModels();
+      }, 200);
     } catch (error) {
       console.error('Failed to save provider config:', error);
+    }
+  };
+
+  const loadAvailableModels = () => {
+    try {
+      // Get provider from store (which is already updated after sync)
+      const provider = providers.find((p) => p.id === selectedProvider);
+      if (provider && provider.models) {
+        // Filter only available models
+        const models = provider.models.filter((m) => m.isAvailable);
+        setAvailableModels(models);
+        console.log('Loaded available models:', models.length);
+      } else {
+        console.log('No provider or models found', { provider: !!provider, models: provider?.models?.length });
+      }
+    } catch (error) {
+      console.error('Failed to load available models:', error);
     }
   };
 
@@ -219,20 +254,10 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps = {}) {
         // Sync models from provider
         await syncProviderModels(selectedProvider);
 
-        // Auto-select Claude 4.5 Haiku for OpenRouter
-        if (selectedProvider === 'openrouter') {
-          try {
-            const claudeHaikuId = 'anthropic/claude-haiku-4.5';
-            await updateProvider(selectedProvider, {
-              selectedModelIds: [claudeHaikuId]
-            });
-
-            // Re-sync to apply the selection
-            await syncProviderModels(selectedProvider);
-          } catch (error) {
-            console.error('Failed to auto-select Claude 4.5 Haiku:', error);
-          }
-        }
+        // Wait a bit for store to update, then load available models
+        setTimeout(() => {
+          loadAvailableModels();
+        }, 200);
       } else {
         setValidationStatus('invalid');
         setValidationError(
@@ -278,9 +303,9 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps = {}) {
   };
 
   const isNextDisabled = () => {
-    // Step 4 (Provider) requires validation
-    if (currentStep === 4) {
-      return !selectedProvider || validationStatus !== 'valid';
+    // Step 3 (Provider) requires validation and model selection
+    if (currentStep === 3) {
+      return !selectedProvider || validationStatus !== 'valid' || !selectedModel;
     }
     return false;
   };
@@ -295,30 +320,32 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps = {}) {
       nextDisabled={isNextDisabled()}
     >
       {currentStep === 1 && (
-        <LanguageStep
+        <WelcomeStep
           selectedLanguage={selectedLanguage}
           detectedLanguage={detectedLanguage}
           onLanguageChange={handleLanguageChange}
         />
       )}
-      {currentStep === 2 && <WelcomeStep />}
-      {currentStep === 3 && <McpStep />}
-      {currentStep === 4 && (
+      {currentStep === 2 && <McpStep />}
+      {currentStep === 3 && (
         <ProviderStep
           selectedProvider={selectedProvider}
           apiKey={apiKey}
           endpoint={endpoint}
           validationStatus={validationStatus}
           validationError={validationError}
+          availableModels={availableModels}
+          selectedModel={selectedModel}
           onProviderChange={handleProviderChange}
           onApiKeyChange={setApiKey}
           onEndpointChange={setEndpoint}
           onValidate={handleValidateProvider}
+          onModelSelect={handleModelSelect}
           onOAuthSuccess={handleOAuthSuccess}
         />
       )}
-      {currentStep === 5 && <DirectoryStep />}
-      {currentStep === 6 && (
+      {currentStep === 4 && <DirectoryStep />}
+      {currentStep === 5 && (
         <CompletionStep
           providerName={PROVIDER_NAMES[selectedProvider] || selectedProvider}
         />
