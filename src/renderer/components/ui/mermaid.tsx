@@ -14,7 +14,7 @@ let mermaidIdCounter = 0;
 const getMermaidTheme = (isDark: boolean) => {
   if (isDark) {
     return {
-      theme: 'dark',
+      theme: 'dark' as const,
       themeVariables: {
         // Dark mode colors - using Tailwind slate palette
         primaryColor: '#1e293b',
@@ -87,7 +87,7 @@ const getMermaidTheme = (isDark: boolean) => {
 
   // Light mode - using Tailwind slate palette
   return {
-    theme: 'default',
+    theme: 'default' as const,
     themeVariables: {
       primaryColor: '#f0f9ff',
       primaryTextColor: '#0f172a',
