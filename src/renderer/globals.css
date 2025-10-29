@@ -280,4 +280,29 @@
     overflow-x: auto !important;
     overflow-y: hidden !important;
   }
+
+  /* Code block scrolling for long lines */
+  .shiki code {
+    display: block;
+    overflow-x: auto;
+  }
+
+  /* Code block wrapper styling - matches Shiki colors with proper padding */
+  .overflow-x-auto.my-4.h-auto.rounded-lg.border.p-4 {
+    padding: 0.5rem !important;
+    overflow: hidden !important;
+  }
+
+  /* Shiki pre element - add padding and match background */
+  .shiki {
+    padding: 1rem !important;
+    margin: 0 !important;
+    border-radius: 0.5rem !important;
+  }
+
+  /* Ensure backgrounds match in dark mode */
+  .dark .overflow-x-auto.my-4.h-auto.rounded-lg.border.p-4,
+  .dark .shiki.github-dark {
+    background-color: #0d1117 !important;
+  }
 }
