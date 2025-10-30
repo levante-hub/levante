@@ -16,6 +16,9 @@ import { createMainWindow } from "./window";
 
 const logger = getLogger();
 
+// Flag to prevent multiple shutdown attempts
+let isQuitting = false;
+
 /**
  * Register all application event handlers
  * @param getMainWindow - Function to get current main window reference
@@ -41,10 +44,23 @@ export function registerAppEvents(getMainWindow: () => BrowserWindow | null): vo
   });
 
   // Graceful shutdown: cleanup before app quits
+  // This event can fire multiple times (e.g., user presses cmd+q twice)
+  // We use isQuitting flag to ensure cleanup runs only once
   app.on("before-quit", async (event) => {
-    event.preventDefault();
-    await gracefulShutdown();
-    app.exit(0);
+    if (!isQuitting) {
+      // First time: prevent quit, do cleanup, then quit again
+      event.preventDefault();
+      isQuitting = true;
+
+      logger.core.info("Starting graceful shutdown (before-quit)");
+      await gracefulShutdown();
+
+      // Call app.quit() again - this will trigger before-quit
+      // but this time isQuitting=true so we won't prevent it
+      app.quit();
+    }
+    // Second time: don't prevent, let Electron close normally
+    logger.core.debug("Allowing quit to proceed (isQuitting=true)");
   });
 
   // macOS: Handle protocol URLs via 'open-url' event
