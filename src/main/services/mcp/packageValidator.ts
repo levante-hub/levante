@@ -261,31 +261,57 @@ export function validateUvxPackage(packageName: string, args: string[] = []): vo
  * @throws Error if dangerous flags detected
  */
 function validatePythonExecution(args: string[] = []): void {
-  // Block direct Python execution with dangerous flags
+  // If Python is called directly, require arguments
+  if (args.length === 0) {
+    throw new Error('Python command requires a script file path or module. Direct code execution is not allowed.');
+  }
+
+  const firstArg = args[0];
+
+  // Block dangerous code execution flags
+  if (firstArg === '-c' || firstArg === '--command') {
+    logger.mcp.error('Blocked direct code execution flag', { flag: firstArg });
+    throw new Error(
+      `Direct Python code execution with "${firstArg}" is not allowed for security reasons.`
+    );
+  }
+
+  // Block pip module usage
+  if (firstArg === '-m' && args.length > 1 && args[1] === 'pip') {
+    logger.mcp.error('Blocked pip module usage', { args });
+    throw new Error(
+      `Direct pip usage (python -m pip) is not allowed for security reasons. ` +
+      `Please use uvx for package management.`
+    );
+  }
+
+  // Check for dangerous patterns in all arguments
   for (const arg of args) {
-    for (const blockedFlag of BLOCKED_PYTHON_FLAGS) {
-      if (arg === blockedFlag || arg.startsWith(`${blockedFlag} `) || arg.includes(blockedFlag)) {
-        logger.mcp.error('Blocked dangerous Python flag in direct execution', { flag: blockedFlag, arg });
-        throw new Error(
-          `Dangerous Python flag or pattern "${blockedFlag}" is not allowed. ` +
-          `Direct Python code execution poses a security risk. ` +
-          `Please use uvx with official MCP packages instead.`
-        );
-      }
+    if (arg.includes('eval(') || arg.includes('exec(') || arg.includes('__import__(')) {
+      logger.mcp.error('Blocked dangerous Python pattern in arguments', { arg });
+      throw new Error(
+        `Dangerous Python pattern detected in arguments. ` +
+        `Code injection is not allowed for security reasons.`
+      );
     }
   }
 
-  // If Python is called directly, require a file path (not code execution)
-  if (args.length === 0) {
-    throw new Error('Python command requires a script file path. Direct code execution is not allowed.');
+  // Allow:
+  // 1. Module execution: python -m module_name
+  // 2. Script files: python script.py
+  if (firstArg === '-m') {
+    if (args.length < 2) {
+      throw new Error('Python -m flag requires a module name.');
+    }
+    logger.mcp.info('Python module execution validation passed', { module: args[1] });
+    return;
   }
 
-  // First argument should be a file path (.py file)
-  const firstArg = args[0];
+  // Require .py file for direct script execution
   if (!firstArg.endsWith('.py') && !firstArg.endsWith('.pyz')) {
-    logger.mcp.warn('Python executed without .py file', { firstArg });
+    logger.mcp.warn('Python executed without .py file or -m flag', { firstArg });
     throw new Error(
-      `Python command must specify a .py script file. ` +
+      `Python command must specify a .py script file or use -m for module execution. ` +
       `Direct code execution is not allowed for security reasons.`
     );
   }
