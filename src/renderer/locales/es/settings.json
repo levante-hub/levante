@@ -3,6 +3,7 @@
   "sections": {
     "personalization": "Personalización",
     "appearance": "Apariencia",
+    "security": "Seguridad",
     "ai_configuration": "Configuración de IA"
   },
   "language": {
@@ -79,6 +80,14 @@
     "save_button": "Guardar Personalización",
     "saving": "Guardando...",
     "saved": "Guardado exitosamente"
+  },
+  "security": {
+    "encrypt_api_keys": {
+      "label": "Cifrar Claves API",
+      "description": "Almacena las claves API cifradas usando el almacenamiento seguro de tu sistema (Keychain, DPAPI, o libsecret). Cuando esté habilitado, se te puede solicitar la contraseña del sistema.",
+      "warning": "Al habilitar el cifrado, se te puede solicitar la contraseña del sistema para asegurar las claves API."
+    },
+    "save_button": "Guardar Configuración de Seguridad"
   },
   "ai_config": {
     "title": "Límites de Ejecución de Herramientas Multi-Paso",

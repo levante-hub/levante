@@ -111,6 +111,14 @@ export class PreferencesService {
         activeProvider: {
           type: ['string', 'null'],
           default: null
+        },
+        security: {
+          type: 'object',
+          properties: {
+            encryptApiKeys: { type: 'boolean', default: false }
+          },
+          required: ['encryptApiKeys'],
+          default: { encryptApiKeys: false }
         }
       }
     });
@@ -135,8 +143,12 @@ export class PreferencesService {
     this.ensureInitialized();
     let value = this.store.get(key);
 
-    // Decrypt providers' API keys when reading
-    if (key === 'providers' && Array.isArray(value)) {
+    // Check if encryption is enabled
+    const securitySettings = this.store.get('security') || { encryptApiKeys: false };
+    const shouldEncrypt = securitySettings.encryptApiKeys;
+
+    // Decrypt providers' API keys when reading (only if encryption is enabled)
+    if (key === 'providers' && Array.isArray(value) && shouldEncrypt) {
       value = decryptProvidersApiKeys(value);
     }
 
@@ -156,9 +168,40 @@ export class PreferencesService {
     this.ensureInitialized();
     const previousValue = this.store.get(key);
 
-    // Encrypt providers' API keys before storing
+    // Check if encryption is enabled
+    const securitySettings = this.store.get('security') || { encryptApiKeys: false };
+    const shouldEncrypt = securitySettings.encryptApiKeys;
+
+    // Handle security settings change - convert existing API keys
+    if (key === 'security') {
+      const newSecuritySettings = value as UIPreferences['security'];
+      const previousSecuritySettings = previousValue as UIPreferences['security'] || { encryptApiKeys: false };
+
+      // If encryption setting changed, convert all existing API keys
+      if (newSecuritySettings.encryptApiKeys !== previousSecuritySettings.encryptApiKeys) {
+        const providers = this.store.get('providers') as any[];
+        if (Array.isArray(providers) && providers.length > 0) {
+          let updatedProviders: any[];
+
+          if (newSecuritySettings.encryptApiKeys) {
+            // Enabling encryption: encrypt plaintext keys
+            this.logger.preferences.info('Enabling API key encryption');
+            updatedProviders = encryptProvidersApiKeys(providers);
+          } else {
+            // Disabling encryption: decrypt encrypted keys
+            this.logger.preferences.info('Disabling API key encryption');
+            updatedProviders = decryptProvidersApiKeys(providers);
+          }
+
+          // Store the converted providers
+          this.store.set('providers', updatedProviders);
+        }
+      }
+    }
+
+    // Encrypt providers' API keys before storing (only if encryption is enabled)
     let valueToStore = value;
-    if (key === 'providers' && Array.isArray(value)) {
+    if (key === 'providers' && Array.isArray(value) && shouldEncrypt) {
       valueToStore = encryptProvidersApiKeys(value) as any;
     }
 
@@ -173,7 +216,7 @@ export class PreferencesService {
     });
 
     this.store.set(key, valueToStore);
-    
+
     // Broadcast change to all renderer processes
     const changeEvent: PreferenceChangeEvent<K> = {
       key,
@@ -182,18 +225,18 @@ export class PreferencesService {
     };
 
     const windows = BrowserWindow.getAllWindows();
-    logger.debug("Broadcasting preference change", { 
-      key, 
-      windowCount: windows.length 
+    logger.debug("Broadcasting preference change", {
+      key,
+      windowCount: windows.length
     });
-    
+
     windows.forEach(window => {
       if (window && !window.isDestroyed()) {
         try {
           window.webContents.send('levante/preferences/changed', changeEvent);
         } catch (error) {
-          this.logger.preferences.error("Failed to broadcast to window", { 
-            error: error instanceof Error ? error.message : error 
+          this.logger.preferences.error("Failed to broadcast to window", {
+            error: error instanceof Error ? error.message : error
           });
         }
       }
@@ -204,8 +247,12 @@ export class PreferencesService {
     this.ensureInitialized();
     const preferences = { ...this.store.store };
 
-    // Decrypt providers' API keys
-    if (Array.isArray(preferences.providers)) {
+    // Check if encryption is enabled
+    const securitySettings = preferences.security || { encryptApiKeys: false };
+    const shouldEncrypt = securitySettings.encryptApiKeys;
+
+    // Decrypt providers' API keys (only if encryption is enabled)
+    if (Array.isArray(preferences.providers) && shouldEncrypt) {
       preferences.providers = decryptProvidersApiKeys(preferences.providers);
     }
 

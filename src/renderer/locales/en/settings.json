@@ -3,6 +3,7 @@
   "sections": {
     "personalization": "Personalization",
     "appearance": "Appearance",
+    "security": "Security",
     "ai_configuration": "AI Configuration"
   },
   "language": {
@@ -79,6 +80,14 @@
     "save_button": "Save Personalization",
     "saving": "Saving...",
     "saved": "Saved successfully"
+  },
+  "security": {
+    "encrypt_api_keys": {
+      "label": "Encrypt API Keys",
+      "description": "Store API keys encrypted using your system's secure storage (Keychain, DPAPI, or libsecret). When enabled, you may be prompted for your system password.",
+      "warning": "When enabling encryption, you may be prompted for your system password to secure the API keys."
+    },
+    "save_button": "Save Security Settings"
   },
   "ai_config": {
     "title": "Multi-Step Tool Execution Limits",

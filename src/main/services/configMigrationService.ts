@@ -52,6 +52,16 @@ export class ConfigMigrationService {
       }
     });
 
+    // Migration 1.2 → 1.3: Detect encrypted API keys and set encryptApiKeys flag
+    this.migrations.push({
+      version: '1.3.0',
+      name: 'detect-encrypted-api-keys',
+      description: 'Detect if API keys are encrypted and set security.encryptApiKeys accordingly',
+      migrate: async () => {
+        await this.detectEncryptedApiKeys();
+      }
+    });
+
     // Future migrations can be added here
     // this.migrations.push({ ... });
   }
@@ -202,6 +212,61 @@ export class ConfigMigrationService {
           error: error instanceof Error ? error.message : error
         });
       }
+    }
+  }
+
+  /**
+   * Migration 1.2 → 1.3: Detect encrypted API keys
+   * If providers have encrypted API keys, set security.encryptApiKeys to true
+   */
+  private async detectEncryptedApiKeys(): Promise<void> {
+    const uiPreferencesPath = path.join(directoryService.getBaseDir(), 'ui-preferences.json');
+
+    try {
+      const exists = await directoryService.fileExists('ui-preferences.json');
+      if (!exists) {
+        logger.core.info('No ui-preferences.json found, skipping encrypted API keys detection');
+        return;
+      }
+
+      const content = await fs.readFile(uiPreferencesPath, 'utf-8');
+      const preferences = JSON.parse(content);
+
+      // Check if providers array exists and has items
+      if (!Array.isArray(preferences.providers) || preferences.providers.length === 0) {
+        logger.core.info('No providers found, setting encryptApiKeys to false');
+        preferences.security = { encryptApiKeys: false };
+        await fs.writeFile(uiPreferencesPath, JSON.stringify(preferences, null, 2), 'utf-8');
+        return;
+      }
+
+      // Check if any provider has an encrypted API key
+      const hasEncryptedKeys = preferences.providers.some((provider: any) => {
+        return provider.apiKey &&
+               typeof provider.apiKey === 'string' &&
+               provider.apiKey.startsWith('ENCRYPTED:');
+      });
+
+      // Initialize security settings if not present
+      if (!preferences.security) {
+        preferences.security = {};
+      }
+
+      // Set encryptApiKeys based on detection
+      preferences.security.encryptApiKeys = hasEncryptedKeys;
+
+      // Save updated preferences
+      await fs.writeFile(uiPreferencesPath, JSON.stringify(preferences, null, 2), 'utf-8');
+
+      logger.core.info('Migration 1.2 → 1.3 completed: detected encrypted API keys', {
+        hasEncryptedKeys,
+        encryptApiKeys: preferences.security.encryptApiKeys
+      });
+    } catch (error) {
+      logger.core.error('Failed to detect encrypted API keys', {
+        error: error instanceof Error ? error.message : error
+      });
+      throw error;
     }
   }
 

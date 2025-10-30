@@ -111,7 +111,11 @@ export function decryptProviderApiKey(provider: any): any {
   const decrypted = { ...provider };
 
   if (decrypted.apiKey && typeof decrypted.apiKey === 'string') {
-    decrypted.apiKey = decryptValue(decrypted.apiKey);
+    // Only decrypt if the value is actually encrypted
+    if (isEncrypted(decrypted.apiKey)) {
+      decrypted.apiKey = decryptValue(decrypted.apiKey);
+    }
+    // If not encrypted, leave as-is (already plaintext)
   }
 
   return decrypted;

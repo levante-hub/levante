@@ -34,6 +34,9 @@ export interface UIPreferences {
     maxSteps: number;
   };
   hasAcceptedFreeModelWarning?: boolean;
+  security: {
+    encryptApiKeys: boolean;
+  };
 }
 
 export type PreferenceKey = keyof UIPreferences;
@@ -47,9 +50,9 @@ export interface PreferenceChangeEvent<K extends PreferenceKey = PreferenceKey> 
 export const DEFAULT_PREFERENCES: UIPreferences = {
   theme: 'system',
   language: 'en',
-  windowBounds: { 
-    width: 1200, 
-    height: 800 
+  windowBounds: {
+    width: 1200,
+    height: 800
   },
   sidebarCollapsed: false,
   lastUsedModel: 'openai/gpt-4',
@@ -75,5 +78,8 @@ export const DEFAULT_PREFERENCES: UIPreferences = {
     baseSteps: 5,
     maxSteps: 20
   },
-  hasAcceptedFreeModelWarning: false
+  hasAcceptedFreeModelWarning: false,
+  security: {
+    encryptApiKeys: false
+  }
 };
