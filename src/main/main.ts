@@ -14,7 +14,7 @@ import { databaseService } from "./services/databaseService";
 import { setupDatabaseHandlers } from "./ipc/databaseHandlers";
 import { setupPreferencesHandlers } from "./ipc/preferencesHandlers";
 import { setupModelHandlers } from "./ipc/modelHandlers";
-import { registerMCPHandlers, configManager } from "./ipc/mcpHandlers";
+import { registerMCPHandlers, mcpService, configManager } from "./ipc/mcpHandlers";
 import { setupLoggerHandlers } from "./ipc/loggerHandlers";
 import { registerDebugHandlers } from "./ipc/debugHandlers";
 import { setupWizardHandlers } from "./ipc/wizardHandlers";
@@ -274,8 +274,23 @@ app.whenReady().then(async () => {
   });
 });
 
-app.on("window-all-closed", async () => {
-  // Close database connection before quitting
+// Graceful shutdown: cleanup before app quits
+app.on("before-quit", async (event) => {
+  event.preventDefault();
+
+  logger.core.info("App is quitting, performing cleanup...");
+
+  // Disconnect all MCP servers
+  try {
+    await mcpService.disconnectAll();
+    logger.core.info("All MCP servers disconnected");
+  } catch (error) {
+    logger.core.error("Error disconnecting MCP servers", {
+      error: error instanceof Error ? error.message : error,
+    });
+  }
+
+  // Close database connection
   try {
     await databaseService.close();
     logger.core.info("Database connection closed");
@@ -285,7 +300,25 @@ app.on("window-all-closed", async () => {
     });
   }
 
-  if (process.platform !== "darwin") app.quit();
+  // Stop OAuth callback server
+  try {
+    await oauthCallbackServer.stop();
+    logger.core.info("OAuth callback server stopped");
+  } catch (error) {
+    logger.core.error("Error stopping OAuth server", {
+      error: error instanceof Error ? error.message : error,
+    });
+  }
+
+  logger.core.info("Cleanup completed, exiting app");
+  app.exit(0);
+});
+
+app.on("window-all-closed", () => {
+  // On macOS, apps typically stay open until explicitly quit
+  if (process.platform !== "darwin") {
+    app.quit();
+  }
 });
 
 // IPC handlers for secure communication
