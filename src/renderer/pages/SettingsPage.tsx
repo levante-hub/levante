@@ -16,7 +16,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import { CheckCircle, Settings, User, ChevronDown, Palette } from 'lucide-react';
+import { CheckCircle, Settings, User, ChevronDown, Palette, Shield } from 'lucide-react';
 import { getRendererLogger } from '@/services/logger';
 import { useTranslation } from 'react-i18next';
 import type { PersonalizationSettings } from '../../types/userProfile';
@@ -54,6 +54,15 @@ const SettingsPage = () => {
     saved: false,
   });
 
+  const [security, setSecurity] = useState({
+    encryptApiKeys: false
+  });
+
+  const [securityState, setSecurityState] = useState({
+    saving: false,
+    saved: false,
+  });
+
   const loadStepsConfig = async () => {
     try {
       const aiConfig = await window.levante.preferences.get('ai');
@@ -87,6 +96,12 @@ const SettingsPage = () => {
         const lang = languageResult.data as 'en' | 'es';
         setLanguage(lang);
         i18n.changeLanguage(lang);
+      }
+
+      // Load security settings
+      const securityResult = await window.levante.preferences.get('security');
+      if (securityResult?.data) {
+        setSecurity(securityResult.data);
       }
     } catch (error) {
       logger.preferences.error('Error loading personalization settings', { error: error instanceof Error ? error.message : error });
@@ -167,6 +182,24 @@ const SettingsPage = () => {
     } catch (error) {
       logger.preferences.error('Error saving personalization settings', { error: error instanceof Error ? error.message : error });
       setPersonalizationState({ saving: false, saved: false });
+    }
+  };
+
+  const handleSaveSecurity = async () => {
+    setSecurityState({ saving: true, saved: false });
+
+    try {
+      await window.levante.preferences.set('security', security);
+
+      setSecurityState({ saving: false, saved: true });
+
+      // Clear saved indicator after 3 seconds
+      setTimeout(() => {
+        setSecurityState({ saving: false, saved: false });
+      }, 3000);
+    } catch (error) {
+      logger.preferences.error('Error saving security settings', { error: error instanceof Error ? error.message : error });
+      setSecurityState({ saving: false, saved: false });
     }
   };
 
@@ -425,7 +458,65 @@ const SettingsPage = () => {
           </div>
         </Collapsible>
 
-        {/* AI Configuration - Third Block */}
+        {/* Security - Third Block */}
+        <Collapsible className="bg-card rounded-lg border-none">
+          <div className="p-6">
+            <CollapsibleTrigger className="flex items-center justify-between w-full group">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <Shield className="w-5 h-5" />
+                {t('settings:sections.security')}
+              </h3>
+              <ChevronDown className="w-5 h-5 transition-transform group-data-[state=open]:rotate-180" />
+            </CollapsibleTrigger>
+
+            <CollapsibleContent className="mt-4">
+              <div className="space-y-6">
+                {/* Encrypt API Keys Toggle */}
+                <div className="flex items-start justify-between">
+                  <div className="space-y-0.5 flex-1 mr-4">
+                    <Label htmlFor="encryptApiKeys" className="text-base">
+                      {t('settings:security.encrypt_api_keys.label')}
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      {t('settings:security.encrypt_api_keys.description')}
+                    </p>
+                    <p className="text-xs text-amber-600 mt-2">
+                      ⚠️ {t('settings:security.encrypt_api_keys.warning')}
+                    </p>
+                  </div>
+                  <Switch
+                    id="encryptApiKeys"
+                    checked={security.encryptApiKeys}
+                    onCheckedChange={(checked) =>
+                      setSecurity(prev => ({ ...prev, encryptApiKeys: checked }))
+                    }
+                  />
+                </div>
+
+                {/* Save Button */}
+                <div className="flex items-center gap-4 pt-2">
+                  <Button
+                    onClick={handleSaveSecurity}
+                    disabled={securityState.saving}
+                    variant="outline"
+                    size="sm"
+                  >
+                    {securityState.saving ? t('settings:personalization.saving') : t('settings:security.save_button')}
+                  </Button>
+
+                  {securityState.saved && (
+                    <div className="flex items-center text-green-600 text-sm">
+                      <CheckCircle className="w-4 h-4 mr-1" />
+                      {t('settings:personalization.saved')}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CollapsibleContent>
+          </div>
+        </Collapsible>
+
+        {/* AI Configuration - Fourth Block */}
         <Collapsible className="bg-card rounded-lg border-none">
           <div className="p-6">
             <CollapsibleTrigger className="flex items-center justify-between w-full group">
