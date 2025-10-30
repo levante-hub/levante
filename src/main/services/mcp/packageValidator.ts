@@ -71,15 +71,48 @@ export const BLOCKED_COMMANDS = [
 ] as const;
 
 /**
- * Dangerous Python flags that allow arbitrary code execution
+ * Dangerous Python patterns that allow arbitrary code execution
+ * Note: '-m' flag itself is allowed for legitimate module execution (e.g., python -m my_mcp_server)
+ * but we block dangerous combinations like 'pip', 'pip3', etc.
  */
-export const BLOCKED_PYTHON_FLAGS = [
+export const BLOCKED_PYTHON_PATTERNS = [
   '-c',           // Execute code: python -c "import os; os.system('rm -rf /')"
-  '--command',
-  '-m pip',       // Prevent direct pip usage: python -m pip install malicious
+  '--command',    // Alternative to -c
   'eval(',        // Prevent eval in arguments
   'exec(',        // Prevent exec in arguments
   '__import__('   // Prevent dynamic imports
+] as const;
+
+/**
+ * Blocked Python modules for -m flag (package managers, dangerous modules)
+ */
+export const BLOCKED_PYTHON_MODULES = [
+  'pip',          // python -m pip install malicious
+  'pip3',         // python -m pip3 install malicious
+  'easy_install', // python -m easy_install malicious
+  'ensurepip',    // python -m ensurepip (installs pip)
+  'venv',         // python -m venv could be used for persistence
+  'site',         // python -m site can modify Python paths
+] as const;
+
+/**
+ * Dangerous uv subcommands that could modify system state
+ */
+export const BLOCKED_UV_SUBCOMMANDS = [
+  'pip install',     // uv pip install (global installation)
+  'pip uninstall',   // uv pip uninstall
+  'tool install',    // uv tool install (persistent installation)
+  'tool uninstall',  // uv tool uninstall
+  'cache clear',     // uv cache clear (could be used for DoS)
+  'self update',     // uv self update (modify uv itself)
+] as const;
+
+/**
+ * Safe uv subcommands that are allowed
+ */
+export const SAFE_UV_SUBCOMMANDS = [
+  'run',        // uv run (isolated project execution)
+  'tool run',   // uv tool run (temporary tool execution, alias: uvx)
 ] as const;
 
 /**
@@ -113,6 +146,22 @@ export const PYTHON_PACKAGE_REGEX = /^[a-z0-9]([a-z0-9-_]*[a-z0-9])?$/i;
  * These are allowed and will be skipped when looking for package name
  */
 const SAFE_NPX_FLAGS = ['-y', '--yes', '-q', '--quiet', '-v', '--version'] as const;
+
+/**
+ * Safe uvx flags that should be skipped when extracting package name
+ * These flags take values and are legitimate for package execution
+ */
+const SAFE_UVX_FLAGS = [
+  '--from',        // Source specification (--from ./path or --from git+https://...)
+  '--with',        // Additional dependencies (--with requests)
+  '--python',      // Python version (--python 3.13)
+  '-p',            // Short for --python
+  '--index-url',   // Custom PyPI index
+  '--extra-index-url',
+  '-y', '--yes',   // Auto-confirm
+  '-q', '--quiet', // Quiet mode
+  '-v', '--verbose', // Verbose mode
+] as const;
 
 /**
  * Extracts the package name from npx arguments, skipping safe flags
@@ -149,6 +198,55 @@ function extractPackageFromArgs(args: string[]): { packageName: string; remainin
   const remainingArgs = args.slice(packageIndex + 1);
 
   return { packageName, remainingArgs };
+}
+
+/**
+ * Extracts the package name from uvx arguments, skipping safe flags and their values
+ * uvx flags like --python, --from, --with take values that should be skipped
+ * @param args - The arguments array
+ * @returns Object with packageName and remaining args
+ */
+function extractUvxPackageFromArgs(args: string[]): { packageName: string; remainingArgs: string[] } {
+  let i = 0;
+
+  // Skip flags and their values
+  while (i < args.length) {
+    const arg = args[i];
+
+    // Check if this is a flag that takes a value
+    const isFlagWithValue = SAFE_UVX_FLAGS.some(flag =>
+      arg === flag || arg.startsWith(`${flag}=`)
+    );
+
+    if (isFlagWithValue) {
+      // If flag=value format, skip just this arg
+      if (arg.includes('=')) {
+        i++;
+        continue;
+      }
+      // Otherwise skip flag and next arg (the value)
+      i += 2;
+      continue;
+    }
+
+    // Check if it's a standalone flag (like -y, -v)
+    if (arg === '-y' || arg === '--yes' || arg === '-q' || arg === '--quiet' || arg === '-v' || arg === '--verbose') {
+      i++;
+      continue;
+    }
+
+    // If not a flag, this should be the package name
+    if (!arg.startsWith('-')) {
+      const packageName = arg;
+      const remainingArgs = args.slice(i + 1);
+      return { packageName, remainingArgs };
+    }
+
+    // Unknown flag, move to next
+    i++;
+  }
+
+  throw new Error('No package name found in uvx arguments');
 }
 
 /**
@@ -237,7 +335,7 @@ export function validateUvxPackage(packageName: string, args: string[] = []): vo
   // Check for dangerous patterns in arguments
   const allArgs = [packageName, ...args];
   for (const arg of allArgs) {
-    for (const blockedPattern of BLOCKED_PYTHON_FLAGS) {
+    for (const blockedPattern of BLOCKED_PYTHON_PATTERNS) {
       if (arg.includes(blockedPattern)) {
         logger.mcp.error('Blocked dangerous Python pattern', { pattern: blockedPattern, arg });
         throw new Error(
@@ -257,40 +355,146 @@ export function validateUvxPackage(packageName: string, args: string[] = []): vo
 
 /**
  * Validates Python direct execution arguments
+ * Allows both module execution (python -m module_name) and script execution (python script.py)
  * @param args - Python command arguments
- * @throws Error if dangerous flags detected
+ * @throws Error if dangerous patterns detected
  */
 function validatePythonExecution(args: string[] = []): void {
-  // Block direct Python execution with dangerous flags
+  // If Python is called directly, require arguments
+  if (args.length === 0) {
+    throw new Error('Python command requires arguments (module or script file). Direct code execution is not allowed.');
+  }
+
+  // Block dangerous patterns (arbitrary code execution)
   for (const arg of args) {
-    for (const blockedFlag of BLOCKED_PYTHON_FLAGS) {
-      if (arg === blockedFlag || arg.startsWith(`${blockedFlag} `) || arg.includes(blockedFlag)) {
-        logger.mcp.error('Blocked dangerous Python flag in direct execution', { flag: blockedFlag, arg });
+    for (const blockedPattern of BLOCKED_PYTHON_PATTERNS) {
+      if (arg === blockedPattern || arg.startsWith(`${blockedPattern} `) || arg.includes(blockedPattern)) {
+        logger.mcp.error('Blocked dangerous Python pattern in direct execution', { pattern: blockedPattern, arg });
         throw new Error(
-          `Dangerous Python flag or pattern "${blockedFlag}" is not allowed. ` +
-          `Direct Python code execution poses a security risk. ` +
-          `Please use uvx with official MCP packages instead.`
+          `Dangerous Python pattern "${blockedPattern}" is not allowed. ` +
+          `Direct Python code execution poses a security risk.`
         );
       }
     }
   }
 
-  // If Python is called directly, require a file path (not code execution)
-  if (args.length === 0) {
-    throw new Error('Python command requires a script file path. Direct code execution is not allowed.');
+  const firstArg = args[0];
+
+  // Case 1: Module execution (python -m module_name)
+  if (firstArg === '-m' || firstArg === '--module') {
+    if (args.length < 2) {
+      throw new Error('Python -m flag requires a module name.');
+    }
+
+    const moduleName = args[1];
+
+    // Block dangerous modules (package managers, etc.)
+    for (const blockedModule of BLOCKED_PYTHON_MODULES) {
+      if (moduleName === blockedModule || moduleName.startsWith(`${blockedModule} `)) {
+        logger.mcp.error('Blocked dangerous Python module', { module: blockedModule, moduleName });
+        throw new Error(
+          `Python module "${blockedModule}" is blocked for security reasons. ` +
+          `This module can install packages or modify the Python environment.`
+        );
+      }
+    }
+
+    logger.mcp.info('Python module execution validation passed', { moduleName });
+    return;
   }
 
-  // First argument should be a file path (.py file)
-  const firstArg = args[0];
+  // Case 2: Script execution (python script.py)
   if (!firstArg.endsWith('.py') && !firstArg.endsWith('.pyz')) {
-    logger.mcp.warn('Python executed without .py file', { firstArg });
+    logger.mcp.warn('Python executed without .py file or -m flag', { firstArg });
     throw new Error(
-      `Python command must specify a .py script file. ` +
+      `Python command must specify either a .py script file or use -m for module execution. ` +
       `Direct code execution is not allowed for security reasons.`
     );
   }
 
-  logger.mcp.info('Python execution validation passed', { scriptPath: firstArg });
+  logger.mcp.info('Python script execution validation passed', { scriptPath: firstArg });
+}
+
+/**
+ * Validates uv/uvx command execution
+ * Allows safe subcommands like 'run' and 'tool run' (uvx)
+ * Blocks dangerous operations like package installation
+ * @param command - The base command (uv or uvx)
+ * @param args - Command arguments
+ * @throws Error if dangerous patterns detected
+ */
+function validateUvExecution(command: string, args: string[] = []): void {
+  // uvx is an alias for 'uv tool run', treat it specially
+  if (command === 'uvx') {
+    // uvx is safe by design - it runs tools in temporary isolated environments
+    // Only block dangerous Python patterns in the arguments
+    for (const arg of args) {
+      for (const blockedPattern of BLOCKED_PYTHON_PATTERNS) {
+        if (arg.includes(blockedPattern)) {
+          logger.mcp.error('Blocked dangerous Python pattern in uvx', { pattern: blockedPattern, arg });
+          throw new Error(
+            `Dangerous Python pattern "${blockedPattern}" detected in uvx arguments. ` +
+            `This can execute arbitrary code and poses a security risk.`
+          );
+        }
+      }
+    }
+
+    logger.mcp.info('uvx execution validation passed', { argsCount: args.length });
+    return;
+  }
+
+  // For 'uv' command, validate subcommand
+  if (args.length === 0) {
+    throw new Error('uv command requires a subcommand (e.g., run, tool).');
+  }
+
+  const subcommand = args[0];
+  const subcommandArgs = args.slice(1);
+
+  // Check for blocked subcommands (with their arguments)
+  const fullSubcommand = args.slice(0, 2).join(' '); // e.g., "pip install"
+
+  for (const blockedCmd of BLOCKED_UV_SUBCOMMANDS) {
+    if (fullSubcommand.startsWith(blockedCmd)) {
+      logger.mcp.error('Blocked dangerous uv subcommand', { subcommand: blockedCmd });
+      throw new Error(
+        `uv subcommand "${blockedCmd}" is blocked for security reasons. ` +
+        `This operation can modify the system or install packages persistently.`
+      );
+    }
+  }
+
+  // Allow safe subcommands explicitly
+  const isSafe = SAFE_UV_SUBCOMMANDS.some(safe => fullSubcommand.startsWith(safe) || subcommand === safe);
+
+  if (!isSafe) {
+    logger.mcp.warn('Unknown uv subcommand', { subcommand, fullSubcommand });
+    // Allow unknown subcommands with warning (future compatibility)
+    // but block if they look dangerous
+    if (subcommand.includes('install') || subcommand.includes('uninstall')) {
+      throw new Error(
+        `uv subcommand "${subcommand}" appears to be a package management operation and is blocked.`
+      );
+    }
+  }
+
+  // For 'uv run', check for dangerous Python patterns in arguments
+  if (subcommand === 'run') {
+    for (const arg of subcommandArgs) {
+      for (const blockedPattern of BLOCKED_PYTHON_PATTERNS) {
+        if (arg.includes(blockedPattern)) {
+          logger.mcp.error('Blocked dangerous Python pattern in uv run', { pattern: blockedPattern, arg });
+          throw new Error(
+            `Dangerous Python pattern "${blockedPattern}" detected in uv run arguments. ` +
+            `This can execute arbitrary code and poses a security risk.`
+          );
+        }
+      }
+    }
+  }
+
+  logger.mcp.info('uv execution validation passed', { subcommand, argsCount: subcommandArgs.length });
 }
 
 /**
@@ -383,22 +587,9 @@ export function validateRuntimeSecurity(command: string, args: string[] = []): v
     return;
   }
 
-  // 3. Validate UVX dangerous patterns
-  if (baseCommand === 'uvx') {
-    // Check for dangerous patterns in arguments
-    for (const arg of args) {
-      for (const blockedPattern of BLOCKED_PYTHON_FLAGS) {
-        if (arg.includes(blockedPattern)) {
-          logger.mcp.error('Blocked dangerous Python pattern (runtime)', { pattern: blockedPattern, arg });
-          throw new Error(
-            `Dangerous Python pattern "${blockedPattern}" detected. ` +
-            `This can execute arbitrary code and poses a security risk.`
-          );
-        }
-      }
-    }
-
-    logger.mcp.debug('UVX runtime validation passed');
+  // 3. Validate UV/UVX commands (modern Python package execution)
+  if (baseCommand === 'uv' || baseCommand === 'uvx') {
+    validateUvExecution(baseCommand, args);
     return;
   }
 
@@ -442,15 +633,25 @@ export function validateMCPCommand(command: string, args: string[] = []): void {
     );
   }
 
-  // 2. Validate uvx (Python package manager)
-  if (baseCommand === 'uvx') {
-    if (args.length === 0) {
-      throw new Error('uvx command requires a package name');
+  // 2. Validate uv/uvx (Python package manager)
+  if (baseCommand === 'uv' || baseCommand === 'uvx') {
+    // For uvx specifically, check whitelist for deep links
+    if (baseCommand === 'uvx') {
+      if (args.length === 0) {
+        throw new Error('uvx command requires a package name');
+      }
+
+      // Extract package name, skipping flags like --python, --from, --with
+      const { packageName, remainingArgs } = extractUvxPackageFromArgs(args);
+
+      validateUvxPackage(packageName, remainingArgs);
+      logger.mcp.info('UVX command validation passed', { packageName });
+      return;
     }
-    const packageName = args[0];
-    const remainingArgs = args.slice(1);
-    validateUvxPackage(packageName, remainingArgs);
-    logger.mcp.info('UVX command validation passed', { packageName });
+
+    // For 'uv' command, use the general validation
+    validateUvExecution(baseCommand, args);
+    logger.mcp.info('UV command validation passed');
     return;
   }
 

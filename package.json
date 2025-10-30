@@ -74,6 +74,7 @@
     "dotenv": "^17.2.1",
     "electron-store": "^10.1.0",
     "embla-carousel-react": "^8.6.0",
+    "fix-path": "^5.0.0",
     "i18next": "^25.6.0",
     "input-otp": "^1.4.2",
     "katex": "^0.16.22",
