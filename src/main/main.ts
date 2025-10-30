@@ -1,3 +1,11 @@
+// Fix PATH for packaged macOS apps - must be first import
+import fixPath from "fix-path";
+
+// Initialize PATH fix for macOS packaged apps
+// This ensures Node.js, npm, npx, and other shell commands are available
+// In development this has no effect, in production it reads from user's shell
+fixPath();
+
 import { app, BrowserWindow, ipcMain, nativeTheme } from "electron";
 import { join } from "path";
 import { config } from "dotenv";

@@ -9,9 +9,9 @@ const logger = getLogger();
 
 /**
  * Resolve the command and arguments for MCP server execution
- * Handles npx commands and PATH resolution for Electron environments
+ * Handles npx, uv, uvx commands and PATH resolution for Electron environments
  *
- * Security: Validates dangerous patterns for ALL commands (npx, uvx, python, node, system commands)
+ * Security: Validates dangerous patterns for ALL commands (npx, uv, uvx, python, node, system commands)
  * Does NOT enforce whitelist - that's only for deep links
  */
 export async function resolveCommand(
@@ -118,7 +118,26 @@ export async function resolveCommand(
     );
   }
 
-  // For non-npx commands, return as-is
+  // For uv/uvx commands, try to resolve from PATH if needed
+  if (command === 'uv' || command === 'uvx') {
+    try {
+      const { stdout } = await execAsync(`which ${command}`);
+      const resolvedPath = stdout.trim();
+
+      if (resolvedPath) {
+        logger.mcp.debug(`Found ${command} at path`, { path: resolvedPath });
+        return {
+          command: resolvedPath,
+          args: args
+        };
+      }
+    } catch {
+      // uv/uvx not found in PATH, try as-is (might be in enhanced PATH)
+      logger.mcp.debug(`${command} not found in PATH, using as-is`);
+    }
+  }
+
+  // For non-npx/uv/uvx commands, return as-is
   return { command, args };
 }
 

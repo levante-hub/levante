@@ -269,3 +269,10 @@ LOG_LEVEL=debug
 
 See [docs/LOGGING.md](docs/LOGGING.md) for complete documentation.
 - No utilices pnpm dev
+
+## Developer Documentation
+
+For additional development guides and best practices:
+
+- **[Local MCP Development](docs/developer/local-mcp-development.md)** - Complete guide for developing and testing MCP servers locally with uvx, uv run, and python
+- **[Developer Docs Index](docs/developer/)** - All developer-focused documentation
