@@ -8,7 +8,7 @@
  * - IPC handler registration
  */
 
-import { app } from "electron";
+import { app, BrowserWindow } from "electron";
 import { getLogger } from "../services/logging";
 import { databaseService } from "../services/databaseService";
 import { preferencesService } from "../services/preferencesService";
@@ -22,6 +22,9 @@ import { setupWizardHandlers } from "../ipc/wizardHandlers";
 import { setupProfileHandlers } from "../ipc/profileHandlers";
 import { registerMCPHandlers, configManager } from "../ipc/mcpHandlers";
 import { registerDebugHandlers } from "../ipc/debugHandlers";
+import { setupChatHandlers } from "../ipc/chatHandlers";
+import { setupAppHandlers } from "../ipc/appHandlers";
+import { setupOAuthHandlers } from "../ipc/oauthHandlers";
 
 const logger = getLogger();
 
@@ -94,8 +97,10 @@ export async function initializeServices(): Promise<void> {
 /**
  * Register all IPC handlers
  * Should be called after service initialization
+ * @param getMainWindow - Function to get current main window reference
  */
-export function registerIPCHandlers(): void {
+export function registerIPCHandlers(getMainWindow: () => BrowserWindow | null): void {
+  // Service-specific handlers
   setupDatabaseHandlers();
   setupPreferencesHandlers();
   setupModelHandlers();
@@ -104,6 +109,11 @@ export function registerIPCHandlers(): void {
   setupProfileHandlers();
   registerMCPHandlers();
   registerDebugHandlers();
+
+  // App-level handlers
+  setupChatHandlers();
+  setupAppHandlers(getMainWindow);
+  setupOAuthHandlers();
 
   logger.core.info("All IPC handlers registered successfully");
 }
