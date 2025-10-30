@@ -512,7 +512,7 @@ const ChatPage = () => {
               ))}
 
               {/* Streaming indicator */}
-              {status === 'streaming' && (
+              {(status === 'streaming' || status === 'submitted') && (
                 <Message from="assistant">
                   <MessageContent>
                     <BreathingLogo />
