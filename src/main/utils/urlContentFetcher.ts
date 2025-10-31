@@ -1,16 +1,77 @@
 import { getLogger } from '../services/logging';
+import { validatePublicUrl, logBlockedUrl, safeFetch } from './urlValidator';
 
 const logger = getLogger();
 
 /**
+ * Allowed domains for MCP documentation extraction
+ *
+ * Security: Only allow fetching from known MCP-related documentation sources
+ * to prevent SSRF attacks and data exfiltration
+ */
+const ALLOWED_DOMAINS = [
+  'github.com',
+  'raw.githubusercontent.com',
+  'gist.github.com',
+  'docs.anthropic.com',
+  'modelcontextprotocol.io',
+  'npmjs.com',
+  'registry.npmjs.org',
+] as const;
+
+/**
+ * Check if a URL's domain is in the allowed list
+ *
+ * @param url - URL to check
+ * @returns true if domain is allowed, false otherwise
+ */
+function isDomainAllowed(url: URL): boolean {
+  const hostname = url.hostname.toLowerCase();
+
+  for (const allowedDomain of ALLOWED_DOMAINS) {
+    // Allow exact match or subdomain
+    if (hostname === allowedDomain || hostname.endsWith(`.${allowedDomain}`)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
  * Fetch and extract text content from a URL
  * Converts HTML to markdown-like text format
+ *
+ * Security: Only allows fetching from whitelisted domains to prevent SSRF
  */
 export async function fetchUrlContent(url: string): Promise<string | null> {
   try {
     logger.mcp.debug('Fetching URL content', { url });
 
-    const response = await fetch(url, {
+    // Security: Validate URL for SSRF protection
+    const validation = validatePublicUrl(url);
+    if (!validation.valid || !validation.parsedUrl) {
+      logBlockedUrl(url, validation.error || 'Invalid URL', 'fetchUrlContent');
+      logger.mcp.error('URL validation failed', {
+        url,
+        error: validation.error
+      });
+      return null;
+    }
+
+    // Security: Check domain allowlist
+    if (!isDomainAllowed(validation.parsedUrl)) {
+      const blockedDomain = validation.parsedUrl.hostname;
+      logBlockedUrl(url, `Domain not in allowlist: ${blockedDomain}`, 'fetchUrlContent');
+      logger.mcp.warn('Blocked URL from non-whitelisted domain', {
+        domain: blockedDomain,
+        allowedDomains: ALLOWED_DOMAINS
+      });
+      return null;
+    }
+
+    // Security: Use safeFetch with 30s timeout
+    const response = await safeFetch(url, {
       headers: {
         'User-Agent': 'Levante-MCP-Extractor/1.0',
         Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',

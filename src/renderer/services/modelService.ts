@@ -100,43 +100,10 @@ class ModelServiceImpl {
         id: 'openai',
         name: 'OpenAI',
         type: 'openai',
-        models: [
-          {
-            id: 'gpt-4o',
-            name: 'GPT-4o',
-            provider: 'openai',
-            contextLength: 128000,
-            pricing: { input: 2.5, output: 10 },
-            capabilities: ['text', 'vision', 'tools'],
-            isAvailable: true,
-            userDefined: true,
-            isSelected: true
-          },
-          {
-            id: 'gpt-4o-mini',
-            name: 'GPT-4o Mini',
-            provider: 'openai',
-            contextLength: 128000,
-            pricing: { input: 0.15, output: 0.6 },
-            capabilities: ['text', 'vision', 'tools'],
-            isAvailable: true,
-            userDefined: true,
-            isSelected: true
-          },
-          {
-            id: 'gpt-4-turbo',
-            name: 'GPT-4 Turbo',
-            provider: 'openai',
-            contextLength: 128000,
-            pricing: { input: 10, output: 30 },
-            capabilities: ['text', 'vision', 'tools'],
-            isAvailable: true,
-            userDefined: true
-          }
-        ],
-        isActive: true,
+        models: [],
+        isActive: false,
         settings: {},
-        modelSource: 'user-defined'
+        modelSource: 'dynamic'
       },
       {
         id: 'anthropic',

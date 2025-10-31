@@ -26,6 +26,16 @@ import { WelcomeScreen } from '@/components/chat/WelcomeScreen';
 import { ChatPromptInput } from '@/components/chat/ChatPromptInput';
 import { useTranslation } from 'react-i18next';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { AlertTriangle, ExternalLink } from 'lucide-react';
+import {
   Source,
   Sources,
   SourcesContent,
@@ -212,8 +222,9 @@ const ChatPage = () => {
 
     // Otherwise, send a new message
     if (input.trim()) {
+      const messageText = input;
+
       try {
-        const messageText = input;
         setInput('');
 
         // If no session exists, create one and save message for later
@@ -501,7 +512,7 @@ const ChatPage = () => {
               ))}
 
               {/* Streaming indicator */}
-              {status === 'streaming' && (
+              {(status === 'streaming' || status === 'submitted') && (
                 <Message from="assistant">
                   <MessageContent>
                     <BreathingLogo />

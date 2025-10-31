@@ -29,20 +29,22 @@ function App() {
     sourceUrl?: string;
   }>({ config: null, name: '' })
 
-  // Load theme and language from user profile
+  // Load theme and language from ui-preferences.json
   useEffect(() => {
     const loadUserPreferences = async () => {
       try {
-        const profile = await window.levante.profile.get();
-        if (profile?.data?.theme) {
-          setTheme(profile.data.theme);
+        const themeResult = await window.levante.preferences.get('theme');
+        if (themeResult?.data) {
+          setTheme(themeResult.data);
         }
-        if (profile?.data?.language) {
-          i18n.changeLanguage(profile.data.language);
-          logger.core.info('Language loaded from profile', { language: profile.data.language });
+
+        const languageResult = await window.levante.preferences.get('language');
+        if (languageResult?.data) {
+          i18n.changeLanguage(languageResult.data);
+          logger.core.info('Language loaded from preferences', { language: languageResult.data });
         }
       } catch (error) {
-        logger.core.error('Failed to load user preferences from profile', {
+        logger.core.error('Failed to load user preferences', {
           error: error instanceof Error ? error.message : error
         });
       }

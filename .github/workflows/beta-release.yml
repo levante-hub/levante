@@ -70,7 +70,7 @@ jobs:
           - os: macos-latest
             platform: darwin
             arch: arm64
-          - os: macos-13  # Intel Mac
+          - os: macos-15-intel  # Intel Mac (macOS 15)
             platform: darwin
             arch: x64
           - os: ubuntu-latest
