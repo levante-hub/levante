@@ -96,15 +96,24 @@ class UpdateService {
    * Sets up background update checks using update-electron-app or autoUpdater
    */
   initialize(): void {
+    // Log initialization attempt with environment details
+    logger.core.info('Initializing auto-update system', {
+      nodeEnv: process.env.NODE_ENV,
+      isPackaged: app.isPackaged,
+      version: app.getVersion()
+    });
+
     if (process.env.NODE_ENV === 'production' || app.isPackaged) {
       try {
         const isBeta = this.isBetaVersion();
 
         if (isBeta) {
           // For beta versions, use autoUpdater directly with pre-release support
+          logger.core.info('Using beta auto-update path (autoUpdater API)');
           this.initializeBetaUpdates();
         } else {
           // For stable versions, use update-electron-app (simpler, battle-tested)
+          logger.core.info('Using stable auto-update path (update-electron-app)');
           const { updateElectronApp } = require('update-electron-app');
           updateElectronApp({
             repo: this.repo,
@@ -118,19 +127,25 @@ class UpdateService {
         }
 
         this.autoUpdateInitialized = true;
-        logger.core.info('Auto-update system initialized', {
+        logger.core.info('Auto-update system initialized successfully', {
           repo: this.repo,
           version: app.getVersion(),
           isBeta,
-          includesPrereleases: isBeta
+          includesPrereleases: isBeta,
+          updateInterval: '1 hour'
         });
       } catch (error) {
         logger.core.error('Failed to initialize auto-update', {
-          error: error instanceof Error ? error.message : error
+          error: error instanceof Error ? error.message : error,
+          stack: error instanceof Error ? error.stack : undefined
         });
       }
     } else {
-      logger.core.info('Auto-update disabled in development mode');
+      logger.core.info('Auto-update disabled in development mode', {
+        reason: 'Not in production and not packaged',
+        nodeEnv: process.env.NODE_ENV,
+        isPackaged: app.isPackaged
+      });
     }
   }
 
