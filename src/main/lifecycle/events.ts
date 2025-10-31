@@ -13,6 +13,7 @@ import { getLogger } from "../services/logging";
 import { deepLinkService } from "../services/deepLinkService";
 import { gracefulShutdown } from "./shutdown";
 import { createMainWindow } from "./window";
+import { cleanupAppHandlers } from "../ipc/appHandlers";
 
 const logger = getLogger();
 
@@ -46,21 +47,42 @@ export function registerAppEvents(getMainWindow: () => BrowserWindow | null): vo
   // Graceful shutdown: cleanup before app quits
   // This event can fire multiple times (e.g., user presses cmd+q twice)
   // We use isQuitting flag to ensure cleanup runs only once
-  app.on("before-quit", async (event) => {
+  app.on("before-quit", (event) => {
     if (!isQuitting) {
       // First time: prevent quit, do cleanup, then quit again
       event.preventDefault();
       isQuitting = true;
 
       logger.core.info("Starting graceful shutdown (before-quit)");
-      await gracefulShutdown();
 
-      // Call app.quit() again - this will trigger before-quit
-      // but this time isQuitting=true so we won't prevent it
-      app.quit();
+      // CRITICAL: Remove event listeners IMMEDIATELY to allow event loop to close
+      // This must happen synchronously before any async operations
+      cleanupAppHandlers();
+
+      // Use setImmediate to perform async cleanup outside the event handler
+      // This allows the event loop to process the listener removal
+      setImmediate(async () => {
+        try {
+          await gracefulShutdown();
+          logger.core.info("Graceful shutdown completed, quitting app");
+
+          // Force quit after cleanup
+          // Use app.exit() instead of app.quit() to ensure immediate termination
+          app.exit(0);
+        } catch (error) {
+          logger.core.error("Error during graceful shutdown", {
+            error: error instanceof Error ? error.message : error,
+          });
+          // Force exit even on error
+          app.exit(1);
+        }
+      });
     }
-    // Second time: don't prevent, let Electron close normally
-    logger.core.debug("Allowing quit to proceed (isQuitting=true)");
+    // Second time: this shouldn't happen with app.exit()
+    // but keep the log for debugging
+    else {
+      logger.core.debug("Quit already in progress (isQuitting=true)");
+    }
   });
 
   // macOS: Handle protocol URLs via 'open-url' event
