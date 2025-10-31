@@ -15,6 +15,9 @@ import { safeOpenExternal } from "../utils/urlSecurity";
 
 const logger = getLogger();
 
+// Store theme listener reference for cleanup
+let themeChangeListener: (() => void) | null = null;
+
 /**
  * Register all app metadata IPC handlers
  * @param getMainWindow - Function to get current main window reference
@@ -90,7 +93,7 @@ async function handleCheckForUpdates(): Promise<{ success: boolean; error?: stri
  * Open external URL with security validation
  */
 async function handleOpenExternal(
-  event: IpcMainInvokeEvent,
+  _event: IpcMainInvokeEvent,
   url: string
 ): Promise<{ success: boolean; error?: string }> {
   return await safeOpenExternal(url, "ipc-handler");
@@ -100,15 +103,34 @@ async function handleOpenExternal(
  * Setup listener for theme changes to notify renderer
  */
 function setupThemeChangeListener(getMainWindow: () => BrowserWindow | null): void {
-  nativeTheme.on("updated", () => {
+  // Create listener function and store reference for cleanup
+  themeChangeListener = () => {
     const mainWindow = getMainWindow();
-    if (mainWindow) {
+
+    // Check if window and webContents are not destroyed
+    // This prevents "Object has been destroyed" errors during app shutdown
+    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
       mainWindow.webContents.send("levante/app/theme-changed", {
         shouldUseDarkColors: nativeTheme.shouldUseDarkColors,
         themeSource: nativeTheme.themeSource,
       });
     }
-  });
+  };
+
+  nativeTheme.on("updated", themeChangeListener);
 
   logger.core.info("Theme change listener registered");
+}
+
+/**
+ * Cleanup app handlers and remove event listeners
+ * Call this during graceful shutdown to allow event loop to close
+ */
+export function cleanupAppHandlers(): void {
+  // Remove theme change listener to allow event loop to terminate
+  if (themeChangeListener) {
+    nativeTheme.off("updated", themeChangeListener);
+    themeChangeListener = null;
+    logger.core.info("Theme change listener removed");
+  }
 }

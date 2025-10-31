@@ -17,6 +17,9 @@ const logger = getLogger();
 /**
  * Performs graceful shutdown of all services
  * Call this before app.exit() to ensure clean resource cleanup
+ *
+ * NOTE: Event listeners (like nativeTheme) should be removed BEFORE
+ * calling this function to allow the event loop to close properly.
  */
 export async function gracefulShutdown(): Promise<void> {
   logger.core.info("App is quitting, performing cleanup...");
