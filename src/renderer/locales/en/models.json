@@ -22,6 +22,11 @@
     "optional": "API key is optional for model listing but required for inference",
     "get_key": "Get your key"
   },
+  "oauth": {
+    "sign_in": "Sign in with OpenRouter",
+    "waiting": "Waiting for authorization...",
+    "connect_message": "Connect your account securely with one click"
+  },
   "base_url": {
     "label": "Base URL",
     "help_gateway": "Configure your Vercel AI Gateway at",
@@ -70,5 +75,16 @@
   },
   "links": {
     "vercel_dashboard": "Vercel Dashboard"
+  },
+  "free_model_warning": {
+    "title": "Free Model Privacy Notice",
+    "description_1": "When you use a free model on OpenRouter, your prompts and completions may be shared with the provider team and published to public datasets.",
+    "description_2": "If you're comfortable with this, you need to enable this in your OpenRouter privacy settings:",
+    "required_settings": "Required settings:",
+    "setting_1": "Enable free endpoints that may publish prompts",
+    "setting_2": "Allow free model providers to publish your prompts and completions to public datasets",
+    "cancel": "Cancel",
+    "privacy_settings": "Privacy Settings",
+    "continue": "Continue"
   }
 }

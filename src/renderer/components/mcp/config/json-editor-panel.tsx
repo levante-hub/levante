@@ -7,7 +7,6 @@ import { Loader2, AlertCircle } from 'lucide-react';
 import { useMCPStore } from '@/stores/mcpStore';
 import { MCPServerConfig, MCPTool } from '@/types/mcp';
 import { MCPServerPreview } from './mcp-server-preview';
-import { useTranslation } from 'react-i18next';
 
 interface JSONEditorPanelProps {
   serverId: string | null;
@@ -16,8 +15,7 @@ interface JSONEditorPanelProps {
 }
 
 export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelProps) {
-  const { t } = useTranslation('mcp');
-  const { getServerById, getRegistryEntryById, updateServer, addServer, connectionStatus } = useMCPStore();
+  const { getServerById, getRegistryEntryById, updateServer, addServer } = useMCPStore();
 
   const [jsonText, setJsonText] = useState('');
   const [jsonError, setJsonError] = useState<string | null>(null);
@@ -26,30 +24,16 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
   const [isSaving, setIsSaving] = useState(false);
   const [tools, setTools] = useState<MCPTool[]>([]);
   const [isLoadingTools, setIsLoadingTools] = useState(false);
-  const [hasUserEdits, setHasUserEdits] = useState(false);
 
-  const isCustomNewServer = serverId === 'new-custom-server';
-  const server = serverId && !isCustomNewServer ? getServerById(serverId) : null;
-  const registryEntry = serverId && !isCustomNewServer ? getRegistryEntryById(serverId) : null;
+  const server = serverId ? getServerById(serverId) : null;
+  const registryEntry = serverId ? getRegistryEntryById(serverId) : null;
   const isNewServer = !server;
 
-  // Effect 1: Load initial JSON configuration when panel opens
   useEffect(() => {
     if (isOpen && serverId) {
-      // Reset edit flag when opening panel
-      setHasUserEdits(false);
-
       // Load initial JSON
-      if (isCustomNewServer) {
-        // New custom server: show empty template with name field
-        setJsonText(JSON.stringify({
-          name: '',
-          type: 'stdio',
-          command: 'npx',
-          args: [],
-          env: {}
-        }, null, 2));
-      } else if (server) {
+      if (server) {
+        // Existing server - load current config
         const config = {
           type: server.transport,
           command: server.command,
@@ -60,8 +44,10 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
         };
         setJsonText(JSON.stringify(config, null, 2));
       } else if (registryEntry?.configuration?.template) {
+        // New server - load template
         setJsonText(JSON.stringify(registryEntry.configuration.template, null, 2));
       } else {
+        // Fallback empty template
         setJsonText(JSON.stringify({
           type: 'stdio',
           command: '',
@@ -69,73 +55,36 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
           env: {}
         }, null, 2));
       }
-
       setJsonError(null);
-    }
-  }, [isOpen, serverId, server, registryEntry, isCustomNewServer]);
-
-  // Effect 2: Sync tools with global connection status (only if user hasn't edited)
-  useEffect(() => {
-    if (isOpen && serverId && !isCustomNewServer && !hasUserEdits) {
-      if (connectionStatus[serverId] === 'connected') {
-        loadToolsFromConnectedServer(serverId);
-      } else {
-        setTestResult(null);
-        setTools([]);
-      }
-    }
-  }, [isOpen, serverId, connectionStatus, isCustomNewServer, hasUserEdits]);
-
-  const loadToolsFromConnectedServer = async (serverId: string) => {
-    setIsLoadingTools(true);
-    try {
-      const result = await window.levante.mcp.listTools(serverId);
-      if (result.success && result.data) {
-        setTestResult({ success: true, message: t('config.test.success') });
-        setTools(result.data);
-      } else {
-        setTestResult(null);
-        setTools([]);
-      }
-    } catch {
       setTestResult(null);
-      setTools([]);
-    } finally {
-      setIsLoadingTools(false);
     }
-  };
+  }, [isOpen, serverId, server, registryEntry]);
 
   const validateJSON = (text: string): { valid: boolean; data?: any; error?: string } => {
     try {
       const parsed = JSON.parse(text);
 
-      // For custom new servers, require name field
-      if (isCustomNewServer && !parsed.name) {
-        return { valid: false, error: t('config.validation.missing_name') };
-      }
-
       // Validate required fields
       if (!parsed.type) {
-        return { valid: false, error: t('config.validation.missing_type') };
+        return { valid: false, error: 'Missing required field: type' };
       }
 
       if (parsed.type === 'stdio' && !parsed.command) {
-        return { valid: false, error: t('config.validation.missing_command') };
+        return { valid: false, error: 'Missing required field: command (for stdio transport)' };
       }
 
       if ((parsed.type === 'http' || parsed.type === 'sse') && !parsed.baseUrl) {
-        return { valid: false, error: t('config.validation.missing_baseurl') };
+        return { valid: false, error: 'Missing required field: baseUrl (for http/sse transport)' };
       }
 
       return { valid: true, data: parsed };
     } catch (error) {
-      return { valid: false, error: t('config.validation.invalid_json') };
+      return { valid: false, error: 'Invalid JSON syntax' };
     }
   };
 
   const handleJSONChange = (text: string) => {
     setJsonText(text);
-    setHasUserEdits(true); // Mark that user has made edits
     const validation = validateJSON(text);
     setJsonError(validation.error || null);
   };
@@ -170,8 +119,8 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
       setTestResult({
         success: result.success,
         message: result.success
-          ? t('config.test.success_message')
-          : result.error || t('config.test.failed_message')
+          ? 'Connection test successful! Server is responding correctly.'
+          : result.error || 'Connection test failed. Please check your configuration.'
       });
 
       // Set tools from the result
@@ -181,7 +130,7 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
     } catch (error) {
       setTestResult({
         success: false,
-        message: t('config.test.error_message')
+        message: 'Connection test failed with an unexpected error.'
       });
     } finally {
       setIsTestingConnection(false);
@@ -200,12 +149,8 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
 
     try {
       const serverConfig: MCPServerConfig = {
-        id: isCustomNewServer
-          ? `custom-${Date.now()}`
-          : serverId,
-        name: isCustomNewServer
-          ? (validation.data.name || `Custom Server ${Date.now()}`)
-          : (registryEntry?.name || serverId),
+        id: serverId,
+        name: registryEntry?.name || serverId,
         transport: validation.data.type,
         command: validation.data.command,
         args: validation.data.args || [],
@@ -214,7 +159,7 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
         headers: validation.data.headers
       };
 
-      if (isNewServer || isCustomNewServer) {
+      if (isNewServer) {
         await addServer(serverConfig);
       } else {
         await updateServer(serverId, {
@@ -230,23 +175,21 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
 
       onClose();
     } catch (error) {
-      setJsonError(t('config.save_error'));
+      setJsonError('Failed to save server configuration');
     } finally {
       setIsSaving(false);
     }
   };
 
   const validation = validateJSON(jsonText);
-  const serverName = isCustomNewServer
-    ? (validation.valid && validation.data?.name ? validation.data.name : t('config.new_server_name'))
-    : (registryEntry?.name || serverId || 'MCP Server');
+  const serverName = registryEntry?.name || serverId || 'MCP Server';
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
       <SheetContent side="right" className="w-[900px] sm:max-w-[90vw] overflow-y-auto">
         <SheetHeader>
           <SheetTitle>
-            {isNewServer ? t('config.configure') : t('config.edit')} {serverName}
+            {isNewServer ? 'Configure' : 'Edit'} {serverName}
           </SheetTitle>
         </SheetHeader>
 
@@ -256,13 +199,13 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-medium mb-2 block">
-                  {t('config.json_label')}
+                  Server Configuration (JSON)
                 </label>
                 <Textarea
                   value={jsonText}
                   onChange={(e) => handleJSONChange(e.target.value)}
                   className="font-mono text-sm min-h-[500px]"
-                  placeholder={t('config.json_placeholder')}
+                  placeholder="Enter JSON configuration..."
                 />
               </div>
 
@@ -278,7 +221,7 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
             {/* Right Column: Server Preview */}
             <div>
               <label className="text-sm font-medium mb-2 block">
-                {t('config.preview_label')}
+                Server Preview
               </label>
               <MCPServerPreview
                 serverName={serverName}
@@ -299,7 +242,7 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
             onClick={onClose}
             disabled={isSaving}
           >
-            {t('dialog.cancel')}
+            Cancel
           </Button>
           <Button
             onClick={handleSave}
@@ -308,10 +251,10 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
             {isSaving ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                {t('config.saving')}
+                Saving...
               </>
             ) : (
-              t('config.save')
+              'Save'
             )}
           </Button>
         </SheetFooter>

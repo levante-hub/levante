@@ -109,11 +109,16 @@ export function ImportExport({ variant = 'dropdown', onRefresh, isRefreshing = f
     if (!importPreview) return;
 
     setIsImporting(true);
-    
+
     try {
       await importConfiguration(importPreview);
       toast.success(t('import_export.import_success'));
       handleCloseImportDialog();
+
+      // Trigger parent refresh if available
+      if (onRefresh) {
+        onRefresh();
+      }
     } catch (error) {
       logger.mcp.error('MCP configuration import failed', { serverCount: getImportServerCount(), error: error instanceof Error ? error.message : error });
       toast.error(t('import_export.import_error'));

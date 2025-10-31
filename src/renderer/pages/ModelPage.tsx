@@ -1,15 +1,29 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
+} from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, CheckCircle, XCircle, ExternalLink, RefreshCw, Search } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, RefreshCw, Search } from 'lucide-react';
 import { useModelStore } from '@/stores/modelStore';
-import type { ProviderConfig, Model } from '../../types/models';
+import type { ProviderConfig } from '../../types/models';
 import { useTranslation } from 'react-i18next';
+import { OpenRouterConfig, GatewayConfig, LocalConfig, CloudConfig } from './ModelPage/ProviderConfigs';
+import { ModelList } from './ModelPage/ModelList';
 
 const ModelPage = () => {
   const { t } = useTranslation('models');
@@ -22,7 +36,6 @@ const ModelPage = () => {
     success,
     initialize,
     setActiveProvider,
-    updateProvider,
     syncProviderModels,
     toggleModelSelection,
     setModelSelections,
@@ -49,7 +62,7 @@ const ModelPage = () => {
     if (!activeProvider) return;
 
     const selections: { [modelId: string]: boolean } = {};
-    activeProvider.models.filter(m => m.isAvailable).forEach(model => {
+    activeProvider.models.filter((m) => m.isAvailable).forEach((model) => {
       selections[model.id] = true;
     });
 
@@ -60,7 +73,7 @@ const ModelPage = () => {
     if (!activeProvider) return;
 
     const selections: { [modelId: string]: boolean } = {};
-    activeProvider.models.filter(m => m.isAvailable).forEach(model => {
+    activeProvider.models.filter((m) => m.isAvailable).forEach((model) => {
       selections[model.id] = false;
     });
 
@@ -97,7 +110,6 @@ const ModelPage = () => {
   return (
     <div className="h-full overflow-y-auto">
       <div className="max-w-4xl mx-auto space-y-6 px-4">
-
         {error && (
           <Alert variant="destructive">
             <XCircle className="h-4 w-4" />
@@ -114,11 +126,9 @@ const ModelPage = () => {
 
         {/* Provider Selection & Configuration Section */}
         <Card className="border-none">
-          <CardHeader className='pb-4'>
+          <CardHeader className="pb-4">
             <CardTitle>{t('provider_config.title')}</CardTitle>
-            <CardDescription>
-              {t('provider_config.description')}
-            </CardDescription>
+            <CardDescription>{t('provider_config.description')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Provider Selector */}
@@ -133,7 +143,11 @@ const ModelPage = () => {
                     <SelectItem key={provider.id} value={provider.id}>
                       <div className="flex items-center gap-2">
                         <span>{provider.name}</span>
-                        {provider.apiKey && <Badge variant="secondary" className="text-xs">{t('provider_config.configured')}</Badge>}
+                        {provider.apiKey && (
+                          <Badge variant="secondary" className="text-xs">
+                            {t('provider_config.configured')}
+                          </Badge>
+                        )}
                       </div>
                     </SelectItem>
                   ))}
@@ -156,14 +170,29 @@ const ModelPage = () => {
                 {/* Provider stats */}
                 <div className="text-sm text-muted-foreground space-y-1 pt-2 border-t">
                   <p>
-                    <strong>{t('stats.available', { count: activeProvider.models.filter(m => m.isAvailable).length })}</strong>
+                    <strong>
+                      {t('stats.available', {
+                        count: activeProvider.models.filter((m) => m.isAvailable).length
+                      })}
+                    </strong>
                   </p>
                   <p>
-                    <strong>{t('stats.source', { source: activeProvider.modelSource === 'dynamic' ? t('stats.source_dynamic') : t('stats.source_user') })}</strong>
+                    <strong>
+                      {t('stats.source', {
+                        source:
+                          activeProvider.modelSource === 'dynamic'
+                            ? t('stats.source_dynamic')
+                            : t('stats.source_user')
+                      })}
+                    </strong>
                   </p>
                   {activeProvider.lastModelSync && (
                     <p>
-                      <strong>{t('stats.last_sync', { date: new Date(activeProvider.lastModelSync).toLocaleString() })}</strong>
+                      <strong>
+                        {t('stats.last_sync', {
+                          date: new Date(activeProvider.lastModelSync).toLocaleString()
+                        })}
+                      </strong>
                     </p>
                   )}
                 </div>
@@ -223,7 +252,7 @@ const ModelPage = () => {
               </div>
             </CardHeader>
             <CardContent>
-              {activeProvider.models.filter(m => m.isAvailable).length === 0 ? (
+              {activeProvider.models.filter((m) => m.isAvailable).length === 0 ? (
                 <div className="text-center py-12">
                   <div className="mb-4">
                     <RefreshCw className="w-12 h-12 mx-auto text-muted-foreground opacity-50" />
@@ -237,10 +266,7 @@ const ModelPage = () => {
                       : t('models.user_defined')}
                   </p>
                   {activeProvider.modelSource === 'dynamic' && activeProvider.apiKey && (
-                    <Button
-                      onClick={() => syncProviderModels(activeProvider.id)}
-                      disabled={syncing}
-                    >
+                    <Button onClick={() => syncProviderModels(activeProvider.id)} disabled={syncing}>
                       <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
                       {t('models.sync_now')}
                     </Button>
@@ -253,13 +279,13 @@ const ModelPage = () => {
                       <div className="flex items-center justify-between text-sm">
                         <span>
                           {t('models.selected', {
-                            count: activeProvider.models.filter(m => m.isAvailable && m.isSelected !== false).length,
-                            total: activeProvider.models.filter(m => m.isAvailable).length
+                            count: activeProvider.models.filter(
+                              (m) => m.isAvailable && m.isSelected !== false
+                            ).length,
+                            total: activeProvider.models.filter((m) => m.isAvailable).length
                           })}
                         </span>
-                        <span className="text-muted-foreground">
-                          {t('models.only_selected')}
-                        </span>
+                        <span className="text-muted-foreground">{t('models.only_selected')}</span>
                       </div>
                     </div>
                   )}
@@ -278,10 +304,11 @@ const ModelPage = () => {
                   </div>
 
                   <ModelList
-                    models={activeProvider.models.filter(m => m.isAvailable)}
+                    models={activeProvider.models.filter((m) => m.isAvailable)}
                     showSelection={activeProvider.modelSource === 'dynamic'}
                     onModelToggle={handleModelToggle}
                     searchQuery={searchQuery}
+                    providerType={activeProvider.type}
                   />
                 </>
               )}
@@ -291,451 +318,6 @@ const ModelPage = () => {
       </div>
     </div>
   );
-};
-
-// Provider-specific configuration components
-const OpenRouterConfig = ({ provider }: { provider: ProviderConfig }) => {
-  const { t } = useTranslation('models');
-  const { updateProvider, syncProviderModels, syncing } = useModelStore();
-  const [apiKey, setApiKey] = React.useState(provider.apiKey || '');
-
-  // Sync local state when provider changes
-  React.useEffect(() => {
-    setApiKey(provider.apiKey || '');
-  }, [provider.apiKey]);
-
-  const handleSave = () => {
-    updateProvider(provider.id, { apiKey });
-  };
-
-  const handleSync = () => {
-    syncProviderModels(provider.id);
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="openrouter-key">{t('api_key.label')}</Label>
-        <div className="flex gap-2">
-          <Input
-            id="openrouter-key"
-            type="password"
-            placeholder="sk-or-..."
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-          />
-          <Button onClick={handleSave}>
-            {t('stats.save')}
-          </Button>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          {t('api_key.optional')}{' '}
-          <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="underline">
-            {t('api_key.get_key')} <ExternalLink className="w-3 h-3 inline" />
-          </a>
-        </p>
-      </div>
-
-      <Button onClick={handleSync} disabled={syncing} variant="outline">
-        <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-        {t('models.sync')}
-      </Button>
-    </div>
-  );
-};
-
-const GatewayConfig = ({ provider }: { provider: ProviderConfig }) => {
-  const { t } = useTranslation('models');
-  const { updateProvider, syncProviderModels, syncing } = useModelStore();
-  const [apiKey, setApiKey] = React.useState(provider.apiKey || '');
-  const [baseUrl, setBaseUrl] = React.useState(provider.baseUrl || 'https://ai-gateway.vercel.sh/v1');
-
-  // Sync local state when provider changes
-  React.useEffect(() => {
-    setApiKey(provider.apiKey || '');
-    setBaseUrl(provider.baseUrl || 'https://ai-gateway.vercel.sh/v1');
-  }, [provider.apiKey, provider.baseUrl]);
-
-  const handleSave = async () => {
-    await updateProvider(provider.id, { apiKey, baseUrl });
-    // Trigger sync after saving if API key is present
-    if (apiKey) {
-      syncProviderModels(provider.id);
-    }
-  };
-
-  const handleSync = () => {
-    syncProviderModels(provider.id);
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="gateway-key">{t('api_key.label')}</Label>
-        <div className="flex gap-2">
-          <Input
-            id="gateway-key"
-            type="password"
-            placeholder="Your gateway API key"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-          />
-          <Button onClick={handleSave}>
-            {t('stats.save')}
-          </Button>
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="gateway-url">{t('base_url.label')}</Label>
-        <Input
-          id="gateway-url"
-          type="url"
-          placeholder="https://ai-gateway.vercel.sh/v1"
-          value={baseUrl}
-          onChange={(e) => setBaseUrl(e.target.value)}
-        />
-        <p className="text-xs text-muted-foreground">
-          {t('base_url.help_gateway')}{' '}
-          <a href="https://vercel.com/dashboard" target="_blank" rel="noopener noreferrer" className="underline">
-            {t('links.vercel_dashboard')} <ExternalLink className="w-3 h-3 inline" />
-          </a>
-        </p>
-      </div>
-
-      {provider.apiKey && (
-        <Button onClick={handleSync} disabled={syncing} variant="outline">
-          <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-          {t('models.sync')}
-        </Button>
-      )}
-    </div>
-  );
-};
-
-const LocalConfig = ({ provider }: { provider: ProviderConfig }) => {
-  const { t } = useTranslation('models');
-  const { updateProvider, syncProviderModels, syncing } = useModelStore();
-  const [baseUrl, setBaseUrl] = React.useState(provider.baseUrl || 'http://localhost:11434');
-
-  // Sync local state when provider changes
-  React.useEffect(() => {
-    setBaseUrl(provider.baseUrl || 'http://localhost:11434');
-  }, [provider.baseUrl]);
-
-  const handleSave = async () => {
-    await updateProvider(provider.id, { baseUrl });
-    // Trigger sync after saving
-    if (baseUrl) {
-      syncProviderModels(provider.id);
-    }
-  };
-
-  const handleSync = () => {
-    syncProviderModels(provider.id);
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="local-url">{t('base_url.label')}</Label>
-        <div className="flex gap-2">
-          <Input
-            id="local-url"
-            type="url"
-            placeholder="http://localhost:11434"
-            value={baseUrl}
-            onChange={(e) => setBaseUrl(e.target.value)}
-          />
-          <Button onClick={handleSave}>
-            {t('stats.save')}
-          </Button>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          {t('base_url.help_local')}
-        </p>
-      </div>
-
-      {provider.baseUrl && (
-        <Button onClick={handleSync} disabled={syncing} variant="outline">
-          <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-          {t('models.discover')}
-        </Button>
-      )}
-    </div>
-  );
-};
-
-const CloudConfig = ({ provider }: { provider: ProviderConfig }) => {
-  const { t } = useTranslation('models');
-  const { updateProvider, syncProviderModels, syncing } = useModelStore();
-  const [apiKey, setApiKey] = React.useState(provider.apiKey || '');
-  const [organizationId, setOrganizationId] = React.useState(provider.organizationId || '');
-  const [projectId, setProjectId] = React.useState(provider.projectId || '');
-
-  // Sync local state when provider changes
-  React.useEffect(() => {
-    setApiKey(provider.apiKey || '');
-    setOrganizationId(provider.organizationId || '');
-    setProjectId(provider.projectId || '');
-  }, [provider.apiKey, provider.organizationId, provider.projectId]);
-
-  const handleSave = async () => {
-    const updates: any = { apiKey };
-    if (organizationId) updates.organizationId = organizationId;
-    if (projectId) updates.projectId = projectId;
-    await updateProvider(provider.id, updates);
-
-    // Auto-sync for dynamic providers after saving API key
-    if (apiKey && provider.modelSource === 'dynamic') {
-      syncProviderModels(provider.id);
-    }
-  };
-
-  const handleSync = () => {
-    syncProviderModels(provider.id);
-  };
-
-  // Provider-specific configuration
-  const getProviderConfig = () => {
-    switch (provider.type) {
-      case 'openai':
-        return {
-          apiKeyLabel: 'OpenAI API Key',
-          apiKeyPlaceholder: 'sk-...',
-          apiKeyHelpLink: 'https://platform.openai.com/api-keys',
-          apiKeyHelpText: 'Get your API key from OpenAI Platform',
-          showOrganizationId: true,
-        };
-      case 'anthropic':
-        return {
-          apiKeyLabel: 'Anthropic API Key',
-          apiKeyPlaceholder: 'sk-ant-...',
-          apiKeyHelpLink: 'https://console.anthropic.com/settings/keys',
-          apiKeyHelpText: 'Get your API key from Anthropic Console',
-          showProjectId: false,
-        };
-      case 'google':
-        return {
-          apiKeyLabel: 'Google AI API Key',
-          apiKeyPlaceholder: 'AIza...',
-          apiKeyHelpLink: 'https://aistudio.google.com/app/apikey',
-          apiKeyHelpText: 'Get your API key from Google AI Studio',
-          showProjectId: false,
-        };
-      case 'groq':
-        return {
-          apiKeyLabel: 'Groq API Key',
-          apiKeyPlaceholder: 'gsk_...',
-          apiKeyHelpLink: 'https://console.groq.com/keys',
-          apiKeyHelpText: 'Get your API key from Groq Console',
-          showProjectId: false,
-        };
-      case 'xai':
-        return {
-          apiKeyLabel: 'xAI API Key',
-          apiKeyPlaceholder: 'xai-...',
-          apiKeyHelpLink: 'https://console.x.ai',
-          apiKeyHelpText: 'Get your API key from xAI Console',
-          showProjectId: false,
-        };
-      default:
-        return {
-          apiKeyLabel: 'API Key',
-          apiKeyPlaceholder: 'Enter API key...',
-          apiKeyHelpLink: '#',
-          apiKeyHelpText: 'Configure your API key',
-          showProjectId: false,
-        };
-    }
-  };
-
-  const config = getProviderConfig();
-
-  return (
-    <div className="space-y-4">
-      {/* API Key */}
-      <div className="space-y-2">
-        <Label htmlFor={`${provider.id}-api-key`}>{config.apiKeyLabel}</Label>
-        <div className="flex gap-2">
-          <Input
-            id={`${provider.id}-api-key`}
-            type="password"
-            placeholder={config.apiKeyPlaceholder}
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-          />
-          <Button onClick={handleSave}>{t('stats.save')}</Button>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          {config.apiKeyHelpText}.{' '}
-          <a
-            href={config.apiKeyHelpLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline"
-          >
-            {t('api_key.get_key')} <ExternalLink className="w-3 h-3 inline" />
-          </a>
-        </p>
-      </div>
-
-      {/* Organization ID (OpenAI only) */}
-      {config.showOrganizationId && (
-        <div className="space-y-2">
-          <Label htmlFor={`${provider.id}-org-id`}>{t('organization_id.label')}</Label>
-          <Input
-            id={`${provider.id}-org-id`}
-            type="text"
-            placeholder="org-..."
-            value={organizationId}
-            onChange={(e) => setOrganizationId(e.target.value)}
-          />
-          <p className="text-xs text-muted-foreground">
-            {t('organization_id.description')}
-          </p>
-        </div>
-      )}
-
-    </div>
-  );
-};
-
-const ModelList = ({
-  models,
-  showSelection = false,
-  onModelToggle,
-  searchQuery = ''
-}: {
-  models: Model[];
-  showSelection?: boolean;
-  onModelToggle?: (modelId: string, selected: boolean) => void;
-  searchQuery?: string;
-}) => {
-  const { t } = useTranslation('models');
-
-  if (models.length === 0) {
-    return (
-      <div className="text-center py-8 text-muted-foreground">
-        {t('models.no_models_configured')}
-      </div>
-    );
-  }
-
-  // Filter models based on search query
-  const filteredModels = searchQuery
-    ? models.filter(m =>
-      m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      m.id.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-    : models;
-
-  // Show no results message if search returns nothing
-  if (searchQuery && filteredModels.length === 0) {
-    return (
-      <div className="text-center py-8 text-muted-foreground">
-        {t('models.no_search_results', { query: searchQuery })}
-      </div>
-    );
-  }
-
-  // Separate selected and unselected models
-  const selectedModels = filteredModels.filter(m => m.isSelected !== false);
-  const unselectedModels = filteredModels.filter(m => m.isSelected === false);
-
-  const renderModel = (model: Model) => (
-    <div key={model.id} className="border rounded-lg p-3">
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-3">
-          {showSelection && onModelToggle && (
-            <input
-              type="checkbox"
-              checked={model.isSelected ?? true}
-              onChange={(e) => onModelToggle(model.id, e.target.checked)}
-              className="w-4 h-4 rounded border-gray-300"
-            />
-          )}
-          <h4 className="font-medium">{model.name}</h4>
-        </div>
-        <div className="flex gap-2">
-          {model.capabilities.map(cap => (
-            <Badge key={cap} variant="outline" className="text-xs">
-              {cap}
-            </Badge>
-          ))}
-        </div>
-      </div>
-      <div className="text-sm text-muted-foreground space-y-1">
-        <p>{t('model_info.context_length', { length: model.contextLength.toLocaleString() })}</p>
-        {model.pricing && (
-          <p>
-            {t('model_info.pricing', { input: model.pricing.input, output: model.pricing.output })}
-          </p>
-        )}
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="space-y-6">
-      {/* Selected models section */}
-      {selectedModels.length > 0 && (
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-foreground">
-              {t('models.selected_section', { count: selectedModels.length })}
-            </h3>
-            <p className="text-xs text-muted-foreground">
-              {t('models.selected_description')}
-            </p>
-          </div>
-          <div className="grid gap-3">
-            {selectedModels.map(renderModel)}
-          </div>
-        </div>
-      )}
-
-      {/* Unselected models section */}
-      {unselectedModels.length > 0 && (
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-muted-foreground">
-              {t('models.available_section', { count: unselectedModels.length })}
-            </h3>
-            <p className="text-xs text-muted-foreground">
-              {t('models.available_description')}
-            </p>
-          </div>
-          <div className="grid gap-3 opacity-60">
-            {unselectedModels.map(renderModel)}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-const getProviderDescription = (type: ProviderConfig['type']) => {
-  switch (type) {
-    case 'openrouter':
-      return 'Access to 100+ AI models through OpenRouter API';
-    case 'vercel-gateway':
-      return 'Vercel AI Gateway for unified model access';
-    case 'local':
-      return 'Local AI models (Ollama, LM Studio, etc.)';
-    case 'openai':
-      return 'Direct integration with OpenAI GPT models';
-    case 'anthropic':
-      return 'Direct integration with Anthropic Claude models';
-    case 'google':
-      return 'Direct integration with Google Gemini models';
-    case 'groq':
-      return 'Ultra-fast inference with Groq LPU™ Inference Engine';
-    case 'xai':
-      return 'Access to Grok models from xAI';
-    default:
-      return '';
-  }
 };
 
 export default ModelPage;

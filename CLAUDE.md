@@ -32,7 +32,7 @@ Levante is an Electron-based desktop AI chat application with multi-provider sup
 - **State Management**: Zustand for global state (chat, models, preferences)
 - **AI Integration**: Vercel AI SDK with multi-provider support
 - **Database**: SQLite with schema migrations
-- **Storage**: electron-store for encrypted preferences at `~/Library/Application Support/Levante/ui-preferences.json`
+- **Storage**: electron-store for encrypted preferences at `~/levante/`
 
 ### Multi-Provider AI System
 
@@ -60,6 +60,42 @@ SQLite database with migrations in `database/migrations/`:
 - `chat_sessions`: Session management with model tracking
 - `messages`: Message storage with streaming support
 - Schema version tracking for migrations
+
+## Configuration Storage
+
+All configuration is stored in `~/levante/` directory with **selective encryption**:
+
+**Files:**
+- `ui-preferences.json` - UI settings, providers (with encrypted API keys), theme, language
+- `user-profile.json` - User profile, wizard status, personalization
+- `.config-version` - Migration version tracker
+
+**Key Features:**
+- **Selective Encryption:** Only sensitive values (API keys) are encrypted using safeStorage API
+- **Migrations:** Automatic schema migrations with semantic versioning
+- **Type-safe:** Full TypeScript support with JSON schema validation
+- **Services:** `PreferencesService` and `UserProfileService` manage access
+
+**Storage Architecture:**
+```
+~/levante/
+├── ui-preferences.json      → theme, language, providers (API keys encrypted), ai config
+├── user-profile.json        → wizard, personalization (no encryption)
+└── .config-version          → "1.1.0"
+```
+
+**Encryption Details:**
+- Only `providers[].apiKey` values are encrypted
+- Uses Electron's safeStorage (Keychain/DPAPI/libsecret)
+- Encrypted values prefixed with `ENCRYPTED:` marker
+- Files remain readable JSON with selective field encryption
+
+**Migration System:**
+- Version-controlled schema updates in `ConfigMigrationService`
+- Runs automatically on app start before service initialization
+- Example: Migration 1.0 → 1.1 moved theme/language between files
+
+**For detailed information:** See [Configuration Storage Guide](docs/guides/configuration-storage.md)
 
 ## IPC Communication
 
@@ -233,3 +269,10 @@ LOG_LEVEL=debug
 
 See [docs/LOGGING.md](docs/LOGGING.md) for complete documentation.
 - No utilices pnpm dev
+
+## Developer Documentation
+
+For additional development guides and best practices:
+
+- **[Local MCP Development](docs/developer/local-mcp-development.md)** - Complete guide for developing and testing MCP servers locally with uvx, uv run, and python
+- **[Developer Docs Index](docs/developer/)** - All developer-focused documentation

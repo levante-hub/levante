@@ -10,7 +10,7 @@ export class MCPConfigurationManager {
 
   constructor() {
     this.configPath = directoryService.getMcpConfigPath();
-    
+
     // Ensure directory exists (synchronously for constructor)
     try {
       const fs = require('fs');
@@ -19,6 +19,44 @@ export class MCPConfigurationManager {
     } catch (error) {
       // Directory might already exist, ignore error
     }
+  }
+
+  /**
+   * Sanitize server config to prevent prototype pollution
+   * Removes dangerous keys before spreading/merging
+   */
+  private sanitizeServerConfig(config: any): any {
+    if (!config || typeof config !== 'object') {
+      return config;
+    }
+
+    // Dangerous keys that can cause prototype pollution
+    const dangerousKeys = ['__proto__', 'constructor', 'prototype'];
+
+    // Create a clean copy without dangerous keys
+    const sanitized: any = {};
+
+    for (const key in config) {
+      // Skip dangerous keys
+      if (dangerousKeys.includes(key)) {
+        this.logger.mcp.warn('Blocked dangerous key in server config', { key });
+        continue;
+      }
+
+      // Only copy own properties
+      if (Object.prototype.hasOwnProperty.call(config, key)) {
+        const value = config[key];
+
+        // Recursively sanitize nested objects
+        if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+          sanitized[key] = this.sanitizeServerConfig(value);
+        } else {
+          sanitized[key] = value;
+        }
+      }
+    }
+
+    return sanitized;
   }
 
   async loadConfiguration(): Promise<MCPConfiguration> {
@@ -74,11 +112,14 @@ export class MCPConfigurationManager {
 
   async addServer(config: MCPServerConfig): Promise<void> {
     const currentConfig = await this.loadConfiguration();
-    
+
+    // Sanitize config to prevent prototype pollution
+    const sanitizedConfig = this.sanitizeServerConfig(config);
+
     // Extract id and create server config without id
-    const { id, ...serverConfig } = config;
+    const { id, ...serverConfig } = sanitizedConfig;
     currentConfig.mcpServers[id] = serverConfig;
-    
+
     await this.saveConfiguration(currentConfig);
   }
 
@@ -107,11 +148,14 @@ export class MCPConfigurationManager {
 
   async updateServer(serverId: string, config: Partial<Omit<MCPServerConfig, 'id'>>): Promise<void> {
     const currentConfig = await this.loadConfiguration();
-    
+
     if (currentConfig.mcpServers[serverId]) {
+      // Sanitize config to prevent prototype pollution
+      const sanitizedConfig = this.sanitizeServerConfig(config);
+
       currentConfig.mcpServers[serverId] = {
         ...currentConfig.mcpServers[serverId],
-        ...config
+        ...sanitizedConfig
       };
       await this.saveConfiguration(currentConfig);
     } else {
@@ -136,18 +180,31 @@ export class MCPConfigurationManager {
   async listServers(): Promise<MCPServerConfig[]> {
     const config = await this.loadConfiguration();
 
-    // Combine mcpServers (active) + disabled
-    const activeServers = Object.entries(config.mcpServers).map(([id, serverConfig]) => ({
-      id,
-      ...serverConfig,
-      enabled: true
-    }));
+    // Helper to normalize server config (convert 'type' field to 'transport' for TypeScript compatibility)
+    const normalizeServer = (id: string, serverConfig: any, enabled: boolean): MCPServerConfig => {
+      const normalized: any = { ...serverConfig };
 
-    const disabledServers = Object.entries(config.disabled || {}).map(([id, serverConfig]) => ({
-      id,
-      ...serverConfig,
-      enabled: false
-    }));
+      // Convert 'type' to 'transport' if needed (Claude Desktop compatibility)
+      if (normalized.type && !normalized.transport) {
+        normalized.transport = normalized.type;
+        delete normalized.type;
+      }
+
+      return {
+        id,
+        ...normalized,
+        enabled
+      };
+    };
+
+    // Combine mcpServers (active) + disabled
+    const activeServers = Object.entries(config.mcpServers).map(([id, serverConfig]) =>
+      normalizeServer(id, serverConfig, true)
+    );
+
+    const disabledServers = Object.entries(config.disabled || {}).map(([id, serverConfig]) =>
+      normalizeServer(id, serverConfig, false)
+    );
 
     return [...activeServers, ...disabledServers];
   }
@@ -163,12 +220,38 @@ export class MCPConfigurationManager {
       throw new Error('Invalid configuration format');
     }
 
+    // Normalize imported servers (add missing 'type' field for Claude Desktop compatibility)
+    const normalizedServers: Record<string, any> = {};
+    for (const [serverId, serverConfig] of Object.entries(importedConfig.mcpServers)) {
+      const normalized: any = { ...serverConfig };
+
+      // Auto-detect transport type if missing
+      // We use 'type' for compatibility
+      // mcpService.ts accepts both 'type' and 'transport'
+      if (!normalized.type && !normalized.transport) {
+        if (normalized.command) {
+          // Has command → stdio transport
+          normalized.type = 'stdio';
+          this.logger.mcp.debug('Auto-detected stdio transport for imported server', { serverId });
+        } else if (normalized.baseUrl || (normalized as any).url) {
+          // Has baseUrl/url → default to http (user can change to sse if needed)
+          normalized.type = 'http';
+          this.logger.mcp.debug('Auto-detected http transport for imported server', { serverId });
+        } else {
+          this.logger.mcp.warn('Cannot auto-detect transport type for server, defaulting to stdio', { serverId });
+          normalized.type = 'stdio';
+        }
+      }
+
+      normalizedServers[serverId] = normalized;
+    }
+
     // Merge with existing configuration
     const currentConfig = await this.loadConfiguration();
     const mergedConfig = {
       mcpServers: {
         ...currentConfig.mcpServers,
-        ...importedConfig.mcpServers
+        ...normalizedServers
       },
       disabled: {
         ...currentConfig.disabled,
@@ -177,6 +260,9 @@ export class MCPConfigurationManager {
     };
 
     await this.saveConfiguration(mergedConfig);
+    this.logger.mcp.info('Configuration imported successfully', {
+      importedCount: Object.keys(normalizedServers).length
+    });
   }
 
   // Export current configuration

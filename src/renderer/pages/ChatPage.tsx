@@ -1,18 +1,40 @@
+/**
+ * ChatPage - Refactored for AI SDK v5 (Simplified Architecture)
+ *
+ * This component uses the native useChat hook from @ai-sdk/react
+ * without remounting when sessions change.
+ *
+ * Key changes:
+ * - Single component, no remounting
+ * - Uses setMessages to load session history
+ * - Direct message sending on first message
+ * - Simple session switching with useEffect
+ */
+
 import { Message, MessageContent } from '@/components/ai-elements/message';
 import { Response } from '@/components/ai-elements/response';
-import { CodeBlock, CodeBlockCopyButton } from '@/components/ai-elements/code-block';
 import {
   Conversation,
   ConversationContent,
   ConversationScrollButton,
 } from '@/components/ai-elements/conversation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useChatStore } from '@/stores/chatStore';
 import { StreamingProvider, useStreamingContext } from '@/contexts/StreamingContext';
 import { ChatList } from '@/components/chat/ChatList';
 import { WelcomeScreen } from '@/components/chat/WelcomeScreen';
 import { ChatPromptInput } from '@/components/chat/ChatPromptInput';
 import { useTranslation } from 'react-i18next';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { AlertTriangle, ExternalLink } from 'lucide-react';
 import {
   Source,
   Sources,
@@ -31,10 +53,13 @@ import type { Model } from '../../types/models';
 import { getRendererLogger } from '@/services/logger';
 import { cn } from '@/lib/utils';
 
+// AI SDK v5 imports
+import { useChat } from '@ai-sdk/react';
+import { createElectronChatTransport } from '@/transports/ElectronChatTransport';
+
 const logger = getRendererLogger();
 
-
-const ChatPageContent = () => {
+const ChatPage = () => {
   const { t } = useTranslation('chat');
   const [input, setInput] = useState('');
   const [model, setModel] = useState<string>('');
@@ -43,48 +68,250 @@ const ChatPageContent = () => {
   const [availableModels, setAvailableModels] = useState<Model[]>([]);
   const [modelsLoading, setModelsLoading] = useState(true);
   const [userName, setUserName] = useState<string>(t('welcome.default_user_name'));
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [pendingFirstMessage, setPendingFirstMessage] = useState<string | null>(null);
+  const [pendingMessageAfterStop, setPendingMessageAfterStop] = useState<string | null>(null);
 
-  // Using Zustand selectors for optimal performance
-  const messages = useChatStore((state) => state.messages);
-  const status = useChatStore((state) => state.status);
-  const streamingMessage = useChatStore((state) => state.streamingMessage);
-  const sendMessage = useChatStore((state) => state.sendMessage);
-  const stopStreaming = useChatStore((state) => state.stopStreaming);
-  const setOnStreamFinish = useChatStore((state) => state.setOnStreamFinish);
+  // Chat store
+  const currentSession = useChatStore((state) => state.currentSession);
+  const persistMessage = useChatStore((state) => state.persistMessage);
+  const createSession = useChatStore((state) => state.createSession);
+  const loadHistoricalMessages = useChatStore((state) => state.loadHistoricalMessages);
+  const pendingPrompt = useChatStore((state) => state.pendingPrompt);
+  const setPendingPrompt = useChatStore((state) => state.setPendingPrompt);
 
-  // Streaming context
+  // Track previous session ID to detect changes
+  const previousSessionIdRef = useRef<string | null>(null);
+
+  // Track if we just created a new session (to avoid loading empty history)
+  const justCreatedSessionRef = useRef(false);
+
+  // Streaming context for mermaid processing
   const { triggerMermaidProcessing } = useStreamingContext();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Create transport with current configuration
+  const transport = useMemo(
+    () =>
+      createElectronChatTransport({
+        model: model || 'openai/gpt-4o',
+        webSearch,
+        enableMCP,
+      }),
+    [] // Keep same transport instance
+  );
+
+  // Update transport options when they change
+  useEffect(() => {
+    transport.updateOptions({
+      model: model || 'openai/gpt-4o',
+      webSearch,
+      enableMCP,
+    });
+  }, [model, webSearch, enableMCP, transport]);
+
+  // Use AI SDK native useChat hook
+  const {
+    messages,
+    setMessages,
+    sendMessage: sendMessageAI,
+    status,
+    stop,
+    error: chatError,
+  } = useChat({
+    id: currentSession?.id || 'new-chat',
+    transport,
+
+    // Persist messages after AI finishes
+    onFinish: async ({ message }) => {
+      logger.aiSdk.info('AI response finished', {
+        sessionId: currentSession?.id,
+        messageId: message.id,
+        messageRole: message.role,
+        partsCount: message.parts?.length,
+      });
+
+      // Persist the AI response
+      if (currentSession) {
+        await persistMessage(message);
+      }
+
+      // Trigger mermaid processing
+      triggerMermaidProcessing();
+    },
+  });
+
+  // Handle pending message after stop
+  useEffect(() => {
+    if (pendingMessageAfterStop && status !== 'streaming' && status !== 'submitted') {
+      const messageText = pendingMessageAfterStop;
+      setPendingMessageAfterStop(null);
+
+      // Send the message
+      sendMessageAI({ text: messageText });
+
+      // Persist user message to database
+      const userMessage = {
+        id: `user-${Date.now()}`,
+        role: 'user' as const,
+        parts: [{ type: 'text' as const, text: messageText }],
+      };
+      persistMessage(userMessage).catch((err) => {
+        logger.database.error('Failed to persist message after stop', { error: err });
+      });
+    }
+  }, [pendingMessageAfterStop, status, sendMessageAI, persistMessage]);
+
+  // Load messages when session changes
+  useEffect(() => {
+    const currentSessionId = currentSession?.id || null;
+    const previousSessionId = previousSessionIdRef.current;
+
+    // Skip if session hasn't changed
+    if (currentSessionId === previousSessionId) {
+      return;
+    }
+
+    // Update ref
+    previousSessionIdRef.current = currentSessionId;
+
+    // If we just created this session, skip loading historical messages
+    // (the messages are already in useChat state from sendMessageAI)
+    if (justCreatedSessionRef.current) {
+      logger.core.info('Session just created, skipping historical load', { sessionId: currentSessionId });
+      justCreatedSessionRef.current = false;
+      return;
+    }
+
+    // Load messages for the new session
+    if (currentSessionId) {
+      logger.core.info('Session changed, loading messages', { sessionId: currentSessionId });
+      setIsLoadingMessages(true);
+
+      loadHistoricalMessages(currentSessionId)
+        .then((msgs) => {
+          logger.core.info('Loaded historical messages', { count: msgs.length });
+          setMessages(msgs);
+          setIsLoadingMessages(false);
+        })
+        .catch((err) => {
+          logger.core.error('Failed to load historical messages', { error: err });
+          setMessages([]);
+          setIsLoadingMessages(false);
+        });
+    } else {
+      // No session (new chat) - clear messages
+      logger.core.info('New chat started, clearing messages');
+      setMessages([]);
+    }
+  }, [currentSession?.id, loadHistoricalMessages, setMessages]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // If currently streaming, stop the stream
+    // If currently streaming
     if (status === 'streaming') {
-      stopStreaming();
+      // If there's input, we want to stop current stream and send the new message
+      if (input.trim()) {
+        setPendingMessageAfterStop(input);
+        setInput(''); // Clear input immediately
+      }
+
+      stop();
       return;
     }
 
     // Otherwise, send a new message
     if (input.trim()) {
-      sendMessage(
-        { text: input },
-        {
-          body: {
-            model: model,
-            webSearch: webSearch,
-            enableMCP: enableMCP,
-          },
-        },
-      );
-      setInput('');
+      const messageText = input;
+
+      try {
+        setInput('');
+
+        // If no session exists, create one and save message for later
+        if (!currentSession) {
+          logger.core.info('Creating new session for first message', { model });
+
+          // Mark that we're about to create a session BEFORE actually creating it
+          // This prevents the useEffect from loading empty history when currentSession updates
+          justCreatedSessionRef.current = true;
+
+          const newSession = await createSession('New Chat', model || 'openai/gpt-4o');
+
+          if (!newSession) {
+            logger.core.error('Failed to create session');
+            justCreatedSessionRef.current = false; // Reset flag on error
+            setInput(messageText); // Restore input on error
+            return;
+          }
+
+          logger.core.info('Session created, storing pending message', { sessionId: newSession.id });
+
+          // Store message to send after re-render (when useChat has the correct ID)
+          setPendingFirstMessage(messageText);
+
+          // Don't send now - wait for component to re-render with new session ID
+          return;
+        }
+
+        // Send the message for existing session
+        logger.core.info('Sending message', {
+          sessionId: currentSession.id,
+          messageText: messageText.substring(0, 50) + '...',
+        });
+
+        sendMessageAI({ text: messageText });
+
+        // Persist user message to database
+        const userMessage = {
+          id: `user-${Date.now()}`,
+          role: 'user' as const,
+          parts: [{ type: 'text' as const, text: messageText }],
+        };
+        await persistMessage(userMessage);
+      } catch (error) {
+        logger.core.error('Error in handleSubmit', {
+          error: error instanceof Error ? error.message : error,
+        });
+      }
     }
   };
 
-  // Connect streaming callback
+  // Handle pending first message after session creation
   useEffect(() => {
-    setOnStreamFinish(triggerMermaidProcessing);
-    return () => setOnStreamFinish(undefined);
-  }, [triggerMermaidProcessing, setOnStreamFinish]);
+    if (pendingFirstMessage && currentSession) {
+      logger.core.info('Sending pending first message', {
+        sessionId: currentSession.id,
+        messageLength: pendingFirstMessage.length,
+      });
+
+      const messageText = pendingFirstMessage;
+      setPendingFirstMessage(null);
+
+      // Send the message (now useChat has the correct session ID)
+      sendMessageAI({ text: messageText });
+
+      // Persist user message to database
+      const userMessage = {
+        id: `user-${Date.now()}`,
+        role: 'user' as const,
+        parts: [{ type: 'text' as const, text: messageText }],
+      };
+      persistMessage(userMessage).catch((err) => {
+        logger.database.error('Failed to persist pending message', { error: err });
+      });
+    }
+  }, [pendingFirstMessage, currentSession, sendMessageAI, persistMessage]);
+
+  // Handle pending prompt from deep link
+  useEffect(() => {
+    if (pendingPrompt) {
+      setInput(pendingPrompt);
+      setPendingPrompt(null);
+      logger.core.info('Applied pending prompt from deep link', {
+        promptLength: pendingPrompt.length,
+      });
+    }
+  }, [pendingPrompt, setPendingPrompt]);
 
   // Load available models on component mount
   useEffect(() => {
@@ -92,7 +319,6 @@ const ChatPageContent = () => {
     loadUserName();
   }, []);
 
-  // Load user name from profile
   const loadUserName = async () => {
     try {
       const profile = await window.levante.profile.get();
@@ -100,10 +326,11 @@ const ChatPageContent = () => {
         setUserName(profile.data.personalization.nickname);
       }
     } catch (error) {
-      logger.preferences.error('Error loading user name', { error: error instanceof Error ? error.message : error });
+      logger.preferences.error('Error loading user name', {
+        error: error instanceof Error ? error.message : error,
+      });
     }
   };
-
 
   const loadAvailableModels = async () => {
     try {
@@ -117,19 +344,37 @@ const ChatPageContent = () => {
         setModel(models[0].id);
       }
     } catch (error) {
-      logger.core.error('Failed to load models in ChatPage', { error: error instanceof Error ? error.message : error });
+      logger.core.error('Failed to load models in ChatPage', {
+        error: error instanceof Error ? error.message : error,
+      });
     } finally {
       setModelsLoading(false);
     }
   };
 
-  // Check if chat is empty (no messages)
+  // Check if chat is empty
   const isChatEmpty = messages.length === 0 && status !== 'streaming';
+
+  // Show loading indicator while loading messages
+  if (isLoadingMessages) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <BreathingLogo />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full">
+      {/* Show error if any */}
+      {chatError && (
+        <div className="p-4 bg-red-100 border border-red-400 text-red-800">
+          <strong>Error:</strong> {chatError.message}
+        </div>
+      )}
+
       {isChatEmpty ? (
-        // Empty state with welcome screen and centered input
+        // Empty state with welcome screen
         <div className="flex-1 flex flex-col items-center justify-center px-4">
           <div className="w-full max-w-3xl flex flex-col items-center gap-8">
             <WelcomeScreen userName={userName} />
@@ -152,81 +397,122 @@ const ChatPageContent = () => {
           </div>
         </div>
       ) : (
-        // Chat conversation with input at bottom
+        // Chat conversation
         <>
           <Conversation className="flex-1">
             <ConversationContent className="max-w-3xl mx-auto p-0 pl-4 pr-2 py-4">
-              {messages.map((message) => {
-                return (
+              {messages.map((message) => (
                   <div key={message.id}>
-                    {message.role === 'assistant' && (
+                    {/* Sources (web search results) */}
+                    {message.role === 'assistant' && message.parts && (
                       <Sources>
-                        {message.parts.map((part, i) => {
-                          switch (part.type) {
-                            case 'source-url':
-                              return (
-                                <>
-                                  <SourcesTrigger
-                                    count={
-                                      message.parts.filter(
-                                        (part) => part.type === 'source-url',
-                                      ).length
-                                    }
-                                  />
-                                  <SourcesContent key={`${message.id}-${i}`}>
-                                    <Source
-                                      key={`${message.id}-${i}`}
-                                      href={part.url}
-                                      title={part.url}
-                                    />
-                                  </SourcesContent>
-                                </>
-                              );
-                          }
-                        })}
+                        {message.parts
+                          .filter((part: any) => part?.value?.type === 'source-url')
+                          .map((part: any, i: number) => (
+                            <>
+                              <SourcesTrigger
+                                key={`trigger-${message.id}-${i}`}
+                                count={
+                                  message.parts.filter((p: any) => p.value?.type === 'source-url')
+                                    .length
+                                }
+                              />
+                              <SourcesContent key={`content-${message.id}-${i}`}>
+                                <Source href={part.value.url} title={part.value.title || part.value.url} />
+                              </SourcesContent>
+                            </>
+                          ))}
                       </Sources>
                     )}
-                    <Message from={message.role} key={message.id} className={cn('p-0', message.role === 'user' ? 'is-user my-6' : 'is-assistant')}>
-                      <MessageContent from={message.role} className={cn('', message.role === 'user' ? 'p-2 mb-0 dark:text-white' : 'px-2 py-0')}>
-                        {message.parts.map((part, i) => {
-                          switch (part.type) {
-                            case 'text':
+
+                    {/* Message */}
+                    <Message
+                      from={message.role}
+                      key={message.id}
+                      className={cn(
+                        'p-0',
+                        message.role === 'user' ? 'is-user my-6' : 'is-assistant'
+                      )}
+                    >
+                      <MessageContent
+                        from={message.role}
+                        className={cn(
+                          '',
+                          message.role === 'user' ? 'p-2 mb-0 dark:text-white' : 'px-2 py-0'
+                        )}
+                      >
+                        {message.parts?.map((part: any, i: number) => {
+                          try {
+                            // Text content
+                            if (part?.type === 'text' && part?.text) {
                               return (
                                 <Response key={`${message.id}-${i}`}>
                                   {part.text}
                                 </Response>
                               );
-                            case 'reasoning':
+                            }
+
+                            // Reasoning (data part)
+                            if (part?.value?.type === 'reasoning') {
+                            return (
+                              <Reasoning
+                                key={`${message.id}-${i}`}
+                                className="w-full"
+                                isStreaming={status === 'streaming'}
+                              >
+                                <ReasoningTrigger />
+                                <ReasoningContent>
+                                  {part.value.text || ''}
+                                </ReasoningContent>
+                              </Reasoning>
+                            );
+                          }
+
+                          // Tool calls (MCP)
+                          if (part?.type?.startsWith('tool-')) {
+                            // Only show if output is available or there's an error
+                            if (part.state === 'output-available' || part.state === 'output-error') {
+                              const toolCall = {
+                                id: part.toolCallId,
+                                name: part.toolName,
+                                arguments: part.input || {},
+                                result: part.state === 'output-available' ? {
+                                  success: true,
+                                  content: JSON.stringify(part.output),
+                                } : {
+                                  success: false,
+                                  error: part.errorText,
+                                },
+                                status: part.state === 'output-available' ? 'success' as const : 'error' as const,
+                              };
+
                               return (
-                                <Reasoning
-                                  key={`${message.id}-${i}`}
-                                  className="w-full"
-                                  isStreaming={status === 'streaming'}
-                                >
-                                  <ReasoningTrigger />
-                                  <ReasoningContent>
-                                    {`${part.text || ''} `}
-                                  </ReasoningContent>
-                                </Reasoning>
-                              );
-                            case 'tool-call':
-                              return part.toolCall ? (
                                 <ToolCall
                                   key={`${message.id}-${i}`}
-                                  toolCall={part.toolCall}
+                                  toolCall={toolCall}
                                   className="w-full"
                                 />
-                              ) : null;
-                            default:
-                              return null;
+                              );
+                            }
+                          }
+
+                            return null;
+                          } catch (error) {
+                            console.error('[ChatPage] Error rendering part:', error, {
+                              messageId: message.id,
+                              partIndex: i,
+                              part,
+                            });
+                            return null;
                           }
                         })}
                       </MessageContent>
                     </Message>
                   </div>
-                )
-              })}
-              {status === 'streaming' && streamingMessage && !streamingMessage.content.trim() && (
+              ))}
+
+              {/* Streaming indicator */}
+              {(status === 'streaming' || status === 'submitted') && (
                 <Message from="assistant">
                   <MessageContent>
                     <BreathingLogo />
@@ -237,6 +523,7 @@ const ChatPageContent = () => {
             <ConversationScrollButton />
           </Conversation>
 
+          {/* Input */}
           <div className="bg-transparent px-2">
             <ChatPromptInput
               input={input}
@@ -259,16 +546,17 @@ const ChatPageContent = () => {
   );
 };
 
-const ChatPage = () => {
+// Wrap with StreamingProvider
+const ChatPageWithProvider = () => {
   return (
     <StreamingProvider>
-      <ChatPageContent />
+      <ChatPage />
     </StreamingProvider>
   );
 };
 
 // Static method to get sidebar content for chat page
-ChatPage.getSidebarContent = (
+ChatPageWithProvider.getSidebarContent = (
   sessions: any[],
   currentSessionId: string | undefined,
   onSessionSelect: (sessionId: string) => void,
@@ -288,4 +576,4 @@ ChatPage.getSidebarContent = (
   );
 };
 
-export default ChatPage;
+export default ChatPageWithProvider;

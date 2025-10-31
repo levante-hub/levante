@@ -1,9 +1,9 @@
 import { InValue } from '@libsql/client';
 import { databaseService } from './databaseService';
-import { 
-  ChatSession, 
-  Message, 
-  CreateChatSessionInput, 
+import {
+  ChatSession,
+  Message,
+  CreateChatSessionInput,
   CreateMessageInput,
   UpdateChatSessionInput,
   GetMessagesQuery,
@@ -12,6 +12,7 @@ import {
   PaginatedResult
 } from '../../types/database';
 import { getLogger } from './logging';
+import { escapeLikePattern } from '../utils/sqlSanitizer';
 
 export class ChatService {
   private logger = getLogger();
@@ -28,19 +29,19 @@ export class ChatService {
         id,
         title: input.title,
         model: input.model,
-        folder_id: input.folder_id,
+        folder_id: input.folder_id ?? null, // Convert undefined to null for SQLite
         created_at: now,
         updated_at: now
       };
 
       await databaseService.execute(
-        `INSERT INTO chat_sessions (id, title, model, folder_id, created_at, updated_at) 
+        `INSERT INTO chat_sessions (id, title, model, folder_id, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?)`,
         [
           session.id as InValue,
           session.title as InValue,
           session.model as InValue,
-          session.folder_id as InValue,
+          (session.folder_id ?? null) as InValue, // Ensure null instead of undefined
           session.created_at as InValue,
           session.updated_at as InValue
         ]
@@ -315,10 +316,13 @@ export class ChatService {
 
   async searchMessages(searchQuery: string, sessionId?: string, limit = 50): Promise<DatabaseResult<Message[]>> {
     this.logger.database.debug('Searching messages', { searchQuery, sessionId, limit });
-    
+
     try {
-      let sql = 'SELECT * FROM messages WHERE content LIKE ?';
-      const params: InValue[] = [`%${searchQuery}%` as InValue];
+      // Security: Escape LIKE wildcards to prevent LIKE injection
+      const escapedQuery = escapeLikePattern(searchQuery);
+
+      let sql = 'SELECT * FROM messages WHERE content LIKE ? ESCAPE ?';
+      const params: InValue[] = [`%${escapedQuery}%` as InValue, '\\' as InValue];
 
       if (sessionId) {
         sql += ' AND session_id = ?';

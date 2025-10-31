@@ -69,7 +69,10 @@ export function ChatPromptInput({
             loading={modelsLoading}
             placeholder={availableModels.length === 0 ? t('model_selector.no_models') : t('model_selector.label')}
           />
-          <PromptInputSubmit disabled={!input} status={status} />
+          <PromptInputSubmit
+            disabled={status !== 'streaming' && !input}
+            status={status}
+          />
         </div>
       </PromptInputToolbar>
     </PromptInput>

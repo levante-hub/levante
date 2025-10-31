@@ -1,25 +1,34 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { WizardStep } from '@/components/onboarding/WizardStep';
-import { LanguageStep } from '@/components/onboarding/LanguageStep';
 import { WelcomeStep } from '@/components/onboarding/WelcomeStep';
 import { McpStep } from '@/components/onboarding/McpStep';
 import { ProviderStep } from '@/components/onboarding/ProviderStep';
 import { DirectoryStep } from '@/components/onboarding/DirectoryStep';
 import { CompletionStep } from '@/components/onboarding/CompletionStep';
-import { useModelStore } from '@/stores/modelStore';
+import { useModelStore, getModelStoreState } from '@/stores/modelStore';
 import { detectSystemLanguage } from '@/i18n/languageDetector';
 import type { ProviderValidationConfig } from '../../types/wizard';
 
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 5;
 
 const PROVIDER_NAMES: Record<string, string> = {
   openrouter: 'OpenRouter',
-  gateway: 'Vercel AI Gateway',
+  'vercel-gateway': 'Vercel AI Gateway',
   local: 'Local Server',
   openai: 'OpenAI',
   anthropic: 'Anthropic',
   google: 'Google AI',
+};
+
+// Map provider IDs to validation types (some providers have different IDs for storage vs validation)
+const PROVIDER_ID_TO_VALIDATION_TYPE: Record<string, string> = {
+  'vercel-gateway': 'gateway', // Storage ID → Validation type
+  openrouter: 'openrouter',
+  local: 'local',
+  openai: 'openai',
+  anthropic: 'anthropic',
+  google: 'google',
 };
 
 interface OnboardingWizardProps {
@@ -27,12 +36,12 @@ interface OnboardingWizardProps {
 }
 
 export function OnboardingWizard({ onComplete }: OnboardingWizardProps = {}) {
-  const { updateProvider, setActiveProvider, syncProviderModels } = useModelStore();
+  const { updateProvider, setActiveProvider, syncProviderModels, providers } = useModelStore();
   const { i18n } = useTranslation();
 
   // Language step state
-  const [detectedLanguage, setDetectedLanguage] = useState('en');
-  const [selectedLanguage, setSelectedLanguage] = useState('en');
+  const [detectedLanguage, setDetectedLanguage] = useState<'en' | 'es'>('en');
+  const [selectedLanguage, setSelectedLanguage] = useState<'en' | 'es'>('en');
 
   // Wizard state
   const [currentStep, setCurrentStep] = useState(1);
@@ -46,6 +55,10 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps = {}) {
   >('idle');
   const [validationError, setValidationError] = useState('');
 
+  // Model selection state
+  const [availableModels, setAvailableModels] = useState<any[]>([]);
+  const [selectedModel, setSelectedModel] = useState<string | null>(null);
+
   // Detect system language on mount
   useEffect(() => {
     const detected = detectSystemLanguage();
@@ -54,11 +67,22 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps = {}) {
     i18n.changeLanguage(detected);
   }, [i18n]);
 
+  // Load models when providers change (after sync)
+  useEffect(() => {
+    if (selectedProvider && validationStatus === 'valid') {
+      // Small delay to ensure store is updated after sync
+      const timer = setTimeout(() => {
+        loadAvailableModels();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [providers, selectedProvider, validationStatus]);
+
   const handleNext = async () => {
-    // Step 1 (Language): Save language selection
+    // Step 1 (Welcome): Save language selection and start wizard
     if (currentStep === 1) {
       try {
-        await window.levante.profile.update({ language: selectedLanguage });
+        await window.levante.preferences.set('language', selectedLanguage);
         i18n.changeLanguage(selectedLanguage);
         await window.levante.wizard.start();
       } catch (error) {
@@ -66,8 +90,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps = {}) {
       }
     }
 
-    // Step 4 (Provider): Must validate before proceeding
-    if (currentStep === 4 && validationStatus !== 'valid') {
+    // Step 3 (Provider): Must validate before proceeding
+    if (currentStep === 3 && validationStatus !== 'valid') {
       return;
     }
 
@@ -79,7 +103,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps = {}) {
     }
   };
 
-  const handleLanguageChange = (language: string) => {
+  const handleLanguageChange = (language: 'en' | 'es') => {
     setSelectedLanguage(language);
     i18n.changeLanguage(language);
   };
@@ -98,6 +122,20 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps = {}) {
     );
     setValidationStatus('idle');
     setValidationError('');
+    setAvailableModels([]);
+    setSelectedModel(null);
+  };
+
+  const handleModelSelect = async (modelId: string) => {
+    setSelectedModel(modelId);
+    // Mark this model as selected in the provider configuration
+    try {
+      await updateProvider(selectedProvider, {
+        selectedModelIds: [modelId]
+      });
+    } catch (error) {
+      console.error('Failed to select model:', error);
+    }
   };
 
   const handleValidateProvider = async () => {
@@ -107,8 +145,11 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps = {}) {
     setValidationError('');
 
     try {
+      // Map provider ID to validation type
+      const validationType = PROVIDER_ID_TO_VALIDATION_TYPE[selectedProvider] || selectedProvider;
+
       const config: ProviderValidationConfig = {
-        type: selectedProvider as any,
+        type: validationType as any,
         apiKey: apiKey || undefined,
         endpoint: endpoint || undefined,
       };
@@ -147,8 +188,11 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps = {}) {
       }
 
       // Only add endpoint for specific providers
-      if (selectedProvider === 'local' || selectedProvider === 'gateway') {
+      if (selectedProvider === 'local') {
         updates.baseUrl = endpoint;
+      } else if (selectedProvider === 'vercel-gateway') {
+        // Use provided endpoint or default
+        updates.baseUrl = endpoint || 'https://ai-gateway.vercel.sh/v1';
       }
 
       // Update provider with API key/endpoint if we have updates
@@ -161,8 +205,144 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps = {}) {
 
       // Sync models from provider
       await syncProviderModels(selectedProvider);
+
+      // Wait a bit for store to update, then load available models
+      setTimeout(() => {
+        loadAvailableModels();
+      }, 200);
     } catch (error) {
       console.error('Failed to save provider config:', error);
+    }
+  };
+
+  const loadAvailableModels = () => {
+    try {
+      // Get provider from store (which is already updated after sync)
+      const provider = providers.find((p) => p.id === selectedProvider);
+      if (provider && provider.models) {
+        // Filter only available models
+        const models = provider.models.filter((m) => m.isAvailable);
+        setAvailableModels(models);
+        console.log('Loaded available models:', models.length);
+      } else {
+        console.log('No provider or models found', { provider: !!provider, models: provider?.models?.length });
+      }
+    } catch (error) {
+      console.error('Failed to load available models:', error);
+    }
+  };
+
+  const handleOAuthSuccess = async (newApiKey: string) => {
+    console.log('OAuth success - starting provider configuration', {
+      provider: selectedProvider,
+      keyPrefix: newApiKey.substring(0, 10) + '...'
+    });
+
+    // Update state immediately
+    setApiKey(newApiKey);
+    setValidationStatus('validating');
+    setValidationError('');
+
+    try {
+      // Map provider ID to validation type
+      const validationType = PROVIDER_ID_TO_VALIDATION_TYPE[selectedProvider] || selectedProvider;
+
+      const config: ProviderValidationConfig = {
+        type: validationType as any,
+        apiKey: newApiKey,
+        endpoint: endpoint || undefined,
+      };
+
+      console.log('Validating OAuth credentials...');
+      const result = await window.levante.wizard.validateProvider(config);
+
+      if (!result.success || !result.data?.isValid) {
+        setValidationStatus('invalid');
+        setValidationError(
+          result.data?.error ||
+            result.error ||
+            'OAuth validation failed'
+        );
+        console.error('OAuth validation failed', result);
+        return;
+      }
+
+      console.log('OAuth validation successful, configuring provider...');
+      setValidationStatus('valid');
+      setValidationError('');
+
+      // Save provider configuration
+      const updates: any = { apiKey: newApiKey };
+
+      // Only add endpoint for specific providers
+      if (selectedProvider === 'local') {
+        updates.baseUrl = endpoint;
+      } else if (selectedProvider === 'vercel-gateway') {
+        updates.baseUrl = endpoint || 'https://ai-gateway.vercel.sh/v1';
+      }
+
+      // Update provider configuration
+      console.log('Updating provider configuration...');
+      await updateProvider(selectedProvider, updates);
+
+      // Set as active provider
+      console.log('Setting active provider...');
+      await setActiveProvider(selectedProvider);
+
+      // Sync models from provider API
+      console.log('Syncing models from provider...');
+      await syncProviderModels(selectedProvider);
+
+      // Force immediate refresh after sync completes
+      console.log('Sync complete, loading models into UI...');
+
+      // Poll for models with retry mechanism
+      // This is necessary because Zustand updates are async
+      const pollForModels = async (): Promise<void> => {
+        const maxAttempts = 10;
+        const pollInterval = 300; // Check every 300ms
+
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+          // Get fresh provider data from store
+          const currentProviders = getModelStoreState().providers;
+          const provider = currentProviders.find((p: any) => p.id === selectedProvider);
+
+          console.log(`📡 Polling for models (attempt ${attempt}/${maxAttempts})`, {
+            hasProvider: !!provider,
+            modelCount: provider?.models?.length || 0
+          });
+
+          if (provider?.models && provider.models.length > 0) {
+            const availableModels = provider.models.filter((m: any) => m.isAvailable);
+            setAvailableModels(availableModels);
+            console.log('✅ Models loaded successfully:', availableModels.length);
+            return; // Success!
+          }
+
+          // Wait before next attempt
+          if (attempt < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, pollInterval));
+          }
+        }
+
+        // If we get here, polling failed
+        console.error('❌ Failed to load models after', maxAttempts, 'attempts');
+        console.log('Forcing final load attempt from providers state...');
+        loadAvailableModels();
+      };
+
+      // Start polling
+      pollForModels().catch(error => {
+        console.error('Polling error:', error);
+        loadAvailableModels();
+      });
+
+    } catch (error) {
+      console.error('OAuth configuration error:', error);
+      setValidationStatus('invalid');
+      setValidationError(
+        error instanceof Error ? error.message : 'Unknown error occurred'
+      );
     }
   };
 
@@ -195,9 +375,9 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps = {}) {
   };
 
   const isNextDisabled = () => {
-    // Step 4 (Provider) requires validation
-    if (currentStep === 4) {
-      return !selectedProvider || validationStatus !== 'valid';
+    // Step 3 (Provider) requires validation and model selection
+    if (currentStep === 3) {
+      return !selectedProvider || validationStatus !== 'valid' || !selectedModel;
     }
     return false;
   };
@@ -212,29 +392,32 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps = {}) {
       nextDisabled={isNextDisabled()}
     >
       {currentStep === 1 && (
-        <LanguageStep
+        <WelcomeStep
           selectedLanguage={selectedLanguage}
           detectedLanguage={detectedLanguage}
           onLanguageChange={handleLanguageChange}
         />
       )}
-      {currentStep === 2 && <WelcomeStep />}
-      {currentStep === 3 && <McpStep />}
-      {currentStep === 4 && (
+      {currentStep === 2 && <McpStep />}
+      {currentStep === 3 && (
         <ProviderStep
           selectedProvider={selectedProvider}
           apiKey={apiKey}
           endpoint={endpoint}
           validationStatus={validationStatus}
           validationError={validationError}
+          availableModels={availableModels}
+          selectedModel={selectedModel}
           onProviderChange={handleProviderChange}
           onApiKeyChange={setApiKey}
           onEndpointChange={setEndpoint}
           onValidate={handleValidateProvider}
+          onModelSelect={handleModelSelect}
+          onOAuthSuccess={handleOAuthSuccess}
         />
       )}
-      {currentStep === 5 && <DirectoryStep />}
-      {currentStep === 6 && (
+      {currentStep === 4 && <DirectoryStep />}
+      {currentStep === 5 && (
         <CompletionStep
           providerName={PROVIDER_NAMES[selectedProvider] || selectedProvider}
         />

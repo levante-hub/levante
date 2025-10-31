@@ -8,6 +8,7 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import { Mermaid } from '@/components/ui/mermaid';
 import { useStreamingContext } from '@/contexts/StreamingContext';
+import { useThemeDetector } from '@/hooks/useThemeDetector';
 
 // Custom components for proper list rendering
 const listComponents = {
@@ -74,6 +75,8 @@ export const Response = memo(
   ({ className, children, ...props }: ResponseProps) => {
     const [shouldProcessMermaid, setShouldProcessMermaid] = useState(false);
     const { streamFinished } = useStreamingContext();
+    const theme = useThemeDetector();
+    const shikiTheme = theme === 'dark' ? 'github-dark' : 'github-light';
 
     // Listen for streaming finish events
     useEffect(() => {
@@ -92,6 +95,7 @@ export const Response = memo(
           components={listComponents}
           remarkPlugins={[remarkGfm, remarkMath]}
           rehypePlugins={[rehypeKatex]}
+          shikiTheme={shikiTheme}
           {...props}
         >
           {children}
@@ -120,6 +124,8 @@ export const Response = memo(
                   components={listComponents}
                   remarkPlugins={[remarkGfm, remarkMath]}
                   rehypePlugins={[rehypeKatex]}
+                  shikiTheme={shikiTheme}
+                  className='p-4'
                   {...props}
                 >
                   {part.content}
@@ -141,6 +147,7 @@ export const Response = memo(
         components={listComponents}
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeKatex]}
+        shikiTheme={shikiTheme}
         {...props}
       >
         {children}

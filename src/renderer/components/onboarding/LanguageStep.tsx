@@ -5,9 +5,9 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface LanguageStepProps {
-  selectedLanguage: string;
-  detectedLanguage: string;
-  onLanguageChange: (language: string) => void;
+  selectedLanguage: 'en' | 'es';
+  detectedLanguage: 'en' | 'es';
+  onLanguageChange: (language: 'en' | 'es') => void;
 }
 
 export function LanguageStep({
