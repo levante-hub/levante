@@ -1,9 +1,13 @@
 {
   "name": "Levante",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "description": "A friendly, private desktop chat app with AI and MCP integration",
   "main": ".vite/build/main.js",
   "homepage": "https://github.com/minte-community/levante",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/levante-hub/levante.git"
+  },
   "author": {
     "name": "Levante Team",
     "email": "hello@levanteapp.com"
