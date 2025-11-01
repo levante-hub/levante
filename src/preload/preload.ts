@@ -158,6 +158,8 @@ export interface LevanteAPI {
     extractConfig: (text: string) => Promise<{ success: boolean; data?: any; error?: string; suggestion?: string }>;
     checkStructuredOutputSupport: () => Promise<{ success: boolean; data?: { supported: boolean; currentModel: string; currentProvider: string; supportedModels: any[] }; error?: string }>;
     verifyPackage: (packageName: string) => Promise<{ success: boolean; data?: { exists: boolean; status: number }; error?: string }>;
+    oauthStatus: (serverId: string) => Promise<{ success: boolean; hasToken: boolean; isValid: boolean; error?: string }>;
+    oauthDeleteToken: (serverId: string) => Promise<{ success: boolean; error?: string }>;
   };
 
   // Logger functionality

@@ -90,5 +90,12 @@ export const mcpApi = {
     ipcRenderer.invoke('levante/mcp/check-structured-output-support'),
 
   verifyPackage: (packageName: string) =>
-    ipcRenderer.invoke('levante/mcp/verify-package', packageName)
+    ipcRenderer.invoke('levante/mcp/verify-package', packageName),
+
+  // OAuth methods
+  oauthStatus: (serverId: string) =>
+    ipcRenderer.invoke('levante/mcp/oauth/get-status', serverId),
+
+  oauthDeleteToken: (serverId: string) =>
+    ipcRenderer.invoke('levante/mcp/oauth/delete-token', serverId)
 };

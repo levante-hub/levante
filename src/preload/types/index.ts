@@ -41,6 +41,13 @@ export interface MCPServerConfig {
   baseUrl?: string;
   headers?: Record<string, string>;
   transport: 'stdio' | 'http' | 'sse';
+  oauthMetadata?: {
+    authorization_endpoint: string;
+    token_endpoint: string;
+    revocation_endpoint?: string;
+    scopes?: string[];
+    client_id?: string;
+  };
 }
 
 export interface MCPConfiguration {

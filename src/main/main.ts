@@ -9,7 +9,8 @@ import { config } from "dotenv";
 import { initializeLogger } from "./services/logging";
 import { updateService } from "./services/updateService";
 import { deepLinkService } from "./services/deepLinkService";
-import { oauthCallbackServer } from "./services/oauthCallbackServer";
+import { oauthCallbackServer } from "./services/oauth/callbackServer";
+import { mcpOAuthService } from "./services/mcp/oauth/mcpOAuthService";
 import { createApplicationMenu } from "./menu";
 
 // Lifecycle modules
@@ -60,6 +61,7 @@ app.whenReady().then(async () => {
   // Register main window with services
   deepLinkService.setMainWindow(mainWindow);
   oauthCallbackServer.setMainWindow(mainWindow);
+  mcpOAuthService.setMainWindow(mainWindow);
 
   // Register app event handlers
   registerAppEvents(() => mainWindow);

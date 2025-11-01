@@ -8,6 +8,13 @@ export interface MCPServerConfig {
   headers?: Record<string, string>;
   transport: 'stdio' | 'http' | 'sse';
   enabled?: boolean;  // Added by listServers(), not stored in JSON
+  oauthMetadata?: {
+    authorization_endpoint: string;
+    token_endpoint: string;
+    revocation_endpoint?: string;
+    scopes?: string[];
+    client_id?: string;
+  };
 }
 
 export interface MCPConfiguration {

@@ -11,9 +11,14 @@ const logger = getLogger();
  * - 'providers[].apiKey' - Encrypt apiKey in all provider objects
  * - 'cloudConfig.secret' - Encrypt a specific nested field
  * - 'sensitiveData' - Encrypt a top-level field
+ *
+ * Note: Encryption is controlled by the security.encryptApiKeys toggle in preferences.
+ * All fields listed here will be encrypted when the toggle is enabled.
  */
 export const ENCRYPTED_FIELDS = [
-  'providers[].apiKey',  // API keys in provider configs
+  'providers[].apiKey',                // API keys in provider configs (OpenRouter, OpenAI, etc.)
+  'mcpOAuthTokens.*.access_token',    // OAuth access tokens for MCP servers
+  'mcpOAuthTokens.*.refresh_token',   // OAuth refresh tokens for MCP servers
 ];
 
 /**
@@ -137,4 +142,68 @@ export function decryptProvidersApiKeys(providers: any[]): any[] {
   if (!Array.isArray(providers)) return providers;
 
   return providers.map(decryptProviderApiKey);
+}
+
+/**
+ * Encrypt OAuth tokens for MCP servers
+ * Encrypts access_token and refresh_token when security.encryptApiKeys is enabled
+ *
+ * @param tokens - Record of serverId -> token data
+ * @returns Record with encrypted access_token and refresh_token fields
+ */
+export function encryptMcpOAuthTokens(tokens: Record<string, any>): Record<string, any> {
+  if (!tokens || typeof tokens !== 'object') return tokens;
+
+  const encrypted: Record<string, any> = {};
+
+  for (const [serverId, token] of Object.entries(tokens)) {
+    if (!token || typeof token !== 'object') {
+      encrypted[serverId] = token;
+      continue;
+    }
+
+    encrypted[serverId] = {
+      ...token,
+      access_token: token.access_token && typeof token.access_token === 'string'
+        ? (isEncrypted(token.access_token) ? token.access_token : encryptValue(token.access_token))
+        : token.access_token,
+      refresh_token: token.refresh_token && typeof token.refresh_token === 'string'
+        ? (isEncrypted(token.refresh_token) ? token.refresh_token : encryptValue(token.refresh_token))
+        : token.refresh_token
+    };
+  }
+
+  return encrypted;
+}
+
+/**
+ * Decrypt OAuth tokens for MCP servers
+ * Decrypts access_token and refresh_token when security.encryptApiKeys is enabled
+ *
+ * @param tokens - Record of serverId -> token data (with encrypted fields)
+ * @returns Record with decrypted access_token and refresh_token fields
+ */
+export function decryptMcpOAuthTokens(tokens: Record<string, any>): Record<string, any> {
+  if (!tokens || typeof tokens !== 'object') return tokens;
+
+  const decrypted: Record<string, any> = {};
+
+  for (const [serverId, token] of Object.entries(tokens)) {
+    if (!token || typeof token !== 'object') {
+      decrypted[serverId] = token;
+      continue;
+    }
+
+    decrypted[serverId] = {
+      ...token,
+      access_token: token.access_token && typeof token.access_token === 'string' && isEncrypted(token.access_token)
+        ? decryptValue(token.access_token)
+        : token.access_token,
+      refresh_token: token.refresh_token && typeof token.refresh_token === 'string' && isEncrypted(token.refresh_token)
+        ? decryptValue(token.refresh_token)
+        : token.refresh_token
+    };
+  }
+
+  return decrypted;
 }

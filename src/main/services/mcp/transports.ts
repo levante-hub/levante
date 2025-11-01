@@ -6,8 +6,76 @@ import type { MCPServerConfig } from "../../types/mcp.js";
 import { getLogger } from "../logging";
 import { resolveCommand, detectNodePaths, getEnhancedPath } from "./commandResolver.js";
 import { loadMCPRegistry } from "./registry.js";
+import { mcpOAuthTokenManager } from "./oauth/tokenManager";
+import { mcpOAuthService } from "./oauth/mcpOAuthService";
 
 const logger = getLogger();
+
+/**
+ * Inject OAuth token into config headers if available
+ * Auto-refreshes token if it expires in <5 minutes
+ *
+ * @param config - MCP server configuration
+ * @returns Modified config with OAuth token injected (if available)
+ */
+async function injectOAuthToken(config: MCPServerConfig): Promise<MCPServerConfig> {
+  try {
+    // Check if server has OAuth token
+    let token = await mcpOAuthTokenManager.getToken(config.id);
+
+    if (!token) {
+      logger.mcp.debug('No OAuth token found for server', { serverId: config.id });
+      return config; // No token, return config as-is
+    }
+
+    // Check if token is valid or needs refresh
+    const isValid = await mcpOAuthTokenManager.isTokenValid(config.id);
+
+    if (!isValid) {
+      logger.mcp.info('OAuth token expired or expiring soon, attempting refresh', {
+        serverId: config.id
+      });
+
+      try {
+        // Attempt to refresh token
+        token = await mcpOAuthService.refreshToken(config.id);
+        logger.mcp.info('OAuth token refreshed successfully', { serverId: config.id });
+      } catch (refreshError) {
+        logger.mcp.warn('Token refresh failed, will need re-authorization', {
+          serverId: config.id,
+          error: refreshError instanceof Error ? refreshError.message : refreshError
+        });
+        // Return config without token - connection will fail with 401 and trigger re-auth
+        return config;
+      }
+    }
+
+    // Inject Authorization header
+    const configWithToken = {
+      ...config,
+      headers: {
+        ...config.headers,
+        'Authorization': `Bearer ${token.access_token}`
+      }
+    };
+
+    logger.mcp.debug('OAuth token injected into request headers', {
+      serverId: config.id,
+      hasRefreshToken: !!token.refresh_token,
+      expiresAt: token.expires_at ? new Date(token.expires_at).toISOString() : 'never'
+    });
+
+    return configWithToken;
+
+  } catch (error) {
+    logger.mcp.error('Error injecting OAuth token', {
+      serverId: config.id,
+      error: error instanceof Error ? error.message : error
+    });
+    // Return original config on error
+    return config;
+  }
+}
 
 export async function createTransport(config: MCPServerConfig): Promise<{
   client: Client;
@@ -17,6 +85,11 @@ export async function createTransport(config: MCPServerConfig): Promise<{
   // Accept both "transport"/"type" and "baseUrl"/"url"
   const transportType = config.transport || (config as any).type;
   const baseUrl = config.baseUrl || (config as any).url;
+
+  // Inject OAuth token if available (for HTTP/SSE transports)
+  if (transportType === 'http' || transportType === 'sse') {
+    config = await injectOAuthToken(config);
+  }
 
   // Create client with capabilities
   const client = new Client(

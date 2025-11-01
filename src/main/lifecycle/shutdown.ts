@@ -10,7 +10,7 @@
 import { getLogger } from "../services/logging";
 import { databaseService } from "../services/databaseService";
 import { mcpService } from "../ipc/mcpHandlers";
-import { oauthCallbackServer } from "../services/oauthCallbackServer";
+import { oauthCallbackServer } from "../services/oauth/callbackServer";
 
 const logger = getLogger();
 

@@ -3,10 +3,12 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/com
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Loader2, AlertCircle, CheckCircle, Info } from 'lucide-react';
 import { useMCPStore } from '@/stores/mcpStore';
 import { MCPServerConfig, MCPTool } from '@/types/mcp';
 import { MCPServerPreview } from './mcp-server-preview';
+import { toast } from 'sonner';
 
 interface JSONEditorPanelProps {
   serverId: string | null;
@@ -24,6 +26,11 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
   const [isSaving, setIsSaving] = useState(false);
   const [tools, setTools] = useState<MCPTool[]>([]);
   const [isLoadingTools, setIsLoadingTools] = useState(false);
+  const [oauthStatus, setOauthStatus] = useState<{
+    hasToken: boolean;
+    isValid: boolean;
+  } | null>(null);
+  const [showOAuthHint, setShowOAuthHint] = useState(false);
 
   const server = serverId ? getServerById(serverId) : null;
   const registryEntry = serverId ? getRegistryEntryById(serverId) : null;
@@ -100,6 +107,16 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
     setIsLoadingTools(true);
     setTestResult(null);
     setTools([]);
+    setOauthStatus(null);
+    setShowOAuthHint(false);
+
+    // Show OAuth hint for HTTP/SSE after 3 seconds
+    let oauthHintTimer: NodeJS.Timeout | null = null;
+    if (validation.data.type === 'http' || validation.data.type === 'sse') {
+      oauthHintTimer = setTimeout(() => {
+        setShowOAuthHint(true);
+      }, 3000);
+    }
 
     try {
       const testConfig: MCPServerConfig = {
@@ -116,6 +133,9 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
       // Call IPC directly to get tools
       const result = await window.levante.mcp.testConnection(testConfig);
 
+      if (oauthHintTimer) clearTimeout(oauthHintTimer);
+      setShowOAuthHint(false);
+
       setTestResult({
         success: result.success,
         message: result.success
@@ -126,8 +146,26 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
       // Set tools from the result
       if (result.success && result.data) {
         setTools(result.data);
+
+        // Check OAuth status if server ID exists and transport is HTTP/SSE
+        if (serverId && (validation.data.type === 'http' || validation.data.type === 'sse')) {
+          try {
+            const oauthResult = await window.levante.mcp.oauthStatus(serverId);
+            if (oauthResult.success && oauthResult.hasToken) {
+              setOauthStatus({
+                hasToken: true,
+                isValid: oauthResult.isValid
+              });
+            }
+          } catch (oauthError) {
+            // OAuth status check failed, but test was successful - ignore
+            console.error('Failed to check OAuth status:', oauthError);
+          }
+        }
       }
     } catch (error) {
+      if (oauthHintTimer) clearTimeout(oauthHintTimer);
+      setShowOAuthHint(false);
       setTestResult({
         success: false,
         message: 'Connection test failed with an unexpected error.'
@@ -135,6 +173,23 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
     } finally {
       setIsTestingConnection(false);
       setIsLoadingTools(false);
+    }
+  };
+
+  const handleDisconnectOAuth = async () => {
+    if (!serverId) return;
+
+    try {
+      const result = await window.levante.mcp.oauthDeleteToken(serverId);
+      if (result.success) {
+        setOauthStatus(null);
+        toast.success('OAuth token removed successfully');
+      } else {
+        toast.error(result.error || 'Failed to remove OAuth token');
+      }
+    } catch (error) {
+      toast.error('Failed to remove OAuth token');
+      console.error('Error removing OAuth token:', error);
     }
   };
 
@@ -214,6 +269,44 @@ export function JSONEditorPanel({ serverId, isOpen, onClose }: JSONEditorPanelPr
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>{jsonError}</AlertDescription>
+                </Alert>
+              )}
+
+              {/* OAuth Hint during test */}
+              {showOAuthHint && (
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertDescription>
+                    If authentication is required, your browser will open for authorization...
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {/* Test Result with OAuth status */}
+              {testResult && (
+                <Alert variant={testResult.success ? "default" : "destructive"}>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    {testResult.message}
+                    {testResult.success && oauthStatus?.hasToken && (
+                      <div className="mt-3 pt-3 border-t flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                          <Badge variant="outline" className="gap-1">
+                            OAuth Connected
+                          </Badge>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={handleDisconnectOAuth}
+                          className="h-7 text-xs"
+                        >
+                          Disconnect
+                        </Button>
+                      </div>
+                    )}
+                  </AlertDescription>
                 </Alert>
               )}
             </div>

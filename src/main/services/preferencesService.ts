@@ -2,7 +2,7 @@ import { BrowserWindow } from 'electron';
 import { UIPreferences, PreferenceKey, DEFAULT_PREFERENCES, PreferenceChangeEvent } from '../../types/preferences';
 import { getLogger } from './logging';
 import { directoryService } from './directoryService';
-import { encryptProvidersApiKeys, decryptProvidersApiKeys } from '../utils/encryption';
+import { encryptProvidersApiKeys, decryptProvidersApiKeys, encryptMcpOAuthTokens, decryptMcpOAuthTokens } from '../utils/encryption';
 
 export class PreferencesService {
   private logger = getLogger();
@@ -112,6 +112,15 @@ export class PreferencesService {
           type: ['string', 'null'],
           default: null
         },
+        ai: {
+          type: 'object',
+          properties: {
+            baseSteps: { type: 'number', default: 5 },
+            maxSteps: { type: 'number', default: 20 }
+          },
+          required: ['baseSteps', 'maxSteps'],
+          default: { baseSteps: 5, maxSteps: 20 }
+        },
         security: {
           type: 'object',
           properties: {
@@ -119,6 +128,21 @@ export class PreferencesService {
           },
           required: ['encryptApiKeys'],
           default: { encryptApiKeys: false }
+        },
+        mcpOAuthTokens: {
+          type: 'object',
+          default: {},
+          additionalProperties: {
+            type: 'object',
+            properties: {
+              access_token: { type: 'string' },
+              refresh_token: { type: 'string' },
+              expires_at: { type: 'number' },
+              scope: { type: 'string' },
+              token_type: { type: 'string' }
+            },
+            required: ['access_token', 'token_type']
+          }
         }
       }
     });
@@ -150,6 +174,11 @@ export class PreferencesService {
     // Decrypt providers' API keys when reading (only if encryption is enabled)
     if (key === 'providers' && Array.isArray(value) && shouldEncrypt) {
       value = decryptProvidersApiKeys(value);
+    }
+
+    // Decrypt MCP OAuth tokens when reading (only if encryption is enabled)
+    if (key === 'mcpOAuthTokens' && value && typeof value === 'object' && shouldEncrypt) {
+      value = decryptMcpOAuthTokens(value);
     }
 
     // Use models category for provider/model related preferences
@@ -203,6 +232,11 @@ export class PreferencesService {
     let valueToStore = value;
     if (key === 'providers' && Array.isArray(value) && shouldEncrypt) {
       valueToStore = encryptProvidersApiKeys(value) as any;
+    }
+
+    // Encrypt MCP OAuth tokens before storing (only if encryption is enabled)
+    if (key === 'mcpOAuthTokens' && value && typeof value === 'object' && shouldEncrypt) {
+      valueToStore = encryptMcpOAuthTokens(value as any) as any;
     }
 
     // Use models category for provider/model related preferences

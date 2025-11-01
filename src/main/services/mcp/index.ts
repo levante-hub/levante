@@ -10,38 +10,79 @@ import { createTransport, handleConnectionError } from "./transports.js";
 import { diagnoseSystem } from "./diagnostics.js";
 import { loadMCPRegistry } from "./registry.js";
 import type { MCPRegistry } from "./types";
+import { mcpOAuthService } from "./oauth/mcpOAuthService";
 
 export class MCPService {
   private logger = getLogger();
   private clients: Map<string, Client> = new Map();
+
+  /**
+   * Check if error is a 401 Unauthorized error
+   * @param error - Error to check
+   * @returns True if error indicates authentication failure
+   */
+  private is401Error(error: unknown): boolean {
+    if (!(error instanceof Error)) return false;
+
+    const message = error.message.toLowerCase();
+    return (
+      message.includes('401') ||
+      message.includes('unauthorized') ||
+      message.includes('authentication failed')
+    );
+  }
 
   async connectServer(config: MCPServerConfig): Promise<Client> {
     const transportType = config.transport || (config as any).type;
     const baseUrl = config.baseUrl || (config as any).url;
 
     try {
-      const { client, transport } = await createTransport(config);
-
-      // Connect to the server with detailed error handling
+      // Attempt 1: Initial connection (with OAuth token if available)
       this.logger.mcp.info("Attempting to connect to server", {
         serverId: config.id,
       });
 
       try {
-        await client.connect(transport);
-        this.logger.mcp.info("Successfully connected to server", {
-          serverId: config.id,
-        });
+        return await this._attemptConnection(config, transportType, baseUrl);
       } catch (connectionError) {
-        this.logger.mcp.error("Connection failed for server", {
-          serverId: config.id,
-          error:
-            connectionError instanceof Error
-              ? connectionError.message
-              : connectionError,
-        });
+        // Check if error is 401 Unauthorized
+        if (this.is401Error(connectionError) && (transportType === 'http' || transportType === 'sse')) {
+          this.logger.mcp.info("Received 401 Unauthorized, initiating OAuth flow", {
+            serverId: config.id,
+            baseUrl
+          });
 
-        // Provide more specific error messages
+          // Initiate OAuth flow automatically
+          try {
+            await mcpOAuthService.authorize(
+              config.id,
+              undefined, // No Response object available here
+              baseUrl,
+              config.oauthMetadata?.scopes,
+              config.oauthMetadata
+            );
+
+            this.logger.mcp.info("OAuth authorization completed, retrying connection", {
+              serverId: config.id
+            });
+
+            // Attempt 2: Retry with OAuth token
+            return await this._attemptConnection(config, transportType, baseUrl);
+
+          } catch (oauthError) {
+            this.logger.mcp.error("OAuth authorization failed", {
+              serverId: config.id,
+              error: oauthError instanceof Error ? oauthError.message : oauthError
+            });
+            throw new Error(
+              `Authentication failed for ${config.id}. OAuth authorization was unsuccessful: ${
+                oauthError instanceof Error ? oauthError.message : 'Unknown error'
+              }`
+            );
+          }
+        }
+
+        // Not a 401 error, or OAuth not applicable - handle normally
         if (connectionError instanceof Error) {
           throw await handleConnectionError(
             connectionError,
@@ -53,20 +94,52 @@ export class MCPService {
 
         throw connectionError;
       }
-
-      // Store the client
-      this.clients.set(config.id, client);
-
-      this.logger.mcp.info("Successfully connected to MCP server", {
-        serverId: config.id,
-      });
-      return client;
     } catch (error) {
       this.logger.mcp.error("Failed to connect to MCP server", {
         serverId: config.id,
         error: error instanceof Error ? error.message : error,
       });
       throw error;
+    }
+  }
+
+  /**
+   * Attempt to connect to MCP server
+   * Separated from connectServer to allow retry logic
+   *
+   * @param config - Server configuration
+   * @param transportType - Transport type (stdio, http, sse)
+   * @param baseUrl - Base URL for HTTP/SSE transports
+   * @returns Connected client
+   * @private
+   */
+  private async _attemptConnection(
+    config: MCPServerConfig,
+    transportType: string,
+    baseUrl?: string
+  ): Promise<Client> {
+    const { client, transport } = await createTransport(config);
+
+    try {
+      await client.connect(transport);
+      this.logger.mcp.info("Successfully connected to server", {
+        serverId: config.id,
+      });
+
+      // Store the client
+      this.clients.set(config.id, client);
+
+      return client;
+    } catch (connectionError) {
+      this.logger.mcp.error("Connection failed for server", {
+        serverId: config.id,
+        error:
+          connectionError instanceof Error
+            ? connectionError.message
+            : connectionError,
+      });
+
+      throw connectionError;
     }
   }
 

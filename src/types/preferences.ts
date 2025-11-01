@@ -1,5 +1,26 @@
 import type { ProviderConfig } from './models';
 
+/**
+ * OAuth token data for MCP servers
+ * Stored in ui-preferences.json with optional encryption
+ * (controlled by security.encryptApiKeys toggle)
+ */
+export interface OAuthTokenData {
+  access_token: string;
+  refresh_token?: string;
+  expires_at?: number; // Unix timestamp (ms)
+  scope?: string;
+  token_type: string; // Usually "Bearer"
+  /**
+   * OAuth metadata for token refresh and revocation
+   * Stored alongside tokens to enable automatic refresh without re-discovery
+   */
+  metadata?: {
+    token_endpoint: string;
+    revocation_endpoint?: string;
+  };
+}
+
 export interface UIPreferences {
   theme: 'light' | 'dark' | 'system';
   language: string;
@@ -37,6 +58,13 @@ export interface UIPreferences {
   security: {
     encryptApiKeys: boolean;
   };
+
+  /**
+   * OAuth tokens for MCP servers
+   * Key: serverId (e.g., "figma", "github-mcp")
+   * Value: OAuth token data (access_token and refresh_token are encrypted when security.encryptApiKeys is enabled)
+   */
+  mcpOAuthTokens?: Record<string, OAuthTokenData>;
 }
 
 export type PreferenceKey = keyof UIPreferences;
@@ -81,5 +109,6 @@ export const DEFAULT_PREFERENCES: UIPreferences = {
   hasAcceptedFreeModelWarning: false,
   security: {
     encryptApiKeys: false
-  }
+  },
+  mcpOAuthTokens: {}
 };

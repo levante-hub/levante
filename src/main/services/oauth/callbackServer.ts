@@ -1,16 +1,44 @@
 import { createServer, Server, IncomingMessage, ServerResponse } from 'http';
 import { BrowserWindow } from 'electron';
-import { getLogger } from './logging';
+import { getLogger } from '../logging';
 
 const logger = getLogger();
+
+/**
+ * OAuth callback handler type
+ * Used by services (e.g., mcpOAuthService) to handle callbacks in the backend
+ */
+export type OAuthCallbackHandler = (provider: string, code: string, state?: string) => Promise<void>;
 
 export class OAuthCallbackServer {
   private server: Server | null = null;
   private port: number = 0;
   private mainWindow: BrowserWindow | null = null;
+  private currentProvider: string = 'openrouter'; // Default to openrouter for backward compatibility
+  private callbackHandler: OAuthCallbackHandler | null = null;
 
   setMainWindow(window: BrowserWindow): void {
     this.mainWindow = window;
+  }
+
+  /**
+   * Set the current provider for callback identification
+   * @param provider - Provider identifier (e.g., 'openrouter', 'figma-mcp', 'github-mcp')
+   */
+  setProvider(provider: string): void {
+    this.currentProvider = provider;
+    logger.core.debug('OAuth callback server provider set', { provider });
+  }
+
+  /**
+   * Set backend callback handler for processing OAuth callbacks
+   * Used by mcpOAuthService to handle MCP OAuth flows in the backend
+   *
+   * @param handler - Callback handler function
+   */
+  setCallbackHandler(handler: OAuthCallbackHandler | null): void {
+    this.callbackHandler = handler;
+    logger.core.debug('OAuth callback handler set', { hasHandler: !!handler });
   }
 
   /**
@@ -218,10 +246,29 @@ export class OAuthCallbackServer {
         return;
       }
 
-      // Success! Send code to renderer
+      // Success! Extract state if present
+      const state = url.searchParams.get('state') || undefined;
+
       logger.core.info('OAuth authorization successful', {
-        codeLength: code.length
+        codeLength: code.length,
+        hasState: !!state,
+        provider: this.currentProvider
       });
+
+      // Call backend handler if set (for MCP OAuth)
+      if (this.callbackHandler) {
+        logger.core.debug('Invoking backend OAuth callback handler', {
+          provider: this.currentProvider
+        });
+
+        // Handle callback asynchronously (don't block HTTP response)
+        this.callbackHandler(this.currentProvider, code, state).catch((error) => {
+          logger.core.error('Backend OAuth callback handler failed', {
+            provider: this.currentProvider,
+            error: error instanceof Error ? error.message : error
+          });
+        });
+      }
 
       res.writeHead(200, { 'Content-Type': 'text/html' });
       res.end(`
@@ -292,7 +339,7 @@ export class OAuthCallbackServer {
       if (this.mainWindow) {
         this.mainWindow.webContents.send('levante/oauth/callback', {
           success: true,
-          provider: 'openrouter',
+          provider: this.currentProvider,
           code
         });
 

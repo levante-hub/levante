@@ -1,28 +1,7 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { logger } from '@/services/logger';
-
-// Utility functions for PKCE flow
-const generateCodeVerifier = (): string => {
-  const array = new Uint8Array(32);
-  crypto.getRandomValues(array);
-  return base64UrlEncode(array);
-};
-
-const base64UrlEncode = (buffer: Uint8Array): string => {
-  const base64 = btoa(String.fromCharCode(...Array.from(buffer)));
-  return base64
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=/g, '');
-};
-
-const generateCodeChallenge = async (verifier: string): Promise<string> => {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(verifier);
-  const hash = await crypto.subtle.digest('SHA-256', data);
-  return base64UrlEncode(new Uint8Array(hash));
-};
+import { generateCodeVerifier, generateCodeChallenge } from '@/utils/pkce';
 
 interface UseOpenRouterOAuthOptions {
   onSuccess: (apiKey: string) => void;
