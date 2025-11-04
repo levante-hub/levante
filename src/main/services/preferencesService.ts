@@ -119,6 +119,16 @@ export class PreferencesService {
           },
           required: ['encryptApiKeys'],
           default: { encryptApiKeys: false }
+        },
+        telemetry: {
+          type: 'object',
+          properties: {
+            enabled: { type: 'boolean', default: false },
+            anonymousUsage: { type: 'boolean', default: false },
+            crashReports: { type: 'boolean', default: false }
+          },
+          required: ['enabled', 'anonymousUsage', 'crashReports'],
+          default: { enabled: false, anonymousUsage: false, crashReports: false }
         }
       }
     });

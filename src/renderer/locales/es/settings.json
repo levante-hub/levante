@@ -4,6 +4,7 @@
     "personalization": "Personalización",
     "appearance": "Apariencia",
     "security": "Seguridad",
+    "telemetry": "Telemetría y Privacidad",
     "ai_configuration": "Configuración de IA"
   },
   "language": {
@@ -88,6 +89,22 @@
       "warning": "Al habilitar el cifrado, se te puede solicitar la contraseña del sistema para asegurar las claves API."
     },
     "save_button": "Guardar Configuración de Seguridad"
+  },
+  "telemetry": {
+    "privacy_notice": "Respetamos tu privacidad. Todos los datos de telemetría son anónimos y nos ayudan a mejorar la aplicación. Tienes control total sobre qué datos se recopilan.",
+    "enabled": {
+      "label": "Habilitar Telemetría",
+      "description": "Permitir que Levante recopile datos de uso anónimos para mejorar la aplicación. Todos los datos son anónimos y opt-in."
+    },
+    "anonymous_usage": {
+      "label": "Estadísticas de Uso Anónimas",
+      "description": "Recopilar datos anónimos sobre cómo usas la aplicación, como el uso de funciones y métricas de rendimiento. Esto nos ayuda a entender qué funciones son más valiosas."
+    },
+    "crash_reports": {
+      "label": "Informes de Fallos",
+      "description": "Enviar automáticamente informes de fallos cuando la aplicación encuentra errores. Esto nos ayuda a identificar y corregir errores rápidamente."
+    },
+    "save_button": "Guardar Configuración de Telemetría"
   },
   "ai_config": {
     "title": "Límites de Ejecución de Herramientas Multi-Paso",

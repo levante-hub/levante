@@ -14,6 +14,7 @@ import { databaseService } from "../services/databaseService";
 import { preferencesService } from "../services/preferencesService";
 import { userProfileService } from "../services/userProfileService";
 import { configMigrationService } from "../services/configMigrationService";
+import { telemetryService } from "../services/TelemetryService";
 import { setupDatabaseHandlers } from "../ipc/databaseHandlers";
 import { setupPreferencesHandlers } from "../ipc/preferencesHandlers";
 import { setupModelHandlers } from "../ipc/modelHandlers";
@@ -25,6 +26,7 @@ import { registerDebugHandlers } from "../ipc/debugHandlers";
 import { setupChatHandlers } from "../ipc/chatHandlers";
 import { setupAppHandlers } from "../ipc/appHandlers";
 import { setupOAuthHandlers } from "../ipc/oauthHandlers";
+import { setupTelemetryHandlers } from "../ipc/telemetryHandlers";
 
 const logger = getLogger();
 
@@ -92,6 +94,17 @@ export async function initializeServices(): Promise<void> {
       error: error instanceof Error ? error.message : error,
     });
   }
+
+  // 6. Initialize telemetry service
+  try {
+    await telemetryService.initialize();
+    logger.core.info("Telemetry service initialized successfully");
+  } catch (error) {
+    logger.core.error("Failed to initialize telemetry service", {
+      error: error instanceof Error ? error.message : error,
+    });
+    // Continue - telemetry is optional
+  }
 }
 
 /**
@@ -107,6 +120,7 @@ export function registerIPCHandlers(getMainWindow: () => BrowserWindow | null): 
   setupLoggerHandlers();
   setupWizardHandlers();
   setupProfileHandlers();
+  setupTelemetryHandlers();
   registerMCPHandlers();
   registerDebugHandlers();
 

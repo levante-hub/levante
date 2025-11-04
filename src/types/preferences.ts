@@ -37,6 +37,11 @@ export interface UIPreferences {
   security: {
     encryptApiKeys: boolean;
   };
+  telemetry: {
+    enabled: boolean;
+    anonymousUsage: boolean;
+    crashReports: boolean;
+  };
 }
 
 export type PreferenceKey = keyof UIPreferences;
@@ -81,5 +86,10 @@ export const DEFAULT_PREFERENCES: UIPreferences = {
   hasAcceptedFreeModelWarning: false,
   security: {
     encryptApiKeys: false
+  },
+  telemetry: {
+    enabled: false,
+    anonymousUsage: false,
+    crashReports: false
   }
 };

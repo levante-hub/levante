@@ -11,6 +11,7 @@ import { getLogger } from "../services/logging";
 import { databaseService } from "../services/databaseService";
 import { mcpService } from "../ipc/mcpHandlers";
 import { oauthCallbackServer } from "../services/oauthCallbackServer";
+import { telemetryService } from "../services/TelemetryService";
 
 const logger = getLogger();
 
@@ -50,6 +51,16 @@ export async function gracefulShutdown(): Promise<void> {
     logger.core.info("OAuth callback server stopped");
   } catch (error) {
     logger.core.error("Error stopping OAuth server", {
+      error: error instanceof Error ? error.message : error,
+    });
+  }
+
+  // 4. Shutdown telemetry service
+  try {
+    await telemetryService.shutdown();
+    logger.core.info("Telemetry service shutdown completed");
+  } catch (error) {
+    logger.core.error("Error shutting down telemetry service", {
       error: error instanceof Error ? error.message : error,
     });
   }

@@ -4,6 +4,7 @@
     "personalization": "Personalization",
     "appearance": "Appearance",
     "security": "Security",
+    "telemetry": "Telemetry & Privacy",
     "ai_configuration": "AI Configuration"
   },
   "language": {
@@ -88,6 +89,22 @@
       "warning": "When enabling encryption, you may be prompted for your system password to secure the API keys."
     },
     "save_button": "Save Security Settings"
+  },
+  "telemetry": {
+    "privacy_notice": "We respect your privacy. All telemetry data is anonymous and helps us improve the app. You have full control over what data is collected.",
+    "enabled": {
+      "label": "Enable Telemetry",
+      "description": "Allow Levante to collect anonymous usage data to improve the app. All data is anonymous and opt-in."
+    },
+    "anonymous_usage": {
+      "label": "Anonymous Usage Statistics",
+      "description": "Collect anonymous data about how you use the app, such as feature usage and performance metrics. This helps us understand what features are most valuable."
+    },
+    "crash_reports": {
+      "label": "Crash Reports",
+      "description": "Automatically send crash reports when the app encounters errors. This helps us identify and fix bugs quickly."
+    },
+    "save_button": "Save Telemetry Settings"
   },
   "ai_config": {
     "title": "Multi-Step Tool Execution Limits",

@@ -2,6 +2,7 @@ import {
   PersonalizationSection,
   AppearanceSection,
   SecuritySection,
+  TelemetrySection,
   AIConfigSection
 } from '@/components/settings';
 
@@ -12,6 +13,7 @@ const SettingsPage = () => {
         <PersonalizationSection />
         <AppearanceSection />
         <SecuritySection />
+        <TelemetrySection />
         <AIConfigSection />
       </div>
     </div>
