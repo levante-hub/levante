@@ -1,5 +1,6 @@
-import { Server } from 'lucide-react';
+import { Server, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { MCPTool } from '@/types/mcp';
 import {
   Accordion,
@@ -82,6 +83,18 @@ export function MCPServerPreview({
           </div>
         </div>
       </div>
+
+      {/* Test Result Messages - Only show errors */}
+      {testResult && !testResult.success && (
+        <div className="px-4 pb-3">
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription className="text-sm">
+              {testResult.message}
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
 
       {/* Tools list - solo si hay tools y conexión exitosa */}
       {testResult?.success && tools.length > 0 && (

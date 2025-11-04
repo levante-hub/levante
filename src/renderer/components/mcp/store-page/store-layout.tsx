@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react';
 import { useMCPStore } from '@/stores/mcpStore';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Loader2, AlertCircle } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Plus } from 'lucide-react';
 import { IntegrationCard } from './integration-card';
 import { JSONEditorPanel } from '../config/json-editor-panel';
 import { FullJSONEditorPanel } from '../config/full-json-editor-panel';
@@ -28,7 +27,6 @@ export function StoreLayout({ mode }: StoreLayoutProps) {
     registry,
     activeServers,
     connectionStatus,
-    isLoading,
     error,
     loadRegistry,
     loadActiveServers,
@@ -36,7 +34,8 @@ export function StoreLayout({ mode }: StoreLayoutProps) {
     connectServer,
     disconnectServer,
     addServer,
-    removeServer
+    removeServer,
+    clearError
   } = useMCPStore();
 
   const [configServerId, setConfigServerId] = useState<string | null>(null);
@@ -64,6 +63,15 @@ export function StoreLayout({ mode }: StoreLayoutProps) {
     const interval = setInterval(refreshConnectionStatus, 30000);
     return () => clearInterval(interval);
   }, [loadRegistry, loadActiveServers, refreshConnectionStatus]);
+
+  // Handle errors with toast instead of blocking UI
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+      // Clear error from store after showing toast
+      clearError();
+    }
+  }, [error, clearError]);
 
   const handleToggleServer = async (serverId: string) => {
     const server = activeServers.find(s => s.id === serverId);
@@ -247,17 +255,6 @@ export function StoreLayout({ mode }: StoreLayoutProps) {
       setIsRefreshing(false);
     }
   };
-
-  if (error) {
-    return (
-      <div className="container mx-auto p-6">
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 px-4">

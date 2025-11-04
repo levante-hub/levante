@@ -31,6 +31,7 @@ interface MCPStore {
   importConfiguration: (config: any) => Promise<void>;
   exportConfiguration: () => Promise<any>;
   diagnoseSystem: () => Promise<void>;
+  clearError: () => void;
 
   // Helper methods
   isServerActive: (serverId: string) => boolean;
@@ -359,5 +360,10 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
     } catch (error) {
       console.error('Failed to diagnose system:', error);
     }
+  },
+
+  // Clear error from state
+  clearError: () => {
+    set({ error: null });
   }
 }));
