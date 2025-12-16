@@ -23,6 +23,10 @@ class ModelServiceImpl {
   // Classification cache for O(1) lookups
   private classificationCache = new Map<string, ModelClassification>();
 
+  // Track which providers have been synced in this session
+  // This prevents losing models from inactive providers when saving
+  private syncedProvidersInSession = new Set<string>();
+
   // Initialize with default providers and load from storage
   async initialize(): Promise<void> {
     // Prevent double initialization from React StrictMode
@@ -221,9 +225,14 @@ class ModelServiceImpl {
 
     // 1. Refresh dynamic providers if needed (smart sync)
     // We don't want to block UI, so we trust cache but trigger background sync if very old
+    // Only sync providers that have API keys configured to avoid empty results
     const now = Date.now();
     this.providers.forEach(provider => {
+      // Skip providers without API key (except openrouter which works without key)
+      const hasCredentials = provider.apiKey || provider.type === 'openrouter';
+
       if (provider.modelSource === 'dynamic' &&
+        hasCredentials &&
         (!provider.lastModelSync || (now - provider.lastModelSync > 1000 * 60 * 5))) {
         // Trigger sync but don't await it to keep UI snappy
         // If it's critical, the user can refresh or we can await
@@ -298,8 +307,12 @@ class ModelServiceImpl {
     model.isSelected = selected;
 
     // Update selectedModelIds for dynamic providers
+    // Use Set operations to preserve existing IDs not in current models list
     if (provider.modelSource === 'dynamic') {
-      provider.selectedModelIds = provider.models.filter(m => m.isSelected).map(m => m.id);
+      const currentModelIds = new Set(provider.models.map(m => m.id));
+      const existingSelectedIds = (provider.selectedModelIds || []).filter(id => !currentModelIds.has(id));
+      const newSelectedIds = provider.models.filter(m => m.isSelected).map(m => m.id);
+      provider.selectedModelIds = [...existingSelectedIds, ...newSelectedIds];
     }
 
     await this.saveProviders();
@@ -318,8 +331,12 @@ class ModelServiceImpl {
     });
 
     // Update selectedModelIds for dynamic providers
+    // Use Set operations to preserve existing IDs not in current models list
     if (provider.modelSource === 'dynamic') {
-      provider.selectedModelIds = provider.models.filter(m => m.isSelected).map(m => m.id);
+      const currentModelIds = new Set(provider.models.map(m => m.id));
+      const existingSelectedIds = (provider.selectedModelIds || []).filter(id => !currentModelIds.has(id));
+      const newSelectedIds = provider.models.filter(m => m.isSelected).map(m => m.id);
+      provider.selectedModelIds = [...existingSelectedIds, ...newSelectedIds];
     }
 
     await this.saveProviders();
@@ -358,8 +375,12 @@ class ModelServiceImpl {
     provider.models.push(newModel);
 
     // Update selectedModelIds for dynamic providers
+    // Use Set operations to preserve existing IDs not in current models list
     if (provider.modelSource === 'dynamic') {
-      provider.selectedModelIds = provider.models.filter(m => m.isSelected).map(m => m.id);
+      const currentModelIds = new Set(provider.models.map(m => m.id));
+      const existingSelectedIds = (provider.selectedModelIds || []).filter(id => !currentModelIds.has(id));
+      const newSelectedIds = provider.models.filter(m => m.isSelected).map(m => m.id);
+      provider.selectedModelIds = [...existingSelectedIds, ...newSelectedIds];
     }
 
     await this.saveProviders();
@@ -373,8 +394,9 @@ class ModelServiceImpl {
     provider.models = provider.models.filter(m => m.id !== modelId || !m.userDefined);
 
     // Update selectedModelIds for dynamic providers
+    // Also remove the model from selectedModelIds if it was there
     if (provider.modelSource === 'dynamic') {
-      provider.selectedModelIds = provider.models.filter(m => m.isSelected).map(m => m.id);
+      provider.selectedModelIds = (provider.selectedModelIds || []).filter(id => id !== modelId);
     }
 
     await this.saveProviders();
@@ -535,7 +557,26 @@ class ModelServiceImpl {
 
       // Update provider models: combine synced models with user-defined models
       provider.models = [...models, ...userDefinedModels];
-      provider.selectedModelIds = provider.models.filter(m => m.isSelected).map(m => m.id);
+
+      // Only update selectedModelIds if we actually got new models from sync
+      // This prevents losing saved selections when sync fails or returns empty
+      if (models.length > 0) {
+        provider.selectedModelIds = provider.models.filter(m => m.isSelected).map(m => m.id);
+        // Mark provider as synced in this session (only if we got actual models)
+        this.syncedProvidersInSession.add(provider.id);
+      }
+      // If no new models but we have user-defined models, update to include their IDs
+      else if (userDefinedModels.length > 0) {
+        const userDefinedSelectedIds = userDefinedModels.filter(m => m.isSelected).map(m => m.id);
+        // Preserve existing selectedModelIds and add user-defined
+        provider.selectedModelIds = [
+          ...(provider.selectedModelIds || []).filter(id => !userDefinedModels.some(m => m.id === id)),
+          ...userDefinedSelectedIds
+        ];
+      }
+      // If sync returned empty and no user-defined, preserve existing selectedModelIds
+      // (don't clear them - they'll be restored when sync succeeds later)
+
       provider.lastModelSync = Date.now();
       await this.saveProviders();
 
@@ -558,38 +599,46 @@ class ModelServiceImpl {
   private async saveProviders(): Promise<void> {
     try {
       // For dynamic providers, save selected model IDs + minimal model data with classification
+      // Only apply minimal save logic to providers that have been synced in this session
       const providersToSave = this.providers.map(provider => {
         if (provider.modelSource === 'dynamic') {
-          // Extract selected model IDs
-          const selectedModelIds = provider.models
-            .filter(m => m.isSelected === true)
-            .map(m => m.id);
+          // Only apply minimal save to providers synced in this session
+          // This prevents losing models from inactive providers that haven't been synced
+          if (this.syncedProvidersInSession.has(provider.id)) {
+            // Extract selected model IDs
+            const selectedModelIds = provider.models
+              .filter(m => m.isSelected === true)
+              .map(m => m.id);
 
-          // Save minimal model data for selected models (id + classification only)
-          // This allows main process to access classification without full sync
-          const selectedModelsMinimal = provider.models
-            .filter(m => m.isSelected === true && !m.userDefined)
-            .map(m => ({
-              id: m.id,
-              name: m.name,
-              provider: m.provider,
-              category: m.category,
-              computedCapabilities: m.computedCapabilities,
-              taskType: m.taskType,
-              userDefined: false,
-              isAvailable: true,
-              contextLength: 0,
-              capabilities: []
-            }));
+            // Save minimal model data for selected models (id + classification only)
+            // This allows main process to access classification without full sync
+            const selectedModelsMinimal = provider.models
+              .filter(m => m.isSelected === true && !m.userDefined)
+              .map(m => ({
+                id: m.id,
+                name: m.name,
+                provider: m.provider,
+                category: m.category,
+                computedCapabilities: m.computedCapabilities,
+                taskType: m.taskType,
+                userDefined: false,
+                isAvailable: true,
+                contextLength: 0,
+                capabilities: []
+              }));
 
-          // Also include user-defined models (full data)
-          const userDefinedModels = provider.models.filter(m => m.userDefined);
+            // Also include user-defined models (full data)
+            const userDefinedModels = provider.models.filter(m => m.userDefined);
 
-          return {
-            ...provider,
-            selectedModelIds,
-            models: [...selectedModelsMinimal, ...userDefinedModels],
-          };
+            return {
+              ...provider,
+              selectedModelIds,
+              models: [...selectedModelsMinimal, ...userDefinedModels],
+            };
+          }
+          // For providers not synced in this session, preserve current state from storage
+          // This prevents losing models from inactive providers
+          return provider;
         }
         // For user-defined providers (cloud), save full model data
         return provider;
