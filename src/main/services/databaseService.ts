@@ -377,6 +377,41 @@ export class DatabaseService {
           // Add chunk_ids column to store JSON array of LanceDB chunk IDs
           `ALTER TABLE documents ADD COLUMN chunk_ids TEXT DEFAULT NULL`
         ]
+      },
+      {
+        version: 8,
+        name: 'Remove file_type CHECK constraint',
+        queries: [
+          // Recreate documents table WITHOUT file_type CHECK constraint
+          // File type validation is now handled in application code
+          `CREATE TABLE documents_new (
+            id TEXT PRIMARY KEY,
+            filename TEXT NOT NULL,
+            filepath TEXT NOT NULL,
+            file_type TEXT NOT NULL,
+            file_size INTEGER NOT NULL CHECK(file_size > 0),
+            status TEXT NOT NULL DEFAULT 'processing' CHECK(status IN ('processing', 'indexed', 'failed')),
+            chunk_count INTEGER DEFAULT 0 CHECK(chunk_count >= 0),
+            chunk_ids TEXT DEFAULT NULL,
+            error_message TEXT DEFAULT NULL,
+            uploaded_at INTEGER NOT NULL,
+            indexed_at INTEGER DEFAULT NULL
+          )`,
+
+          // Copy data from old table
+          `INSERT INTO documents_new SELECT * FROM documents`,
+
+          // Drop old table
+          `DROP TABLE documents`,
+
+          // Rename new table
+          `ALTER TABLE documents_new RENAME TO documents`,
+
+          // Recreate indexes
+          `CREATE INDEX IF NOT EXISTS idx_documents_status ON documents(status)`,
+          `CREATE INDEX IF NOT EXISTS idx_documents_uploaded ON documents(uploaded_at DESC)`,
+          `CREATE INDEX IF NOT EXISTS idx_documents_type ON documents(file_type)`
+        ]
       }
     ];
   }

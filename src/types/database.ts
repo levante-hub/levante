@@ -92,7 +92,7 @@ export interface Setting {
 /**
  * Document file types supported by RAG system
  */
-export type DocumentFileType = "pdf" | "docx" | "txt" | "md" | "json";
+export type DocumentFileType = "pdf" | "docx" | "txt" | "md" | "json" | "csv" | "html" | "htm";
 
 /**
  * Document processing status

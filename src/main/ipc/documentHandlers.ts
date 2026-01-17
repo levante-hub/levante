@@ -57,7 +57,7 @@ async function handlePickFile(
       filters: [
         {
           name: 'Documents',
-          extensions: ['pdf', 'docx', 'txt', 'md', 'json']
+          extensions: ['pdf', 'docx', 'txt', 'md', 'json', 'csv', 'html', 'htm']
         }
       ]
     });

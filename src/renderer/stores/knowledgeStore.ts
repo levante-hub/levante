@@ -83,7 +83,7 @@ export const useKnowledgeStore = create<KnowledgeStore>((set, get) => ({
 
     try {
       // Validate file type
-      const validExtensions = ['.pdf', '.docx', '.txt', '.md', '.json'];
+      const validExtensions = ['.pdf', '.docx', '.txt', '.md', '.json', '.csv', '.html', '.htm'];
       const fileExtension = '.' + filename.split('.').pop()?.toLowerCase();
       if (!validExtensions.includes(fileExtension)) {
         throw new Error(`Unsupported file type: ${fileExtension}`);

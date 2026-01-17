@@ -2,6 +2,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { getLogger } from '../logging';
 import type { DocumentFileType } from '../../../types/database';
+import { FileReaderFactory } from './readers';
 
 const logger = getLogger();
 
@@ -22,21 +23,31 @@ export interface DocumentChunk {
   };
 }
 
-/**
- * Supported file types for document processing
- */
-const SUPPORTED_FILE_TYPES: DocumentFileType[] = ['pdf', 'docx', 'txt', 'md', 'json'];
+// Initialize file readers on first use
+let readersInitialized = false;
 
 /**
  * DocumentProcessor service
  * Handles file validation, text extraction, and chunking for RAG system
+ * Uses FileReaderFactory pattern from vectorstores.org
  */
 export class DocumentProcessor {
+  /**
+   * Initialize file readers
+   */
+  private static ensureReadersInitialized(): void {
+    if (!readersInitialized) {
+      FileReaderFactory.initialize();
+      readersInitialized = true;
+    }
+  }
+
   /**
    * Get list of supported file types
    */
   static getSupportedTypes(): DocumentFileType[] {
-    return [...SUPPORTED_FILE_TYPES];
+    this.ensureReadersInitialized();
+    return FileReaderFactory.getSupportedExtensions() as DocumentFileType[];
   }
 
   /**
@@ -88,8 +99,9 @@ export class DocumentProcessor {
    * Extract file type from filename
    */
   static getFileType(filename: string): DocumentFileType | null {
-    const ext = path.extname(filename).toLowerCase().slice(1) as DocumentFileType;
-    return SUPPORTED_FILE_TYPES.includes(ext) ? ext : null;
+    this.ensureReadersInitialized();
+    const ext = path.extname(filename).toLowerCase().slice(1);
+    return FileReaderFactory.isSupported(ext) ? (ext as DocumentFileType) : null;
   }
 
   /**
@@ -130,38 +142,24 @@ export class DocumentProcessor {
   }
 
   /**
-   * Extract text from file based on type
+   * Extract text from file based on type using FileReaderFactory
    */
   private static async extractText(filePath: string, fileType: DocumentFileType): Promise<string> {
+    this.ensureReadersInitialized();
+
     logger.rag.debug('Starting text extraction', {
       filePath,
       fileType
     });
 
     try {
-      let extractedText: string;
+      const reader = FileReaderFactory.getReader(fileType);
 
-      switch (fileType) {
-        case 'txt':
-        case 'md':
-          extractedText = await this.extractTextFile(filePath);
-          break;
-
-        case 'json':
-          extractedText = await this.extractJsonFile(filePath);
-          break;
-
-        case 'pdf':
-          extractedText = await this.extractPdfFile(filePath);
-          break;
-
-        case 'docx':
-          extractedText = await this.extractDocxFile(filePath);
-          break;
-
-        default:
-          throw new Error(`Unsupported file type: ${fileType}`);
+      if (!reader) {
+        throw new Error(`No reader found for file type: ${fileType}`);
       }
+
+      const extractedText = await reader.extractText(filePath);
 
       logger.rag.debug('Text extraction completed', {
         filePath,
@@ -179,107 +177,6 @@ export class DocumentProcessor {
       });
       throw error;
     }
-  }
-
-  /**
-   * Extract text from plain text or markdown file
-   */
-  private static async extractTextFile(filePath: string): Promise<string> {
-    try {
-      const content = await fs.readFile(filePath, 'utf-8');
-      return content;
-    } catch (error) {
-      logger.rag.error('Error reading text file', {
-        filePath,
-        error: error instanceof Error ? error.message : error
-      });
-      throw new Error(`Failed to read text file: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  /**
-   * Extract text from JSON file
-   */
-  private static async extractJsonFile(filePath: string): Promise<string> {
-    try {
-      const content = await fs.readFile(filePath, 'utf-8');
-      const json = JSON.parse(content);
-      // Convert JSON to readable text representation
-      return JSON.stringify(json, null, 2);
-    } catch (error) {
-      logger.rag.error('Error reading JSON file', {
-        filePath,
-        error: error instanceof Error ? error.message : error
-      });
-      throw new Error(`Failed to read JSON file: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  /**
-   * Extract text from PDF file using pdf-parse v2 API
-   */
-  private static async extractPdfFile(filePath: string): Promise<string> {
-    logger.rag.debug('Starting PDF extraction', { filePath });
-
-    try {
-      // pdf-parse v2 exports a PDFParse class
-      const { PDFParse } = require('pdf-parse');
-
-      // Create parser instance with file path
-      const parser = new PDFParse({ url: filePath });
-
-      logger.rag.debug('PDF parser initialized, extracting text...', { filePath });
-
-      // Extract text using getText() method
-      const result = await parser.getText();
-
-      // Clean up resources
-      await parser.destroy();
-
-      if (!result.text || result.text.trim().length === 0) {
-        logger.rag.warn('PDF extraction produced empty text', {
-          filePath,
-          possibleCauses: [
-            'PDF contains only images (OCR required)',
-            'PDF is encrypted or password-protected',
-            'PDF uses non-standard encoding'
-          ]
-        });
-      }
-
-      logger.rag.info('PDF text extracted successfully', {
-        filePath,
-        textLength: result.text.length,
-        isEmpty: result.text.trim().length === 0
-      });
-
-      return result.text;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-
-      logger.rag.error('Failed to extract PDF text', {
-        filePath,
-        error: errorMessage,
-        possibleCauses: [
-          'PDF file is corrupted',
-          'PDF is password-protected',
-          'Unsupported PDF version',
-          'pdf-parse library not installed'
-        ]
-      });
-
-      throw new Error(`Failed to extract PDF text: ${errorMessage}`);
-    }
-  }
-
-  /**
-   * Extract text from DOCX file
-   * TODO: Implement DOCX extraction using mammoth library
-   */
-  private static async extractDocxFile(_filePath: string): Promise<string> {
-    // Placeholder - needs mammoth library
-    // For now, throw error to indicate not implemented
-    throw new Error('DOCX extraction not yet implemented. Please install mammoth library.');
   }
 
   /**
