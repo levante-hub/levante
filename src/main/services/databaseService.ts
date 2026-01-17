@@ -345,6 +345,30 @@ export class DatabaseService {
           `CREATE INDEX IF NOT EXISTS idx_messages_reasoning ON messages(session_id, reasoning)
            WHERE reasoning IS NOT NULL`
         ]
+      },
+      {
+        version: 6,
+        name: 'Add documents table for RAG',
+        queries: [
+          // Create documents table for RAG system
+          `CREATE TABLE IF NOT EXISTS documents (
+            id TEXT PRIMARY KEY,
+            filename TEXT NOT NULL,
+            filepath TEXT NOT NULL,
+            file_type TEXT NOT NULL CHECK(file_type IN ('pdf', 'docx', 'txt', 'md', 'json')),
+            file_size INTEGER NOT NULL CHECK(file_size > 0),
+            status TEXT NOT NULL DEFAULT 'processing' CHECK(status IN ('processing', 'indexed', 'failed')),
+            chunk_count INTEGER DEFAULT 0 CHECK(chunk_count >= 0),
+            error_message TEXT DEFAULT NULL,
+            uploaded_at INTEGER NOT NULL,
+            indexed_at INTEGER DEFAULT NULL
+          )`,
+
+          // Create indexes for efficient querying
+          `CREATE INDEX IF NOT EXISTS idx_documents_status ON documents(status)`,
+          `CREATE INDEX IF NOT EXISTS idx_documents_uploaded ON documents(uploaded_at DESC)`,
+          `CREATE INDEX IF NOT EXISTS idx_documents_type ON documents(file_type)`
+        ]
       }
     ];
   }

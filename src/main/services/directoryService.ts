@@ -198,6 +198,14 @@ export class DirectoryService {
   } as const;
 
   /**
+   * Common subdirectory paths used by the application
+   */
+  static readonly SUBDIRS = {
+    DOCUMENTS: 'documents',
+    CHROMADB: 'chromadb'
+  } as const;
+
+  /**
    * Get predefined file paths
    */
   getDatabasePath(): string { return this.getFilePath(DirectoryService.FILES.DATABASE); }
@@ -206,6 +214,12 @@ export class DirectoryService {
   getLogsPath(): string { return this.getFilePath(DirectoryService.FILES.LOGS); }
   getMemoryPath(): string { return this.getFilePath(DirectoryService.FILES.MEMORY); }
   getUserProfilePath(): string { return this.getFilePath(DirectoryService.FILES.USER_PROFILE); }
+
+  /**
+   * Get predefined subdirectory paths
+   */
+  getDocumentsPath(): string { return this.getSubdirPath(DirectoryService.SUBDIRS.DOCUMENTS); }
+  getChromaDbPath(): string { return this.getSubdirPath(DirectoryService.SUBDIRS.CHROMADB); }
 }
 
 // Singleton instance
