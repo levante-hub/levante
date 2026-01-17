@@ -369,6 +369,14 @@ export class DatabaseService {
           `CREATE INDEX IF NOT EXISTS idx_documents_uploaded ON documents(uploaded_at DESC)`,
           `CREATE INDEX IF NOT EXISTS idx_documents_type ON documents(file_type)`
         ]
+      },
+      {
+        version: 7,
+        name: 'Add chunk_ids column to documents',
+        queries: [
+          // Add chunk_ids column to store JSON array of LanceDB chunk IDs
+          `ALTER TABLE documents ADD COLUMN chunk_ids TEXT DEFAULT NULL`
+        ]
       }
     ];
   }

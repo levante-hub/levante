@@ -261,12 +261,13 @@ Environment variables loaded from:
 **Logging Configuration:**
 - `DEBUG_ENABLED` → Master switch for all debug logging
 - `DEBUG_AI_SDK` → AI service operations and streaming
-- `DEBUG_MCP` → MCP server management and tools  
+- `DEBUG_MCP` → MCP server management and tools
 - `DEBUG_DATABASE` → Database operations and migrations
 - `DEBUG_IPC` → Inter-process communication
 - `DEBUG_PREFERENCES` → Settings and configuration
 - `DEBUG_CORE` → Application lifecycle and errors
 - `DEBUG_OAUTH` → OAuth flow, authorization, and tokens
+- `DEBUG_RAG` → RAG document processing and vector operations
 - `LOG_LEVEL` → Minimum log level (debug|info|warn|error)
 
 ## Testing Strategy

@@ -114,6 +114,7 @@ export interface Document {
   file_size: number;
   status: DocumentStatus;
   chunk_count: number;
+  chunk_ids?: string[] | null; // JSON array of LanceDB chunk IDs
   error_message?: string | null;
   uploaded_at: number;
   indexed_at?: number | null;
@@ -199,6 +200,7 @@ export interface UpdateDocumentInput {
   id: string;
   status?: DocumentStatus;
   chunk_count?: number;
+  chunk_ids?: string[] | null;
   error_message?: string | null;
   indexed_at?: number | null;
 }

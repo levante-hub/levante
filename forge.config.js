@@ -50,13 +50,55 @@ module.exports = {
         console.log('  ⚠ @libsql directory not found');
       }
 
+      // Copiar TODOS los paquetes @lancedb/*
+      const lancedbDir = path.join(projectNodeModules, '@lancedb');
+      const destLancedbDir = path.join(packageNodeModules, '@lancedb');
+
+      if (await fs.pathExists(lancedbDir)) {
+        console.log('  ✓ Copying all @lancedb/* packages...');
+        await fs.copy(lancedbDir, destLancedbDir, { overwrite: true, dereference: true });
+
+        const packages = await fs.readdir(lancedbDir);
+        packages.forEach(pkg => console.log(`    - @lancedb/${pkg}`));
+      } else {
+        console.log('  ⚠ @lancedb directory not found');
+      }
+
+      // Copiar TODOS los paquetes @xenova/* (HuggingFace Transformers)
+      const xenovaDir = path.join(projectNodeModules, '@xenova');
+      const destXenovaDir = path.join(packageNodeModules, '@xenova');
+
+      if (await fs.pathExists(xenovaDir)) {
+        console.log('  ✓ Copying all @xenova/* packages...');
+        await fs.copy(xenovaDir, destXenovaDir, { overwrite: true, dereference: true });
+
+        const packages = await fs.readdir(xenovaDir);
+        packages.forEach(pkg => console.log(`    - @xenova/${pkg}`));
+      } else {
+        console.log('  ⚠ @xenova directory not found');
+      }
+
       // Obtener TODAS las dependencias de @libsql/client recursivamente
       console.log('  ✓ Finding all @libsql/client dependencies...');
       const allDeps = await getAllDependencies('@libsql/client');
 
+      // Añadir dependencias de @lancedb/lancedb
+      console.log('  ✓ Finding all @lancedb/lancedb dependencies...');
+      const lancedbDeps = await getAllDependencies('@lancedb/lancedb');
+      for (const dep of lancedbDeps) {
+        allDeps.add(dep);
+      }
+
+      // Añadir dependencias de @xenova/transformers
+      console.log('  ✓ Finding all @xenova/transformers dependencies...');
+      const xenovaDeps = await getAllDependencies('@xenova/transformers');
+      for (const dep of xenovaDeps) {
+        allDeps.add(dep);
+      }
+
       console.log('  ✓ Copying dependencies...');
       for (const dep of allDeps) {
-        if (dep.startsWith('@libsql/')) continue; // Ya copiado arriba
+        if (dep.startsWith('@libsql/') || dep.startsWith('@lancedb/') || dep.startsWith('@xenova/')) continue; // Ya copiado arriba
 
         const srcPath = path.join(projectNodeModules, dep);
         const destPath = path.join(packageNodeModules, dep);
@@ -99,7 +141,23 @@ module.exports = {
         }
       }
 
-      // NOTE: mcp-use bundled by Vite, only winston kept external for Logger
+      // Copiar pdf-parse (external - requerido por DocumentProcessor en runtime)
+      console.log('  ✓ Finding pdf-parse dependencies...');
+      const pdfParseDeps = await getAllDependencies('pdf-parse');
+
+      for (const dep of pdfParseDeps) {
+        if (allDeps.has(dep) || updateAppDeps.has(dep) || winstonDeps.has(dep)) continue;
+
+        const srcPath = path.join(projectNodeModules, dep);
+        const destPath = path.join(packageNodeModules, dep);
+
+        if (await fs.pathExists(srcPath)) {
+          console.log(`    - ${dep}`);
+          await fs.copy(srcPath, destPath, { overwrite: true, dereference: true });
+        }
+      }
+
+      // NOTE: mcp-use bundled by Vite, winston and pdf-parse kept external
 
       console.log(`✅ Copied external dependencies successfully`);
     }
@@ -107,7 +165,7 @@ module.exports = {
 
   packagerConfig: {
     asar: {
-      unpack: '**/@libsql/**/*.node'
+      unpack: '{**/@libsql/**/*.node,**/@lancedb/**/*.node,**/@xenova/**/*.node}'
     },
     name: 'Levante',
     executableName: 'Levante',

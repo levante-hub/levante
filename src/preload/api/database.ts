@@ -50,5 +50,13 @@ export const databaseApi = {
   },
 
   generateTitle: (message: string) =>
-    ipcRenderer.invoke('levante/db/generateTitle', message)
+    ipcRenderer.invoke('levante/db/generateTitle', message),
+
+  migrations: {
+    status: () =>
+      ipcRenderer.invoke('levante/db/migrations/status'),
+
+    run: () =>
+      ipcRenderer.invoke('levante/db/migrations/run')
+  }
 };

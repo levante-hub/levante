@@ -6,10 +6,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Switch } from '@/components/ui/switch';
-import { Wrench, Settings, ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
+import { Wrench, Settings, ChevronDown, ChevronRight, RefreshCw, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 import { useMCPStore } from '@/stores/mcpStore';
+import { useKnowledgeStore } from '@/stores/knowledgeStore';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -24,12 +25,16 @@ import type { Tool } from '@/types/mcp';
 interface ToolsMenuProps {
   enableMCP: boolean;
   onMCPChange: (enabled: boolean) => void;
+  enableRAG: boolean;
+  onRAGChange: (enabled: boolean) => void;
   className?: string;
 }
 
 export function ToolsMenu({
   enableMCP,
   onMCPChange,
+  enableRAG,
+  onRAGChange,
   className
 }: ToolsMenuProps) {
   const { t } = useTranslation('chat');
@@ -54,6 +59,9 @@ export function ToolsMenu({
     enableServer,
     disableServer,
   } = useMCPStore();
+
+  // Knowledge Store - get indexed document count
+  const { stats } = useKnowledgeStore();
 
   // Load tools cache and disabled tools on mount
   useEffect(() => {
@@ -111,6 +119,26 @@ export function ToolsMenu({
             <Switch
               checked={enableMCP}
               onCheckedChange={onMCPChange}
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+
+          <div
+            className="flex items-center justify-between rounded-sm px-3 py-2 hover:bg-accent cursor-pointer"
+            onClick={() => onRAGChange(!enableRAG)}
+          >
+            <div className="flex items-center gap-2">
+              <BookOpen size={16} className="text-muted-foreground" />
+              <span className="text-sm">{t('tools_menu.rag_search.label')}</span>
+              {enableRAG && stats && stats.indexedDocuments > 0 && (
+                <Badge variant="secondary" className="text-xs">
+                  {stats.indexedDocuments} {stats.indexedDocuments === 1 ? 'doc' : 'docs'}
+                </Badge>
+              )}
+            </div>
+            <Switch
+              checked={enableRAG}
+              onCheckedChange={onRAGChange}
               onClick={(e) => e.stopPropagation()}
             />
           </div>

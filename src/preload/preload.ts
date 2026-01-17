@@ -57,6 +57,7 @@ import { analyticsApi } from "./api/analytics";
 import { mermaidApi } from "./api/mermaid";
 import { widgetApi } from "./api/widget";
 import { announcementsApi } from "./api/announcements";
+import { documentsApi } from "./api/documents";
 
 // Re-export types for backwards compatibility
 export type {
@@ -331,6 +332,78 @@ export interface LevanteAPI {
     generateTitle: (
       message: string
     ) => Promise<{ success: boolean; data?: string; error?: string }>;
+    migrations: {
+      status: () => Promise<{
+        success: boolean;
+        data?: {
+          currentVersion: number;
+          appliedMigrations: Array<{ version: number; appliedAt: number }>;
+          expectedVersion: number;
+          needsMigration: boolean;
+        };
+        error?: string;
+      }>;
+      run: () => Promise<{
+        success: boolean;
+        data?: { message: string };
+        error?: string;
+      }>;
+    };
+  };
+
+  // Documents functionality (RAG system)
+  documents: {
+    upload: (request: { filePath: string; filename: string }) => Promise<{
+      success: boolean;
+      document?: import('../types/database').Document;
+      error?: string;
+    }>;
+    list: (query?: import('../types/database').GetDocumentsQuery) => Promise<{
+      success: boolean;
+      documents?: import('../types/database').Document[];
+      error?: string;
+    }>;
+    delete: (documentId: string) => Promise<{
+      success: boolean;
+      error?: string;
+    }>;
+    deleteAll: () => Promise<{
+      success: boolean;
+      error?: string;
+    }>;
+    get: (documentId: string) => Promise<{
+      success: boolean;
+      document?: import('../types/database').Document | null;
+      error?: string;
+    }>;
+    query: (request: { query: string; topK?: number }) => Promise<{
+      success: boolean;
+      results?: string[];
+      error?: string;
+    }>;
+    getStats: () => Promise<{
+      success: boolean;
+      stats?: {
+        totalDocuments: number;
+        processingDocuments: number;
+        indexedDocuments: number;
+        failedDocuments: number;
+        totalChunks: number;
+      };
+      error?: string;
+    }>;
+    pickFile: () => Promise<{
+      success: boolean;
+      filePath?: string;
+      filename?: string;
+      error?: string;
+    }>;
+    onStatusUpdate: (callback: (update: {
+      documentId: string;
+      status: 'processing' | 'indexed' | 'failed';
+      chunk_count?: number;
+      error_message?: string;
+    }) => void) => () => void;
   };
 
   // Preferences functionality
@@ -798,6 +871,9 @@ const api: LevanteAPI = {
 
   // Database API
   db: databaseApi,
+
+  // Documents API (RAG system)
+  documents: documentsApi,
 
   // Preferences API
   preferences: preferencesApi,

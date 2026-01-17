@@ -45,6 +45,7 @@ const ChatPage = () => {
   const { t } = useTranslation('chat');
   const [input, setInput] = useState('');
   const [enableMCP, setEnableMCP] = usePreference('enableMCP');
+  const [enableRAG, setEnableRAG] = usePreference('enableRAG');
   const [userName, setUserName] = useState<string>(t('welcome.default_user_name'));
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [pendingFirstMessage, setPendingFirstMessage] = useState<string | null>(null);
@@ -180,6 +181,7 @@ const ChatPage = () => {
       createElectronChatTransport({
         model: model || 'openai/gpt-4o',
         enableMCP: enableMCP ?? true,
+        enableRAG: enableRAG ?? true,
       }),
     [] // Keep same transport instance
   );
@@ -189,8 +191,9 @@ const ChatPage = () => {
     transport.updateOptions({
       model: model || 'openai/gpt-4o',
       enableMCP: enableMCP ?? true,
+      enableRAG: enableRAG ?? true,
     });
-  }, [model, enableMCP, transport]);
+  }, [model, enableMCP, enableRAG, transport]);
 
   // Use AI SDK native useChat hook
   const {
@@ -904,6 +907,8 @@ const ChatPage = () => {
                 onSubmit={handleSubmit}
                 enableMCP={enableMCP ?? true}
                 onMCPChange={setEnableMCP}
+                enableRAG={enableRAG ?? true}
+                onRAGChange={setEnableRAG}
                 model={model}
                 onModelChange={handleModelChange}
                 availableModels={filteredAvailableModels}
@@ -963,6 +968,8 @@ const ChatPage = () => {
               onSubmit={handleSubmit}
               enableMCP={enableMCP ?? true}
               onMCPChange={setEnableMCP}
+              enableRAG={enableRAG ?? true}
+              onRAGChange={setEnableRAG}
               model={model}
               onModelChange={handleModelChange}
               availableModels={filteredAvailableModels}

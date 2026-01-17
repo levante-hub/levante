@@ -12,6 +12,7 @@ const logger = getLogger();
 export interface BuiltInToolsConfig {
     mermaidValidation: boolean;
     mcpDiscovery: boolean;
+    ragSearch: boolean;
 }
 
 /**
@@ -57,6 +58,14 @@ export async function getBuiltInTools(config?: BuiltInToolsConfig): Promise<Reco
         const discoveryTool = await createMCPDiscoveryTool();
         if (discoveryTool) {
             tools['mcp_discovery'] = discoveryTool;
+        }
+    }
+
+    // Add RAG search tool if enabled
+    if (config?.ragSearch !== false) {
+        const ragTool = await createRAGSearchTool();
+        if (ragTool) {
+            tools['rag_search_knowledge'] = ragTool;
         }
     }
 
@@ -274,3 +283,79 @@ Each result includes a configureUrl that users can click to add the MCP server.`
         },
     });
 }
+
+/**
+ * Creates the RAG search tool that allows AI to search the user's knowledge base
+ */
+async function createRAGSearchTool() {
+    return tool({
+        description: `Search the user's knowledge base for relevant information from uploaded documents.
+
+Use this tool when:
+- Users ask questions about their uploaded documents
+- Users reference "my documents", "my files", or "the document I uploaded"
+- Current conversation context lacks specific information that might be in user's documents
+- Users want to find information from PDFs, DOCX, or other documents they've added
+
+The tool searches through all indexed documents and returns the most relevant text chunks.`,
+
+        inputSchema: z.object({
+            query: z.string().describe('Search query to find relevant information in the knowledge base'),
+            topK: z.number().optional().default(5).describe('Number of most relevant chunks to return (1-10, default: 5)'),
+        }),
+
+        execute: async ({ query, topK = 5 }) => {
+            try {
+                logger.aiSdk.info('RAG knowledge search', {
+                    query: query.substring(0, 100),
+                    topK
+                });
+
+                // Dynamic import to avoid circular dependencies
+                const { ragService } = await import('../ragService');
+
+                // Ensure RAG service is initialized
+                if (!ragService.isReady()) {
+                    await ragService.initialize();
+                }
+
+                // Query knowledge base
+                const results = await ragService.queryKnowledge(query, topK);
+
+                logger.aiSdk.info('RAG search results', {
+                    query: query.substring(0, 100),
+                    resultCount: results.length
+                });
+
+                if (results.length === 0) {
+                    return {
+                        results: [],
+                        totalResults: 0,
+                        message: 'No relevant information found in the knowledge base. The user may need to upload documents first.'
+                    };
+                }
+
+                return {
+                    results: results.map((text: string, index: number) => ({
+                        rank: index + 1,
+                        content: text
+                    })),
+                    totalResults: results.length,
+                    message: `Found ${results.length} relevant chunk(s) from the knowledge base. Use this information to answer the user's question.`
+                };
+            } catch (error) {
+                logger.aiSdk.error('RAG search failed', {
+                    query: query.substring(0, 100),
+                    error: error instanceof Error ? error.message : error
+                });
+
+                return {
+                    results: [],
+                    totalResults: 0,
+                    message: `Knowledge base search failed: ${error instanceof Error ? error.message : 'Unknown error'}. The RAG system may not be initialized.`
+                };
+            }
+        },
+    });
+}
+

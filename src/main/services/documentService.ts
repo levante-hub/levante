@@ -49,9 +49,9 @@ export class DocumentService {
           document.file_size,
           document.status,
           document.chunk_count,
-          document.error_message,
+          document.error_message ?? null,
           document.uploaded_at,
-          document.indexed_at
+          document.indexed_at ?? null
         ]
       );
 
@@ -85,14 +85,20 @@ export class DocumentService {
         return null;
       }
 
-      const row = result.rows[0] as unknown as Document;
+      const row = result.rows[0] as unknown as any;
+
+      // Parse chunk_ids from JSON string to array
+      const document: Document = {
+        ...row,
+        chunk_ids: row.chunk_ids ? JSON.parse(row.chunk_ids) : null
+      };
 
       logger.database.debug('Document retrieved', {
         documentId: id,
-        filename: row.filename
+        filename: document.filename
       });
 
-      return row;
+      return document;
     } catch (error) {
       logger.database.error('Failed to get document', {
         documentId: id,
@@ -135,7 +141,11 @@ export class DocumentService {
 
       const result = await databaseService.execute(sql, args);
 
-      const documents = (result.rows || []) as unknown as Document[];
+      // Parse chunk_ids from JSON string to array for each document
+      const documents = (result.rows || []).map((row: any) => ({
+        ...row,
+        chunk_ids: row.chunk_ids ? JSON.parse(row.chunk_ids) : null
+      })) as Document[];
 
       logger.database.debug('Documents retrieved', {
         count: documents.length,
@@ -168,6 +178,12 @@ export class DocumentService {
       if (updates.chunk_count !== undefined) {
         updateFields.push('chunk_count = ?');
         args.push(updates.chunk_count);
+      }
+
+      if (updates.chunk_ids !== undefined) {
+        updateFields.push('chunk_ids = ?');
+        // Stringify array to JSON for storage
+        args.push(updates.chunk_ids ? JSON.stringify(updates.chunk_ids) : null);
       }
 
       if (updates.error_message !== undefined) {
@@ -239,6 +255,22 @@ export class DocumentService {
     } catch (error) {
       logger.database.error('Failed to delete document', {
         documentId: id,
+        error: error instanceof Error ? error.message : error
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Delete all documents from database
+   */
+  async deleteAllDocuments(): Promise<void> {
+    try {
+      await databaseService.execute('DELETE FROM documents');
+
+      logger.database.info('All documents deleted from database');
+    } catch (error) {
+      logger.database.error('Failed to delete all documents', {
         error: error instanceof Error ? error.message : error
       });
       throw error;

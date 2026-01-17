@@ -4,10 +4,12 @@ import ChatPage from '@/pages/ChatPage'
 import SettingsPage from '@/pages/SettingsPage'
 import ModelPage from '@/pages/ModelPage'
 import StorePage from '@/pages/StorePage'
+import KnowledgePage from '@/pages/KnowledgePage'
 import { OnboardingWizard } from '@/pages/OnboardingWizard'
 import { MCPDeepLinkModal } from '@/components/mcp/deep-link/MCPDeepLinkModal'
 import { AnnouncementModal } from '@/components/announcements/AnnouncementModal'
 import { useChatStore, initializeChatStore } from '@/stores/chatStore'
+import { initializeKnowledgeStore } from '@/stores/knowledgeStore'
 import { logger } from '@/services/logger'
 import { modelService } from '@/services/modelService'
 import { setupMermaidValidationHandler } from '@/services/mermaidValidationService'
@@ -184,6 +186,7 @@ function App() {
 
       await Promise.all([
         initializeChatStore(),
+        initializeKnowledgeStore(),
         modelService.initialize()
       ]);
       logger.core.info('Renderer services initialized successfully');
@@ -410,6 +413,8 @@ function App() {
         return 'Settings'
       case 'model':
         return 'Model'
+      case 'knowledge':
+        return 'Knowledge Base'
       case 'store':
         return 'Store'
       default:
@@ -423,6 +428,7 @@ function App() {
       case 'settings': return <SettingsPage />
       case 'model': return <ModelPage />
       case 'store': return <StorePage />
+      case 'knowledge': return <KnowledgePage />
       default: return <ChatPage />
     }
   }

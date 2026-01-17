@@ -45,19 +45,40 @@ export class DocumentProcessor {
   static async validateFile(filePath: string, maxSize: number = MAX_FILE_SIZE): Promise<boolean> {
     try {
       const stats = await fs.stat(filePath);
+
+      logger.rag.debug('Validating file', {
+        filePath,
+        size: stats.size,
+        maxSize,
+        sizeMB: (stats.size / 1024 / 1024).toFixed(2)
+      });
+
       if (stats.size > maxSize) {
-        logger.core.warn('File exceeds size limit', {
+        logger.rag.warn('File exceeds size limit', {
           filePath,
           size: stats.size,
-          maxSize
+          maxSize,
+          sizeMB: (stats.size / 1024 / 1024).toFixed(2),
+          maxSizeMB: (maxSize / 1024 / 1024).toFixed(2)
         });
         return false;
       }
+
+      if (stats.size === 0) {
+        logger.rag.warn('File is empty', { filePath });
+        return false;
+      }
+
       return true;
     } catch (error) {
-      logger.core.error('Error validating file', {
+      logger.rag.error('Error validating file', {
         filePath,
-        error: error instanceof Error ? error.message : error
+        error: error instanceof Error ? error.message : error,
+        possibleCauses: [
+          'File does not exist',
+          'No permission to read file',
+          'File path is invalid'
+        ]
       });
       return false;
     }
@@ -85,7 +106,7 @@ export class DocumentProcessor {
       throw new Error(`Unsupported file type for file: ${filename}`);
     }
 
-    logger.core.info('Processing document', {
+    logger.rag.info('Processing document', {
       documentId,
       filename,
       fileType,
@@ -98,7 +119,7 @@ export class DocumentProcessor {
     // Chunk the text
     const chunks = this.chunkText(text, documentId, filename);
 
-    logger.core.info('Document processed successfully', {
+    logger.rag.info('Document processed successfully', {
       documentId,
       filename,
       chunkCount: chunks.length,
@@ -112,22 +133,51 @@ export class DocumentProcessor {
    * Extract text from file based on type
    */
   private static async extractText(filePath: string, fileType: DocumentFileType): Promise<string> {
-    switch (fileType) {
-      case 'txt':
-      case 'md':
-        return await this.extractTextFile(filePath);
+    logger.rag.debug('Starting text extraction', {
+      filePath,
+      fileType
+    });
 
-      case 'json':
-        return await this.extractJsonFile(filePath);
+    try {
+      let extractedText: string;
 
-      case 'pdf':
-        return await this.extractPdfFile(filePath);
+      switch (fileType) {
+        case 'txt':
+        case 'md':
+          extractedText = await this.extractTextFile(filePath);
+          break;
 
-      case 'docx':
-        return await this.extractDocxFile(filePath);
+        case 'json':
+          extractedText = await this.extractJsonFile(filePath);
+          break;
 
-      default:
-        throw new Error(`Unsupported file type: ${fileType}`);
+        case 'pdf':
+          extractedText = await this.extractPdfFile(filePath);
+          break;
+
+        case 'docx':
+          extractedText = await this.extractDocxFile(filePath);
+          break;
+
+        default:
+          throw new Error(`Unsupported file type: ${fileType}`);
+      }
+
+      logger.rag.debug('Text extraction completed', {
+        filePath,
+        fileType,
+        textLength: extractedText.length,
+        preview: extractedText.substring(0, 100)
+      });
+
+      return extractedText;
+    } catch (error) {
+      logger.rag.error('Text extraction failed', {
+        filePath,
+        fileType,
+        error: error instanceof Error ? error.message : error
+      });
+      throw error;
     }
   }
 
@@ -139,7 +189,7 @@ export class DocumentProcessor {
       const content = await fs.readFile(filePath, 'utf-8');
       return content;
     } catch (error) {
-      logger.core.error('Error reading text file', {
+      logger.rag.error('Error reading text file', {
         filePath,
         error: error instanceof Error ? error.message : error
       });
@@ -157,7 +207,7 @@ export class DocumentProcessor {
       // Convert JSON to readable text representation
       return JSON.stringify(json, null, 2);
     } catch (error) {
-      logger.core.error('Error reading JSON file', {
+      logger.rag.error('Error reading JSON file', {
         filePath,
         error: error instanceof Error ? error.message : error
       });
@@ -166,13 +216,60 @@ export class DocumentProcessor {
   }
 
   /**
-   * Extract text from PDF file
-   * TODO: Implement PDF extraction using pdf-parse library
+   * Extract text from PDF file using pdf-parse v2 API
    */
-  private static async extractPdfFile(_filePath: string): Promise<string> {
-    // Placeholder - needs pdf-parse library
-    // For now, throw error to indicate not implemented
-    throw new Error('PDF extraction not yet implemented. Please install pdf-parse library.');
+  private static async extractPdfFile(filePath: string): Promise<string> {
+    logger.rag.debug('Starting PDF extraction', { filePath });
+
+    try {
+      // pdf-parse v2 exports a PDFParse class
+      const { PDFParse } = require('pdf-parse');
+
+      // Create parser instance with file path
+      const parser = new PDFParse({ url: filePath });
+
+      logger.rag.debug('PDF parser initialized, extracting text...', { filePath });
+
+      // Extract text using getText() method
+      const result = await parser.getText();
+
+      // Clean up resources
+      await parser.destroy();
+
+      if (!result.text || result.text.trim().length === 0) {
+        logger.rag.warn('PDF extraction produced empty text', {
+          filePath,
+          possibleCauses: [
+            'PDF contains only images (OCR required)',
+            'PDF is encrypted or password-protected',
+            'PDF uses non-standard encoding'
+          ]
+        });
+      }
+
+      logger.rag.info('PDF text extracted successfully', {
+        filePath,
+        textLength: result.text.length,
+        isEmpty: result.text.trim().length === 0
+      });
+
+      return result.text;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+
+      logger.rag.error('Failed to extract PDF text', {
+        filePath,
+        error: errorMessage,
+        possibleCauses: [
+          'PDF file is corrupted',
+          'PDF is password-protected',
+          'Unsupported PDF version',
+          'pdf-parse library not installed'
+        ]
+      });
+
+      throw new Error(`Failed to extract PDF text: ${errorMessage}`);
+    }
   }
 
   /**
@@ -190,6 +287,14 @@ export class DocumentProcessor {
    * Uses character count as proxy for token count (roughly 4 chars = 1 token)
    */
   private static chunkText(text: string, documentId: string, filename: string): DocumentChunk[] {
+    logger.rag.debug('Starting text chunking', {
+      documentId,
+      filename,
+      textLength: text.length,
+      chunkSize: CHUNK_SIZE,
+      overlap: CHUNK_OVERLAP
+    });
+
     const chunks: DocumentChunk[] = [];
 
     // Convert token counts to character counts (rough approximation: 1 token ≈ 4 characters)
@@ -226,7 +331,7 @@ export class DocumentProcessor {
       chunk.metadata.totalChunks = totalChunks;
     });
 
-    logger.core.debug('Text chunked', {
+    logger.rag.debug('Text chunked', {
       documentId,
       filename,
       textLength: text.length,

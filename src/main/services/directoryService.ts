@@ -202,7 +202,7 @@ export class DirectoryService {
    */
   static readonly SUBDIRS = {
     DOCUMENTS: 'documents',
-    CHROMADB: 'chromadb'
+    LANCEDB: 'lancedb'
   } as const;
 
   /**
@@ -219,7 +219,7 @@ export class DirectoryService {
    * Get predefined subdirectory paths
    */
   getDocumentsPath(): string { return this.getSubdirPath(DirectoryService.SUBDIRS.DOCUMENTS); }
-  getChromaDbPath(): string { return this.getSubdirPath(DirectoryService.SUBDIRS.CHROMADB); }
+  getLanceDbPath(): string { return this.getSubdirPath(DirectoryService.SUBDIRS.LANCEDB); }
 }
 
 // Singleton instance

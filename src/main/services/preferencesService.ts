@@ -199,6 +199,10 @@ export class PreferencesService {
           enableMCP: {
             type: 'boolean',
             default: true
+          },
+          enableRAG: {
+            type: 'boolean',
+            default: true
           }
         }
       });

@@ -10,6 +10,7 @@ import enModels from '../locales/en/models.json';
 import enWizard from '../locales/en/wizard.json';
 import enMCP from '../locales/en/mcp.json';
 import enErrors from '../locales/en/errors.json';
+import enKnowledge from '../locales/en/knowledge.json';
 
 import esCommon from '../locales/es/common.json';
 import esSettings from '../locales/es/settings.json';
@@ -18,6 +19,7 @@ import esModels from '../locales/es/models.json';
 import esWizard from '../locales/es/wizard.json';
 import esMCP from '../locales/es/mcp.json';
 import esErrors from '../locales/es/errors.json';
+import esKnowledge from '../locales/es/knowledge.json';
 
 const resources = {
   en: {
@@ -28,6 +30,7 @@ const resources = {
     wizard: enWizard,
     mcp: enMCP,
     errors: enErrors,
+    knowledge: enKnowledge,
   },
   es: {
     common: esCommon,
@@ -37,6 +40,7 @@ const resources = {
     wizard: esWizard,
     mcp: esMCP,
     errors: esErrors,
+    knowledge: esKnowledge,
   },
 };
 

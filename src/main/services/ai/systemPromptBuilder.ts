@@ -4,14 +4,15 @@ const logger = getLogger();
 
 /**
  * Build the system prompt for AI conversations
- * Includes personalization, web search, MCP tools, and diagram capabilities
+ * Includes personalization, web search, MCP tools, RAG, and diagram capabilities
  */
 export async function buildSystemPrompt(
   webSearch: boolean,
   enableMCP: boolean,
   toolCount: number,
   mermaidValidation: boolean = true,
-  mcpDiscoveryEnabled: boolean = true
+  mcpDiscoveryEnabled: boolean = true,
+  ragSearchEnabled: boolean = true
 ): Promise<string> {
   // Add current date information
   const currentDate = new Date();
@@ -204,6 +205,34 @@ Example response format:
 Click the button above to add it. Once configured, I'll be able to help you with GitHub operations."`;
   }
 
+  // Add RAG Knowledge Base capabilities (if enabled)
+  if (ragSearchEnabled) {
+    systemPrompt += `
+
+KNOWLEDGE BASE SEARCH (RAG):
+You have access to the \`rag_search_knowledge\` tool to search the user's uploaded documents.
+
+Use this tool when:
+- Users ask questions about their uploaded documents, PDFs, or files
+- Users reference "my documents", "the file I uploaded", or "my knowledge base"
+- Users want to find specific information from their documents
+- Current conversation context lacks information that might be in user's documents
+
+When using the knowledge base search:
+1. Use descriptive queries that match what the user is looking for
+2. The tool returns the most relevant text chunks from the indexed documents
+3. Analyze the returned chunks and synthesize a comprehensive answer
+4. Cite that the information comes from the user's documents
+5. If no relevant information is found, let the user know they may need to upload documents first
+
+Example:
+User: "What does the document say about project timelines?"
+You: [Use rag_search_knowledge with query "project timelines"]
+You: "Based on your uploaded documents, the project timeline indicates..."
+
+IMPORTANT: Always provide a complete answer after searching the knowledge base. Don't just say you found information - explain what you found in detail.`;
+  }
+
   // Debug log for final system prompt
   logger.aiSdk.debug('Final system prompt generated', {
     enabled: personalization?.enabled || false,
@@ -217,6 +246,7 @@ Click the button above to add it. Once configured, I'll be able to help you with
     toolCount,
     mermaidValidation,
     mcpDiscoveryEnabled,
+    ragSearchEnabled,
     promptLength: systemPrompt.length,
     fullPrompt: systemPrompt
   });

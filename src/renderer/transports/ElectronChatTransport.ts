@@ -31,6 +31,7 @@ export class ElectronChatTransport implements ChatTransport<UIMessage> {
     private defaultOptions: {
       model?: string;
       enableMCP?: boolean;
+      enableRAG?: boolean;
     } = {}
   ) {}
 
@@ -56,6 +57,8 @@ export class ElectronChatTransport implements ChatTransport<UIMessage> {
       (bodyObj.model as string) || this.defaultOptions.model || "openai/gpt-4o";
     const enableMCP =
       (bodyObj.enableMCP as boolean) ?? this.defaultOptions.enableMCP ?? true;
+    const enableRAG =
+      (bodyObj.enableRAG as boolean) ?? this.defaultOptions.enableRAG ?? true;
     const attachments = bodyObj.attachments; // Extract attachments directly from body
 
     logger.aiSdk.debug("Transport body received", {
@@ -109,6 +112,7 @@ export class ElectronChatTransport implements ChatTransport<UIMessage> {
       messages: messagesWithAttachments,
       model,
       enableMCP,
+      enableRAG,
     };
 
     // Reset text part tracking for new stream
@@ -389,6 +393,7 @@ export class ElectronChatTransport implements ChatTransport<UIMessage> {
 export function createElectronChatTransport(options?: {
   model?: string;
   enableMCP?: boolean;
+  enableRAG?: boolean;
 }): ElectronChatTransport {
   return new ElectronChatTransport(options);
 }

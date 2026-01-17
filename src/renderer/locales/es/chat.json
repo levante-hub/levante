@@ -70,6 +70,10 @@
     "mcp_tools": {
       "label": "Herramientas (MCP)",
       "keywords": ["tools", "herramientas", "mcp"]
+    },
+    "rag_search": {
+      "label": "Búsqueda RAG",
+      "keywords": ["rag", "conocimiento", "documentos", "búsqueda"]
     }
   },
   "paid_model_chat_warning": {

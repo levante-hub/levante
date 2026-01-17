@@ -21,6 +21,13 @@ export default defineConfig(({ command }) => ({
         // El plugin auto-unpack-natives debería copiarlos
         '@libsql/client',
         /^@libsql\/.*/,
+        // LanceDB and its native bindings
+        '@lancedb/lancedb',
+        /^@lancedb\/.*/,
+        // HuggingFace Transformers (ONNX Runtime bindings)
+        '@xenova/transformers',
+        // PDF parsing library
+        'pdf-parse',
         // Optional native modules (ws dependencies)
         'bufferutil',
         'utf-8-validate',

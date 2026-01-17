@@ -132,5 +132,65 @@ export function setupDatabaseHandlers() {
     }
   });
 
+  // Migration diagnostics
+  ipcMain.removeHandler("levante/db/migrations/status");
+  ipcMain.handle("levante/db/migrations/status", async () => {
+    try {
+      // Get current schema version
+      const result = await databaseService.execute(
+        'SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1'
+      );
+      const currentVersion = result.rows.length > 0 ? Number(result.rows[0][0]) : 0;
+
+      // Get all applied migrations
+      const allResult = await databaseService.execute(
+        'SELECT version, applied_at FROM schema_migrations ORDER BY version'
+      );
+      const appliedMigrations = allResult.rows.map(row => ({
+        version: Number(row[0]),
+        appliedAt: Number(row[1])
+      }));
+
+      return {
+        success: true,
+        data: {
+          currentVersion,
+          appliedMigrations,
+          expectedVersion: 6, // Latest migration version
+          needsMigration: currentVersion < 6
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error"
+      };
+    }
+  });
+
+  // Force re-run migrations (for development/debugging)
+  ipcMain.removeHandler("levante/db/migrations/run");
+  ipcMain.handle("levante/db/migrations/run", async () => {
+    try {
+      logger.database.info("Manually triggering database migrations...");
+
+      // Re-initialize database (which runs migrations)
+      await databaseService.initialize();
+
+      return {
+        success: true,
+        data: { message: "Migrations completed successfully" }
+      };
+    } catch (error) {
+      logger.database.error("Manual migration failed", {
+        error: error instanceof Error ? error.message : error
+      });
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error"
+      };
+    }
+  });
+
   logger.ipc.info('Database IPC handlers registered');
 }
