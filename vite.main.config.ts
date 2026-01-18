@@ -17,14 +17,15 @@ export default defineConfig(({ command }) => ({
         'original-fs',
         'better-sqlite3',
         '@modelcontextprotocol/sdk',
-        // Marcar todos @libsql/* como external para que no sean empaquetados
-        // El plugin auto-unpack-natives debería copiarlos
+        // Native dependencies with complex transitive deps
+        // These packages are marked external and copied manually via packageAfterCopy hook (forge.config.js)
+        // ASAR disabled (forge.config.js line 250) for guaranteed require() resolution
         '@libsql/client',
         /^@libsql\/.*/,
-        // LanceDB and its native bindings
+        // LanceDB and its native bindings (Rust via NAPI)
         '@lancedb/lancedb',
         /^@lancedb\/.*/,
-        // HuggingFace Transformers (ONNX Runtime bindings)
+        // HuggingFace Transformers (ONNX Runtime bindings via onnxruntime-node)
         '@xenova/transformers',
         // PDF parsing library
         'pdf-parse',
