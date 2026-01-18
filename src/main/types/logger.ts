@@ -9,7 +9,8 @@ export type LogCategory =
   | 'models'
   | 'core'
   | 'analytics'
-  | 'oauth';
+  | 'oauth'
+  | 'rag';
 
 export interface LogContext {
   [key: string]: any;
@@ -94,6 +95,7 @@ export interface LoggerService {
   core: CategoryLogger;
   analytics: CategoryLogger;
   oauth: CategoryLogger;
+  rag: CategoryLogger;
 
   log(category: LogCategory, level: LogLevel, message: string, context?: LogContext): void;
   configure(config: Partial<LoggerConfig>): void;

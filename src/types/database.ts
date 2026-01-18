@@ -89,6 +89,37 @@ export interface Setting {
   updated_at: number;
 }
 
+/**
+ * Document file types supported by RAG system
+ */
+export type DocumentFileType = "pdf" | "docx" | "txt" | "md" | "json" | "csv" | "html" | "htm";
+
+/**
+ * Document processing status
+ * - 'processing': Document is being processed and indexed
+ * - 'indexed': Document successfully indexed in ChromaDB
+ * - 'failed': Document processing failed (see error_message)
+ */
+export type DocumentStatus = "processing" | "indexed" | "failed";
+
+/**
+ * Document metadata for RAG system
+ * Stores information about uploaded files for knowledge retrieval
+ */
+export interface Document {
+  id: string;
+  filename: string;
+  filepath: string;
+  file_type: DocumentFileType;
+  file_size: number;
+  status: DocumentStatus;
+  chunk_count: number;
+  chunk_ids?: string[] | null; // JSON array of LanceDB chunk IDs
+  error_message?: string | null;
+  uploaded_at: number;
+  indexed_at?: number | null;
+}
+
 // Input types for creating entities
 export interface CreateChatSessionInput {
   title?: string;
@@ -141,6 +172,15 @@ export interface CreateMCPToolInput {
   consent_required?: boolean;
 }
 
+export interface CreateDocumentInput {
+  id?: string; // Optional ID - backend generates if not provided
+  filename: string;
+  filepath: string;
+  file_type: DocumentFileType;
+  file_size: number;
+  status?: DocumentStatus; // Optional, defaults to 'processing'
+}
+
 // Update types
 export interface UpdateChatSessionInput {
   id: string;
@@ -154,6 +194,15 @@ export interface UpdateMessageInput {
   id: string;
   content?: string;
   tool_calls?: object[];
+}
+
+export interface UpdateDocumentInput {
+  id: string;
+  status?: DocumentStatus;
+  chunk_count?: number;
+  chunk_ids?: string[] | null;
+  error_message?: string | null;
+  indexed_at?: number | null;
 }
 
 // Query types
@@ -177,6 +226,13 @@ export interface DeleteMessagesAfterQuery {
 
 export interface GetChatSessionsQuery {
   folder_id?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface GetDocumentsQuery {
+  status?: DocumentStatus;
+  file_type?: DocumentFileType;
   limit?: number;
   offset?: number;
 }

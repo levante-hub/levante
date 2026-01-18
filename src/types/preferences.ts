@@ -70,6 +70,12 @@ export interface UIPreferences {
     mcpDiscovery: boolean;
     /** Reasoning model configuration */
     reasoningText?: ReasoningConfig;
+    /** RAG (Retrieval-Augmented Generation) configuration */
+    rag?: {
+      enabled: boolean;
+      embeddingModel: string;
+      topK: number;
+    };
   };
   hasAcceptedFreeModelWarning?: boolean;
   developerMode: boolean;
@@ -83,6 +89,8 @@ export interface UIPreferences {
   mcp?: MCPPreferences;
   /** Enable MCP tools in chat */
   enableMCP: boolean;
+  /** Enable RAG search in chat */
+  enableRAG: boolean;
 }
 
 export type PreferenceKey = keyof UIPreferences;
@@ -139,6 +147,11 @@ export const DEFAULT_PREFERENCES: UIPreferences = {
     mermaidValidation: true,
     mcpDiscovery: true,
     reasoningText: DEFAULT_REASONING_CONFIG,
+    rag: {
+      enabled: true,
+      embeddingModel: 'Xenova/all-MiniLM-L6-v2',
+      topK: 5,
+    },
   },
   hasAcceptedFreeModelWarning: false,
   developerMode: false,
@@ -149,5 +162,6 @@ export const DEFAULT_PREFERENCES: UIPreferences = {
     preferSystemRuntimes: false,
   },
   mcp: DEFAULT_MCP_PREFERENCES,
-  enableMCP: true
+  enableMCP: true,
+  enableRAG: true
 };

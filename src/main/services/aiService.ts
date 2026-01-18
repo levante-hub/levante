@@ -36,6 +36,7 @@ export interface ChatRequest {
   model: string;
   webSearch: boolean;
   enableMCP?: boolean;
+  enableRAG?: boolean;
 }
 
 export interface ChatStreamChunk {
@@ -822,24 +823,25 @@ export class AIService {
     }
   }
 
-  private async getBuiltInToolsConfig(): Promise<{ mermaidValidation: boolean; mcpDiscovery: boolean }> {
+  private async getBuiltInToolsConfig(enableRAG?: boolean): Promise<{ mermaidValidation: boolean; mcpDiscovery: boolean; ragSearch: boolean }> {
     try {
       const { preferencesService } = await import("./preferencesService");
       const aiPrefs = preferencesService.get('ai') as any;
 
       return {
         mermaidValidation: aiPrefs?.mermaidValidation !== false, // Enabled by default
-        mcpDiscovery: aiPrefs?.mcpDiscovery !== false // Enabled by default
+        mcpDiscovery: aiPrefs?.mcpDiscovery !== false, // Enabled by default
+        ragSearch: enableRAG ?? (aiPrefs?.rag?.enabled !== false) // Request override or preference, enabled by default
       };
     } catch {
-      return { mermaidValidation: true, mcpDiscovery: true };
+      return { mermaidValidation: true, mcpDiscovery: true, ragSearch: true };
     }
   }
 
   async *streamChat(
     request: ChatRequest
   ): AsyncGenerator<ChatStreamChunk, void, unknown> {
-    const { messages, model, webSearch, enableMCP = false } = request;
+    const { messages, model, webSearch, enableMCP = false, enableRAG = true } = request;
 
     try {
       // Get model classification (Phase 3: Model Classification)
@@ -937,7 +939,7 @@ export class AIService {
 
       // Get built-in tools (always available, independent of MCP)
       const { getBuiltInTools } = await import('./ai/builtInTools');
-      const builtInToolsConfig = await this.getBuiltInToolsConfig();
+      const builtInToolsConfig = await this.getBuiltInToolsConfig(enableRAG);
       const builtInTools = await getBuiltInTools(builtInToolsConfig);
 
       if (enableMCP) {
@@ -1038,7 +1040,8 @@ export class AIService {
           enableMCP,
           Object.keys(tools).length,
           builtInToolsConfig.mermaidValidation,
-          builtInToolsConfig.mcpDiscovery
+          builtInToolsConfig.mcpDiscovery,
+          builtInToolsConfig.ragSearch
         ),
         // Use stopWhen as recommended in AI SDK v5 (not maxSteps)
         // This allows the model to continue generating after tool results
@@ -1715,7 +1718,7 @@ export class AIService {
   async sendSingleMessage(
     request: ChatRequest
   ): Promise<{ response: string; sources?: any[]; reasoningText?: string }> {
-    const { messages, model, webSearch, enableMCP = false } = request;
+    const { messages, model, webSearch, enableMCP = false, enableRAG = true } = request;
 
     try {
       // Get model classification (Phase 3: Model Classification)
@@ -1760,6 +1763,12 @@ export class AIService {
 
       // Get MCP tools if enabled
       let tools = {};
+
+      // Get built-in tools (always available, independent of MCP)
+      const { getBuiltInTools } = await import('./ai/builtInTools');
+      const builtInToolsConfig = await this.getBuiltInToolsConfig(enableRAG);
+      const builtInTools = await getBuiltInTools(builtInToolsConfig);
+
       if (enableMCP) {
         // Get disabled tools from preferences for filtering
         const { preferencesService } = await import("./preferencesService");
@@ -1767,11 +1776,11 @@ export class AIService {
         const prefs = await preferencesService.getAll();
         const disabledTools = prefs.mcp?.disabledTools;
 
-        tools = await getMCPTools(disabledTools);
+        const mcpTools = await getMCPTools(disabledTools);
+        tools = { ...builtInTools, ...mcpTools };
+      } else {
+        tools = builtInTools;
       }
-
-      // Get built-in tools config for system prompt
-      const builtInToolsConfig = await this.getBuiltInToolsConfig();
 
       const messagesWithFileParts = await this.includeAttachmentsInMessageParts(
         messages,
@@ -1787,7 +1796,8 @@ export class AIService {
           enableMCP,
           Object.keys(tools).length,
           builtInToolsConfig.mermaidValidation,
-          builtInToolsConfig.mcpDiscovery
+          builtInToolsConfig.mcpDiscovery,
+          builtInToolsConfig.ragSearch
         ),
         stopWhen: stepCountIs(await calculateMaxSteps(Object.keys(tools).length)),
         providerOptions: await getReasoningProviderOptions(model, undefined, Object.keys(tools).length > 0),

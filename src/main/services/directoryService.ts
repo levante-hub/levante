@@ -198,6 +198,14 @@ export class DirectoryService {
   } as const;
 
   /**
+   * Common subdirectory paths used by the application
+   */
+  static readonly SUBDIRS = {
+    DOCUMENTS: 'documents',
+    LANCEDB: 'lancedb'
+  } as const;
+
+  /**
    * Get predefined file paths
    */
   getDatabasePath(): string { return this.getFilePath(DirectoryService.FILES.DATABASE); }
@@ -206,6 +214,12 @@ export class DirectoryService {
   getLogsPath(): string { return this.getFilePath(DirectoryService.FILES.LOGS); }
   getMemoryPath(): string { return this.getFilePath(DirectoryService.FILES.MEMORY); }
   getUserProfilePath(): string { return this.getFilePath(DirectoryService.FILES.USER_PROFILE); }
+
+  /**
+   * Get predefined subdirectory paths
+   */
+  getDocumentsPath(): string { return this.getSubdirPath(DirectoryService.SUBDIRS.DOCUMENTS); }
+  getLanceDbPath(): string { return this.getSubdirPath(DirectoryService.SUBDIRS.LANCEDB); }
 }
 
 // Singleton instance

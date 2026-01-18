@@ -261,12 +261,13 @@ Environment variables loaded from:
 **Logging Configuration:**
 - `DEBUG_ENABLED` → Master switch for all debug logging
 - `DEBUG_AI_SDK` → AI service operations and streaming
-- `DEBUG_MCP` → MCP server management and tools  
+- `DEBUG_MCP` → MCP server management and tools
 - `DEBUG_DATABASE` → Database operations and migrations
 - `DEBUG_IPC` → Inter-process communication
 - `DEBUG_PREFERENCES` → Settings and configuration
 - `DEBUG_CORE` → Application lifecycle and errors
 - `DEBUG_OAUTH` → OAuth flow, authorization, and tokens
+- `DEBUG_RAG` → RAG document processing and vector operations
 - `LOG_LEVEL` → Minimum log level (debug|info|warn|error)
 
 ## Testing Strategy
@@ -282,6 +283,46 @@ Environment variables loaded from:
 - **Assets**: Icons and resources in `resources/` directory
 - **Output**: Built files in `out/` directory for development, `dist-electron/` for distribution
 - no realices comprobaciones con pnpm dev, se realizaran manualmente
+
+### Native Dependencies
+
+Levante uses native Node.js modules for performance-critical operations in the RAG system:
+
+**Packages with Native Bindings:**
+- **@lancedb/lancedb** (v0.23.0): Vector database (Rust bindings via NAPI)
+- **@xenova/transformers** (v2.17.2): HuggingFace embeddings (ONNX Runtime bindings)
+- **@libsql/client** (v0.15.12): SQLite client (native bindings)
+
+**Build Configuration:**
+- **ASAR disabled** (`asar: false`) - Most reliable for complex dependencies
+- **Manual dependency copying** via `packageAfterCopy` hook in `forge.config.js`
+- **peerDependencies included** - Critical for apache-arrow and similar packages
+- **Vite external configuration** - Packages marked as external (no bundling)
+- **Recursive dependency resolution** - Includes dependencies + optionalDependencies + peerDependencies
+
+**Build Results:**
+- 180 packages copied
+- 17 native bindings (.node files)
+- 5 build-time packages filtered (typescript, vitest, etc.)
+- **Note:** `tslib` is NOT filtered - provides runtime helpers for apache-arrow
+
+**Critical Configuration:**
+```javascript
+// forge.config.js - Include peerDependencies
+const deps = {
+  ...pkgJson.dependencies,
+  ...pkgJson.optionalDependencies,
+  ...pkgJson.peerDependencies  // ✅ Must be present
+};
+
+// forge.config.js - ASAR disabled
+asar: false,
+
+// vite.main.config.ts - External packages
+external: ['@lancedb/lancedb', '@xenova/transformers', ...]
+```
+
+For complete documentation: See [Native Dependencies Management](docs/architecture/native-dependencies.md)
 
 ## Logging System
 

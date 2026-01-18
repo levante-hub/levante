@@ -1,0 +1,19 @@
+{
+  "title": "Knowledge Base",
+  "subtitle": "Manage your documents for RAG-enhanced conversations",
+  "upload_button": "Upload Document",
+  "uploading": "Uploading...",
+  "confirm_delete": "Are you sure you want to delete this document?",
+  "stats": {
+    "total": "Total Documents",
+    "indexed": "Indexed",
+    "processing": "Processing",
+    "chunks": "Total Chunks"
+  },
+  "documents_title": "Documents",
+  "documents_description": "Upload and manage documents for enhanced AI responses",
+  "empty": {
+    "title": "No documents yet",
+    "description": "Upload your first document to get started"
+  }
+}

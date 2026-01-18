@@ -1,0 +1,19 @@
+{
+  "title": "Base de Conocimiento",
+  "subtitle": "Administra tus documentos para conversaciones mejoradas con RAG",
+  "upload_button": "Subir Documento",
+  "uploading": "Subiendo...",
+  "confirm_delete": "¿Estás seguro de que quieres eliminar este documento?",
+  "stats": {
+    "total": "Documentos Totales",
+    "indexed": "Indexados",
+    "processing": "Procesando",
+    "chunks": "Fragmentos Totales"
+  },
+  "documents_title": "Documentos",
+  "documents_description": "Sube y administra documentos para respuestas de IA mejoradas",
+  "empty": {
+    "title": "Aún no hay documentos",
+    "description": "Sube tu primer documento para comenzar"
+  }
+}

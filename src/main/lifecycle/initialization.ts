@@ -15,6 +15,7 @@ import { preferencesService } from "../services/preferencesService";
 import { userProfileService } from "../services/userProfileService";
 import { configMigrationService } from "../services/configMigrationService";
 import { setupDatabaseHandlers } from "../ipc/databaseHandlers";
+import { setupDocumentHandlers } from "../ipc/documentHandlers";
 import { setupPreferencesHandlers } from "../ipc/preferencesHandlers";
 import { setupModelHandlers } from "../ipc/modelHandlers";
 import { setupLoggerHandlers } from "../ipc/loggerHandlers";
@@ -104,6 +105,19 @@ export async function initializeServices(): Promise<void> {
       error: error instanceof Error ? error.message : error,
     });
   }
+
+  // 6. Initialize RAG service (dynamic import to avoid circular dependencies)
+  try {
+    const { ragService } = await import("../services/ragService");
+    await ragService.initialize();
+    logger.core.info("RAG service initialized successfully");
+  } catch (error) {
+    logger.core.warn("Failed to initialize RAG service (non-critical)", {
+      error: error instanceof Error ? error.message : error,
+    });
+    // Don't fail app startup if RAG initialization fails
+    // User can still use other features
+  }
 }
 
 /**
@@ -114,6 +128,7 @@ export async function initializeServices(): Promise<void> {
 export async function registerIPCHandlers(getMainWindow: () => BrowserWindow | null): Promise<void> {
   // Service-specific handlers
   setupDatabaseHandlers();
+  setupDocumentHandlers();
   setupPreferencesHandlers();
   setupModelHandlers();
   setupInferenceHandlers();

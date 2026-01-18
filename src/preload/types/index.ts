@@ -7,6 +7,7 @@ export interface ChatRequest {
   messages: UIMessage[];
   model: string;
   enableMCP?: boolean;
+  enableRAG?: boolean;
 }
 
 export interface ChatStreamChunk {

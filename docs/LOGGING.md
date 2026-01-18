@@ -19,6 +19,7 @@ import { logger } from '@/services/logger';
 // Usage is identical in both processes
 logger.aiSdk.debug('Model provider loaded', { provider: 'openai' });
 logger.mcp.info('Server started', { serverId: 'filesystem' });
+logger.rag.info('Document ingested', { documentId: 'doc_123', chunkCount: 15 });
 logger.core.error('Initialization failed', { error: error.message });
 ```
 
@@ -33,11 +34,12 @@ DEBUG_ENABLED=true
 # Category-specific controls
 DEBUG_AI_SDK=true      # AI service operations and streaming
 DEBUG_MCP=true         # MCP server management and tools
-DEBUG_DATABASE=true    # Database operations and migrations  
+DEBUG_DATABASE=true    # Database operations and migrations
 DEBUG_IPC=false        # Inter-process communication
 DEBUG_PREFERENCES=false # Settings and configuration
 DEBUG_CORE=true        # Application lifecycle and errors
 DEBUG_OAUTH=false      # OAuth flow, authorization, token lifecycle
+DEBUG_RAG=false        # RAG document processing and vector operations
 
 # Log level control (optional)
 LOG_LEVEL=debug        # debug | info | warn | error
@@ -72,6 +74,7 @@ Rotated files follow the pattern `levante-YYYY-MM-DD-HHmmss.log`. If compression
 | `preferences` | Settings and configuration management | Preference loading, keychain operations |
 | `core` | General application lifecycle and errors | App startup, window management, critical errors |
 | `oauth` | OAuth discovery, authorization, token lifecycle | Authorization flow, token refresh/revocation, callback server events |
+| `rag` | RAG document processing and vector operations | Document ingestion, embedding generation, chunk management, vector search |
 
 ## Environment Flags
 
@@ -83,6 +86,7 @@ Rotated files follow the pattern `levante-YYYY-MM-DD-HHmmss.log`. If compression
 - `DEBUG_PREFERENCES` — Settings/configuration management
 - `DEBUG_CORE` — Application lifecycle and critical errors
 - `DEBUG_OAUTH` — OAuth flow, discovery, authorization, token lifecycle
+- `DEBUG_RAG` — RAG document processing and vector operations
 - `LOG_LEVEL` — Minimum log level (`debug` | `info` | `warn` | `error`)
 
 ## API Reference

@@ -49,6 +49,8 @@ interface ChatPromptInputProps {
   onSubmit: (e: React.FormEvent) => void;
   enableMCP: boolean;
   onMCPChange: (enabled: boolean) => void;
+  enableRAG: boolean;
+  onRAGChange: (enabled: boolean) => void;
   model: string;
   onModelChange: (modelId: string) => void;
   availableModels: Model[];
@@ -79,6 +81,8 @@ export function ChatPromptInput({
   onSubmit,
   enableMCP,
   onMCPChange,
+  enableRAG,
+  onRAGChange,
   model,
   onModelChange,
   availableModels,
@@ -215,6 +219,8 @@ export function ChatPromptInput({
           <ToolsMenu
             enableMCP={enableMCP}
             onMCPChange={onMCPChange}
+            enableRAG={enableRAG}
+            onRAGChange={onRAGChange}
           />
           {/* Add Context Menu (MCP resources + prompts + file upload) */}
           {onFilesSelected && (
