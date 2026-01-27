@@ -57,6 +57,12 @@
     "title": "Search & tools",
     "search_placeholder": "Search menu",
     "no_results": "No tools found",
+    "tool_selection": "Select tools to use",
+    "no_servers": "No MCP servers configured",
+    "disabled": "disabled",
+    "select_all": "Select all",
+    "loading_tools": "Loading tools...",
+    "no_tools": "No tools available",
     "web_search": {
       "label": "Web search",
       "keywords": ["web", "search", "internet", "búsqueda"]

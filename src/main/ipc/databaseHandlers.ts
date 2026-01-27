@@ -6,6 +6,7 @@ import {
   CreateChatSessionInput,
   CreateMessageInput,
   UpdateChatSessionInput,
+  UpdateMessageInput,
   GetMessagesQuery,
   GetChatSessionsQuery,
 } from "../../types/database";
@@ -93,6 +94,24 @@ export function setupDatabaseHandlers() {
     "levante/db/messages/search",
     async (_, searchQuery: string, sessionId?: string, limit?: number) => {
       return await chatService.searchMessages(searchQuery, sessionId, limit);
+    }
+  );
+
+  // Update message
+  ipcMain.removeHandler("levante/db/messages/update");
+  ipcMain.handle(
+    "levante/db/messages/update",
+    async (_, input: UpdateMessageInput) => {
+      return await chatService.updateMessage(input);
+    }
+  );
+
+  // Delete messages after timestamp
+  ipcMain.removeHandler("levante/db/messages/deleteAfter");
+  ipcMain.handle(
+    "levante/db/messages/deleteAfter",
+    async (_, sessionId: string, afterTimestamp: number) => {
+      return await chatService.deleteMessagesAfter(sessionId, afterTimestamp);
     }
   );
 

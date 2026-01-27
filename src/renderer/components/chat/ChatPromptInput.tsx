@@ -70,6 +70,7 @@ interface ChatPromptInputProps {
   selectedPrompts?: SelectedPrompt[];
   onPromptSelected?: (serverId: string, serverName: string, prompt: MCPPrompt, args?: Record<string, any>) => void;
   onPromptRemove?: (serverId: string, name: string) => void;
+  inputRef?: React.Ref<HTMLTextAreaElement>;
 }
 
 export function ChatPromptInput({
@@ -96,6 +97,7 @@ export function ChatPromptInput({
   selectedPrompts = [],
   onPromptSelected,
   onPromptRemove,
+  inputRef,
 }: ChatPromptInputProps) {
   const { t } = useTranslation('chat');
 
@@ -198,6 +200,7 @@ export function ChatPromptInput({
 
       {/* Text Input */}
       <PromptInputTextarea
+        ref={inputRef}
         onChange={(e) => onInputChange(e.target.value)}
         onPaste={handlePaste}
         value={input}
@@ -234,7 +237,11 @@ export function ChatPromptInput({
             placeholder={availableModels.length === 0 ? t('model_selector.no_models') : t('model_selector.label')}
           />
           <PromptInputSubmit
-            disabled={status !== 'streaming' && !input && attachedFiles.length === 0 && selectedResources.length === 0 && selectedPrompts.length === 0}
+            disabled={
+              !model ||
+              model.trim() === '' ||
+              (status !== 'streaming' && !input && attachedFiles.length === 0 && selectedResources.length === 0 && selectedPrompts.length === 0)
+            }
             status={status}
           />
         </div>

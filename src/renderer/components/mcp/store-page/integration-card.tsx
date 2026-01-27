@@ -70,7 +70,7 @@ export function IntegrationCard({
 }: IntegrationCardProps) {
   const { t } = useTranslation('mcp');
   const { providers } = useMCPStore();
-  const displayName = entry?.name || server?.name || server?.id || t('server.unknown');
+  const displayName = entry?.displayName || entry?.name || server?.name || server?.id || t('server.unknown');
   const description = entry?.description || t('server.custom_description');
   const category = entry?.category || 'custom';
   const logoUrl = entry?.logoUrl;

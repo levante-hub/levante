@@ -1,6 +1,4 @@
-// NOTE: mcp-use is dynamically imported to avoid Logger.get() being called at module load time
-// Types are imported separately as they don't trigger module execution
-import type { MCPClientOptions, MCPSession } from 'mcp-use';
+import { MCPClient, Logger as MCPLogger, type MCPClientOptions, type MCPSession } from 'mcp-use';
 import type {
   MCPServerConfig,
   Tool,
@@ -21,10 +19,6 @@ import { RuntimeResolver } from "../runtime/RuntimeResolver.js";
 import { RuntimeManager } from "../runtime/runtimeManager.js";
 import { PreferencesService } from "../preferencesService.js";
 import { OAuthService } from "../oauth/OAuthService.js";
-
-// Dynamic import references - populated in initialize()
-let MCPClient: any;
-let MCPLogger: any;
 
 /**
  * Modern MCP service implementation using mcp-use framework.
@@ -53,26 +47,18 @@ export class MCPUseService implements IMCPService {
   }
 
   /**
-   * Initialize mcp-use library with dynamic import.
-   * This must be called before using any mcp-use functionality.
-   *
-   * We use dynamic import to avoid Logger.get() being called at module load time,
-   * which would fail because winston isn't configured yet.
+   * Initialize mcp-use Logger. Must be called before using MCPClient.
+   * This configures the mcp-use library logger.
    */
   async initialize(): Promise<void> {
     if (!MCPUseService.mcpUseLoaded) {
       try {
-        // Dynamically import mcp-use - this triggers the module to load
-        // But by this point, winston should be available as a dependency
-        const mcpUse = await import('mcp-use');
-        MCPClient = mcpUse.MCPClient;
-        MCPLogger = mcpUse.Logger;
-
-        // Configure the mcp-use logger to disable console output
-        await MCPLogger.configure({ console: false });
+        // Configure the mcp-use logger with minimal output
+        // Use 'error' level to minimize console output (only errors shown)
+        await MCPLogger.configure({ level: 'error', format: 'minimal' });
 
         MCPUseService.mcpUseLoaded = true;
-        this.logger.mcp.debug('mcp-use dynamically loaded and Logger configured');
+        this.logger.mcp.debug('mcp-use Logger configured');
       } catch (error) {
         this.logger.mcp.error('Failed to initialize mcp-use', {
           error: error instanceof Error ? error.message : error
@@ -307,6 +293,9 @@ export class MCPUseService implements IMCPService {
         this.clients.set(config.id, client);
         this.sessions.set(config.id, session);
 
+        // Set up tools/list_changed notification handler
+        this.setupToolsListChangedHandler(config.id, session);
+
         this.logger.mcp.info("Successfully connected to MCP server (mcp-use)", {
           serverId: config.id,
           codeMode: codeModeConfig.enabled,
@@ -444,8 +433,23 @@ export class MCPUseService implements IMCPService {
       });
 
       // Handle different content formats from mcp-use
+      // MCP spec 2025-06-18: structuredContent is preferred over content
       let content: any[];
-      if (Array.isArray(result.content)) {
+
+      if (result.structuredContent) {
+        // Prefer structuredContent (modern MCP spec field)
+        // Convert to text for backward compatibility and LLM consumption
+        this.logger.mcp.debug("Using structuredContent as primary content source", {
+          serverId,
+          toolName: toolCall.name,
+          hasLegacyContent: !!result.content,
+        });
+        content = [{
+          type: "text",
+          text: JSON.stringify(result.structuredContent, null, 2)
+        }];
+      } else if (Array.isArray(result.content)) {
+        // Fallback to legacy content field
         content = result.content;
       } else if (result.content !== undefined && result.content !== null) {
         // If content is not an array, wrap it in an array
@@ -801,6 +805,82 @@ export class MCPUseService implements IMCPService {
         serverId,
         mcpServerUrl,
         wwwAuth
+      });
+    }
+  }
+
+  /**
+   * Set up handler for tools/list_changed MCP notification.
+   * When tools list changes on the server, update the cache and notify the renderer.
+   */
+  private async setupToolsListChangedHandler(
+    serverId: string,
+    session: MCPSession
+  ): Promise<void> {
+    try {
+      // Check if the session/connector supports notifications
+      // mcp-use's connector may have different event mechanisms
+      const connector = session.connector;
+
+      // Try to set up notification handler if supported
+      // The connector may have an 'on' method for MCP notifications
+      if (connector && typeof (connector as any).on === 'function') {
+        (connector as any).on('notification', async (notification: any) => {
+          if (notification.method === 'notifications/tools/list_changed') {
+            this.logger.mcp.info('Tools list changed notification received', { serverId });
+
+            try {
+              // Fetch updated tools list
+              const tools = await this.listTools(serverId);
+
+              // Update tools cache in preferences
+              const preferencesService = new PreferencesService();
+              await preferencesService.initialize();
+              const prefs = await preferencesService.getAll();
+
+              const toolsCache = prefs.mcp?.toolsCache || {};
+              toolsCache[serverId] = {
+                tools,
+                lastUpdated: Date.now()
+              };
+
+              await preferencesService.set('mcp.toolsCache', toolsCache);
+
+              // Notify renderer
+              const { BrowserWindow } = await import('electron');
+              const mainWindow = BrowserWindow.getAllWindows()[0];
+
+              if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('levante/mcp/tools-updated', {
+                  serverId,
+                  tools
+                });
+              }
+
+              this.logger.mcp.info('Tools cache updated after list_changed notification', {
+                serverId,
+                toolCount: tools.length
+              });
+            } catch (error) {
+              this.logger.mcp.error('Failed to update tools cache after list_changed', {
+                serverId,
+                error: error instanceof Error ? error.message : error
+              });
+            }
+          }
+        });
+
+        this.logger.mcp.debug('Tools list_changed notification handler registered', { serverId });
+      } else {
+        // mcp-use connector doesn't support notifications directly
+        // This is expected behavior - tools will be refreshed on demand
+        this.logger.mcp.debug('Connector does not support notifications, tools will refresh on demand', { serverId });
+      }
+    } catch (error) {
+      // Non-critical error - don't fail the connection
+      this.logger.mcp.debug('Failed to set up tools list_changed handler', {
+        serverId,
+        error: error instanceof Error ? error.message : error
       });
     }
   }

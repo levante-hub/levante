@@ -10,6 +10,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { modelService } from '@/services/modelService';
 import { getRendererLogger } from '@/services/logger';
+import { usePreference } from '@/hooks/usePreferences';
 import type { Model, GroupedModelsByProvider } from '../../types/models';
 
 const logger = getRendererLogger();
@@ -78,6 +79,9 @@ export function useModelSelection(options: UseModelSelectionOptions): UseModelSe
   const [groupedModelsByProvider, setGroupedModelsByProvider] = useState<GroupedModelsByProvider | null>(null);
   const [modelsLoading, setModelsLoading] = useState(true);
 
+  // Load and save lastUsedModel from preferences
+  const [lastUsedModel, setLastUsedModel] = usePreference('lastUsedModel');
+
   // Get current model info - search in grouped models if available, otherwise availableModels
   const currentModelInfo = useMemo(() => {
     // First try to find in available models (active provider)
@@ -141,12 +145,13 @@ export function useModelSelection(options: UseModelSelectionOptions): UseModelSe
     }
   }, [onLoadUserName]);
 
-  // Auto-select model if only one is available and no model is selected
+  // Auto-select model if only one is available OR use lastUsedModel when no model is selected
   useEffect(() => {
     if (!modelsLoading && !model && !currentSession) {
       // Logic:
       // 1. If groupedModels exists, check total count.
       // 2. If availableModels exists (legacy/active), check that.
+      // 3. If multiple models available, use lastUsedModel if available
 
       let candidateModel = '';
 
@@ -159,14 +164,28 @@ export function useModelSelection(options: UseModelSelectionOptions): UseModelSe
       } else if (availableModels.length === 1) {
         // Fallback or specific scope
         candidateModel = availableModels[0].id;
+      } else if (lastUsedModel) {
+        // Multiple models available - use lastUsedModel if it exists in available models
+        // Check if lastUsedModel exists in availableModels or groupedModelsByProvider
+        const modelExists = availableModels.some(m => m.id === lastUsedModel) ||
+          (groupedModelsByProvider?.providers.some(p =>
+            p.models.some(m => m.id === lastUsedModel)
+          ) ?? false);
+
+        if (modelExists) {
+          candidateModel = lastUsedModel;
+          logger.models.info('Using last used model', { model: candidateModel });
+        }
       }
 
       if (candidateModel) {
-        logger.models.info('Auto-selecting single available model', { model: candidateModel });
+        if (candidateModel !== lastUsedModel && availableModels.length === 1) {
+          logger.models.info('Auto-selecting single available model', { model: candidateModel });
+        }
         setModel(candidateModel);
       }
     }
-  }, [availableModels, groupedModelsByProvider, modelsLoading, model, currentSession]);
+  }, [availableModels, groupedModelsByProvider, modelsLoading, model, currentSession, lastUsedModel]);
 
   // Sync model with current session when session changes
   useEffect(() => {
@@ -178,6 +197,18 @@ export function useModelSelection(options: UseModelSelectionOptions): UseModelSe
       setModel(currentSession.model);
     }
   }, [currentSession?.id, currentSession?.model]);
+
+  // Save model to preferences when it changes (for default selection in new chats)
+  useEffect(() => {
+    if (model && model !== lastUsedModel) {
+      logger.models.info('Saving last used model to preferences', { model });
+      setLastUsedModel(model).catch((error) => {
+        logger.models.error('Failed to save last used model', {
+          error: error instanceof Error ? error.message : String(error)
+        });
+      });
+    }
+  }, [model, lastUsedModel, setLastUsedModel]);
 
   // Handle model change with session type validation
   const handleModelChange = useCallback(async (newModelId: string) => {

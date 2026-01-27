@@ -57,6 +57,12 @@
     "title": "Búsqueda y herramientas",
     "search_placeholder": "Buscar en el menú",
     "no_results": "No se encontraron herramientas",
+    "tool_selection": "Selecciona herramientas a usar",
+    "no_servers": "No hay servidores MCP configurados",
+    "disabled": "deshabilitado",
+    "select_all": "Seleccionar todo",
+    "loading_tools": "Cargando herramientas...",
+    "no_tools": "No hay herramientas disponibles",
     "web_search": {
       "label": "Búsqueda web",
       "keywords": ["web", "búsqueda", "search", "internet"]

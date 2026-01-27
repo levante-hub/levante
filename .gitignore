@@ -23,6 +23,10 @@ prueba/
 docs/PRD/
 dev-levante.db
 
+# Claude Code configuration
+.mcp.json
+.claude/
+
 
 # TypeScript build info
 *.tsbuildinfo

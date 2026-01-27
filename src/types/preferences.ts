@@ -14,6 +14,21 @@ export interface MCPPreferences {
   };
   /** E2B API key (encrypted, optional) */
   e2bApiKey?: string;
+  /** Cache of tools per server (for showing in UI without reconnecting) */
+  toolsCache?: {
+    [serverId: string]: {
+      tools: Array<{
+        name: string;
+        description?: string;
+        inputSchema?: any;
+      }>;
+      lastUpdated: number;
+    };
+  };
+  /** Tools disabled by server (the ones NOT included) */
+  disabledTools?: {
+    [serverId: string]: string[];
+  };
 }
 
 export interface UIPreferences {

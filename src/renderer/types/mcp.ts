@@ -17,6 +17,7 @@ export interface LevanteAPIResponse {
 export interface LevanteAPIServer {
   id: string;
   name: string;
+  displayName?: string;
   description: string;
   category: MCPCategory;
   icon?: string;
@@ -79,6 +80,7 @@ export type EnvFieldConfig = InputDefinition;
 export interface MCPRegistryEntry {
   id: string;
   name: string;
+  displayName?: string;
   description: string;
   category: MCPCategory;
   icon?: string;
@@ -170,3 +172,6 @@ export type MCPConnectionStatus =
   | "connecting"
   | "error"
   | "pending_oauth";
+
+// Re-export tool selection types from main
+export type { Tool, ServerTool, ToolsCache, DisabledTools } from '../../main/types/mcp';

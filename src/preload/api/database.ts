@@ -3,6 +3,7 @@ import {
   CreateChatSessionInput,
   CreateMessageInput,
   UpdateChatSessionInput,
+  UpdateMessageInput,
   GetMessagesQuery,
   GetChatSessionsQuery,
   DatabaseResult,
@@ -39,7 +40,13 @@ export const databaseApi = {
       ipcRenderer.invoke('levante/db/messages/list', query),
 
     search: (searchQuery: string, sessionId?: string, limit?: number) =>
-      ipcRenderer.invoke('levante/db/messages/search', searchQuery, sessionId, limit)
+      ipcRenderer.invoke('levante/db/messages/search', searchQuery, sessionId, limit),
+
+    update: (input: UpdateMessageInput) =>
+      ipcRenderer.invoke('levante/db/messages/update', input),
+
+    deleteAfter: (sessionId: string, afterTimestamp: number) =>
+      ipcRenderer.invoke('levante/db/messages/deleteAfter', sessionId, afterTimestamp)
   },
 
   generateTitle: (message: string) =>

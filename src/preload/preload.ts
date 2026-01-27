@@ -3,6 +3,7 @@ import {
   CreateChatSessionInput,
   CreateMessageInput,
   UpdateChatSessionInput,
+  UpdateMessageInput,
   GetMessagesQuery,
   GetChatSessionsQuery,
   DatabaseResult,
@@ -35,6 +36,7 @@ import type {
   ValidationResult,
   ProviderValidationConfig,
 } from "./types";
+import type { Tool, ToolsCache, DisabledTools } from "../main/types/mcp";
 import type { RuntimeInfo, RuntimeType } from "../types/runtime";
 
 // Import API modules
@@ -324,6 +326,8 @@ export interface LevanteAPI {
         sessionId?: string,
         limit?: number
       ) => Promise<DatabaseResult<Message[]>>;
+      update: (input: UpdateMessageInput) => Promise<DatabaseResult<Message | null>>;
+      deleteAfter: (sessionId: string, afterTimestamp: number) => Promise<DatabaseResult<number>>;
     };
     generateTitle: (
       message: string
@@ -564,6 +568,31 @@ export interface LevanteAPI {
       name: string,
       args?: Record<string, any>
     ) => Promise<{ success: boolean; data?: MCPPromptResult; error?: string }>;
+
+    // Tools management
+    getToolsCache: () => Promise<{ success: boolean; data?: ToolsCache; error?: string }>;
+    getDisabledTools: () => Promise<{ success: boolean; data?: DisabledTools; error?: string }>;
+    setDisabledTools: (
+      serverId: string,
+      toolNames: string[]
+    ) => Promise<{ success: boolean; error?: string }>;
+    toggleTool: (
+      serverId: string,
+      toolName: string,
+      enabled: boolean
+    ) => Promise<{ success: boolean; data?: string[]; error?: string }>;
+    toggleAllTools: (
+      serverId: string,
+      enabled: boolean
+    ) => Promise<{ success: boolean; data?: string[]; error?: string }>;
+    clearServerTools: (
+      serverId: string
+    ) => Promise<{ success: boolean; error?: string }>;
+
+    // Event listeners
+    onToolsUpdated: (
+      callback: (data: { serverId: string; tools: Tool[] }) => void
+    ) => () => void;
   };
 
   // Logger functionality

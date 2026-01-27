@@ -98,6 +98,7 @@ export interface CreateChatSessionInput {
 }
 
 export interface CreateMessageInput {
+  id?: string; // Optional ID from frontend - backend uses it if provided, otherwise generates a new one
   session_id: string;
   role: "user" | "assistant" | "system";
   content: string;
@@ -167,6 +168,11 @@ export interface GetMessagesQuery {
   session_id: string;
   limit?: number;
   offset?: number;
+}
+
+export interface DeleteMessagesAfterQuery {
+  session_id: string;
+  after_timestamp: number; // created_at del mensaje editado
 }
 
 export interface GetChatSessionsQuery {

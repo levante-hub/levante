@@ -6,6 +6,7 @@ import {
   CreateChatSessionInput,
   CreateMessageInput,
   UpdateChatSessionInput,
+  UpdateMessageInput,
   GetMessagesQuery,
   GetChatSessionsQuery,
   DatabaseResult,
@@ -16,7 +17,7 @@ import { escapeLikePattern } from '../utils/sqlSanitizer';
 
 export class ChatService {
   private logger = getLogger();
-  
+
   // Chat Sessions
   async createSession(input: CreateChatSessionInput): Promise<DatabaseResult<ChatSession>> {
     this.logger.database.debug('Creating new chat session', { input });
@@ -105,20 +106,20 @@ export class ChatService {
 
   async getSessions(query: GetChatSessionsQuery = {}): Promise<DatabaseResult<PaginatedResult<ChatSession>>> {
     this.logger.database.debug('Getting chat sessions', { query });
-    
+
     try {
       const { folder_id, limit = 50, offset = 0 } = query;
-      
+
       let sql = 'SELECT * FROM chat_sessions';
       let countSql = 'SELECT COUNT(*) as total FROM chat_sessions';
       const params: InValue[] = [];
-      
+
       if (folder_id) {
         sql += ' WHERE folder_id = ?';
         countSql += ' WHERE folder_id = ?';
         params.push(folder_id as InValue);
       }
-      
+
       sql += ' ORDER BY updated_at DESC LIMIT ? OFFSET ?';
       params.push(limit as InValue, offset as InValue);
 
@@ -152,14 +153,14 @@ export class ChatService {
       this.logger.database.debug('Retrieved chat sessions', { total, returned: sessions.length, limit, offset });
       return { data: paginatedResult, success: true };
     } catch (error) {
-      this.logger.database.error('Failed to get chat sessions', { 
-        error: error instanceof Error ? error.message : error, 
-        query 
+      this.logger.database.error('Failed to get chat sessions', {
+        error: error instanceof Error ? error.message : error,
+        query
       });
-      return { 
-        data: { items: [], total: 0, limit: 0, offset: 0 }, 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        data: { items: [], total: 0, limit: 0, offset: 0 },
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -192,13 +193,13 @@ export class ChatService {
 
       return this.getSession(id);
     } catch (error) {
-      this.logger.database.error('Failed to update chat session', { 
-        error: error instanceof Error ? error.message : error 
+      this.logger.database.error('Failed to update chat session', {
+        error: error instanceof Error ? error.message : error
       });
-      return { 
-        data: null, 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        data: null,
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -212,13 +213,13 @@ export class ChatService {
 
       return { data: true, success: true };
     } catch (error) {
-      this.logger.database.error('Failed to delete chat session', { 
-        error: error instanceof Error ? error.message : error 
+      this.logger.database.error('Failed to delete chat session', {
+        error: error instanceof Error ? error.message : error
       });
-      return { 
-        data: false, 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        data: false,
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -231,11 +232,13 @@ export class ChatService {
       contentLength: input.content.length,
       hasToolCalls: !!input.tool_calls,
       hasAttachments: !!input.attachments,
-      attachmentCount: input.attachments?.length || 0
+      attachmentCount: input.attachments?.length || 0,
+      providedId: !!input.id // Log if frontend supplied an ID
     });
 
     try {
-      const id = this.generateId();
+      // Use frontend-provided ID when present, otherwise generate a new one
+      const id = input.id || this.generateId();
       const now = Date.now();
 
       const attachmentsString = input.attachments ? JSON.stringify(input.attachments) : null;
@@ -279,7 +282,7 @@ export class ChatService {
       } catch (error: any) {
         // If error is about missing column, retry without reasoning
         if (error?.message?.includes('no such column: reasoning') ||
-            error?.message?.includes('table messages has no column named reasoning')) {
+          error?.message?.includes('table messages has no column named reasoning')) {
           this.logger.database.warn('Reasoning column not found, inserting without it (migration pending)', {
             messageId: id
           });
@@ -316,14 +319,14 @@ export class ChatService {
       this.logger.database.info('Message created successfully', { messageId: id, sessionId: input.session_id });
       return { data: message, success: true };
     } catch (error) {
-      this.logger.database.error('Failed to create message', { 
-        error: error instanceof Error ? error.message : error, 
-        input: { ...input, content: `${input.content.substring(0, 100)}...` } 
+      this.logger.database.error('Failed to create message', {
+        error: error instanceof Error ? error.message : error,
+        input: { ...input, content: `${input.content.substring(0, 100)}...` }
       });
-      return { 
-        data: {} as Message, 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        data: {} as Message,
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -331,7 +334,7 @@ export class ChatService {
   async getMessages(query: GetMessagesQuery): Promise<DatabaseResult<PaginatedResult<Message>>> {
     try {
       const { session_id, limit = 100, offset = 0 } = query;
-      
+
       // Get total count
       const countResult = await databaseService.execute(
         'SELECT COUNT(*) as total FROM messages WHERE session_id = ?',
@@ -368,13 +371,13 @@ export class ChatService {
 
       return { data: paginatedResult, success: true };
     } catch (error) {
-      this.logger.database.error('Failed to get messages', { 
-        error: error instanceof Error ? error.message : error 
+      this.logger.database.error('Failed to get messages', {
+        error: error instanceof Error ? error.message : error
       });
-      return { 
-        data: { items: [], total: 0, limit: 0, offset: 0 }, 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        data: { items: [], total: 0, limit: 0, offset: 0 },
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -416,16 +419,149 @@ export class ChatService {
       this.logger.database.debug('Search completed', { found: messages.length, query: searchQuery });
       return { data: messages, success: true };
     } catch (error) {
-      this.logger.database.error('Failed to search messages', { 
-        error: error instanceof Error ? error.message : error, 
-        searchQuery, 
-        sessionId, 
-        limit 
+      this.logger.database.error('Failed to search messages', {
+        error: error instanceof Error ? error.message : error,
+        searchQuery,
+        sessionId,
+        limit
       });
-      return { 
-        data: [], 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        data: [],
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * Update a message's content
+   * This is typically used when a user edits their message
+   */
+  async updateMessage(input: UpdateMessageInput): Promise<DatabaseResult<Message | null>> {
+    this.logger.database.debug('Updating message', {
+      messageId: input.id,
+      hasContent: !!input.content,
+      hasToolCalls: !!input.tool_calls
+    });
+
+    try {
+      const updateFields: string[] = [];
+      const params: InValue[] = [];
+
+      if (input.content !== undefined) {
+        updateFields.push('content = ?');
+        params.push(input.content as InValue);
+      }
+
+      if (input.tool_calls !== undefined) {
+        updateFields.push('tool_calls = ?');
+        params.push(JSON.stringify(input.tool_calls) as InValue);
+      }
+
+      if (updateFields.length === 0) {
+        this.logger.database.warn('No fields to update in message', { messageId: input.id });
+        return this.getMessage(input.id);
+      }
+
+      params.push(input.id as InValue);
+
+      await databaseService.execute(
+        `UPDATE messages SET ${updateFields.join(', ')} WHERE id = ?`,
+        params
+      );
+
+      this.logger.database.info('Message updated successfully', { messageId: input.id });
+      return this.getMessage(input.id);
+    } catch (error) {
+      this.logger.database.error('Failed to update message', {
+        error: error instanceof Error ? error.message : error,
+        messageId: input.id
+      });
+      return {
+        data: null,
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * Delete all messages after a specific timestamp in a session
+   * Used when editing a message to remove subsequent conversation
+   */
+  async deleteMessagesAfter(sessionId: string, afterTimestamp: number): Promise<DatabaseResult<number>> {
+    this.logger.database.debug('Deleting messages after timestamp', {
+      sessionId,
+      afterTimestamp
+    });
+
+    try {
+      const result = await databaseService.execute(
+        'DELETE FROM messages WHERE session_id = ? AND created_at > ?',
+        [sessionId as InValue, afterTimestamp as InValue]
+      );
+
+      const deletedCount = result.rowsAffected || 0;
+
+      this.logger.database.info('Messages deleted successfully', {
+        sessionId,
+        deletedCount
+      });
+
+      return {
+        data: deletedCount,
+        success: true
+      };
+    } catch (error) {
+      this.logger.database.error('Failed to delete messages', {
+        error: error instanceof Error ? error.message : error,
+        sessionId,
+        afterTimestamp
+      });
+      return {
+        data: 0,
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * Get a single message by ID
+   */
+  private async getMessage(id: string): Promise<DatabaseResult<Message | null>> {
+    try {
+      const result = await databaseService.execute(
+        'SELECT * FROM messages WHERE id = ?',
+        [id as InValue]
+      );
+
+      if (result.rows.length === 0) {
+        return { data: null, success: true };
+      }
+
+      const row = result.rows[0];
+      const message: Message = {
+        id: row[0] as string,
+        session_id: row[1] as string,
+        role: row[2] as 'user' | 'assistant' | 'system',
+        content: row[3] as string,
+        tool_calls: row[4] as string,
+        created_at: row[5] as number,
+        attachments: (row[6] as string) || null,
+        reasoningText: (row[7] as string) || null,
+      };
+
+      return { data: message, success: true };
+    } catch (error) {
+      this.logger.database.error('Failed to get message', {
+        error: error instanceof Error ? error.message : error,
+        messageId: id
+      });
+      return {
+        data: null,
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }

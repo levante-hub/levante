@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { MCPServerConfig, MCPConnectionStatus, MCPProvider, MCPRegistryEntry, MCPSource, MCPCategory } from '../types/mcp';
+import { MCPServerConfig, MCPConnectionStatus, MCPProvider, MCPRegistryEntry, MCPSource, MCPCategory, Tool, ToolsCache, DisabledTools } from '../types/mcp';
 import mcpProvidersData from '../data/mcpProviders.json';
 import { useOAuthStore } from './oauthStore';
 
@@ -19,11 +19,18 @@ interface MCPStore {
   providerErrors: Record<string, string | null>;
   providersSynced: boolean;
 
+  // Tools state
+  toolsCache: ToolsCache;
+  disabledTools: DisabledTools;
+  loadingTools: Record<string, boolean>;
+
   // Actions
   loadActiveServers: () => Promise<void>;
   refreshConnectionStatus: () => Promise<void>;
   connectServer: (config: MCPServerConfig) => Promise<void>;
   disconnectServer: (serverId: string) => Promise<void>;
+  enableServer: (serverId: string) => Promise<void>;
+  disableServer: (serverId: string) => Promise<void>;
   testConnection: (config: MCPServerConfig) => Promise<boolean>;
   addServer: (config: MCPServerConfig) => Promise<void>;
   updateServer: (serverId: string, config: Partial<Omit<MCPServerConfig, 'id'>>) => Promise<void>;
@@ -41,6 +48,19 @@ interface MCPStore {
   getFilteredEntries: () => MCPRegistryEntry[];
   getAvailableSources: () => MCPSource[];
   getAvailableCategories: () => MCPCategory[];
+
+  // Tools actions
+  loadToolsCache: () => Promise<void>;
+  loadDisabledTools: () => Promise<void>;
+  fetchServerTools: (serverId: string) => Promise<Tool[]>;
+  toggleTool: (serverId: string, toolName: string, enabled: boolean) => Promise<void>;
+  toggleAllTools: (serverId: string, enabled: boolean) => Promise<void>;
+  isToolEnabled: (serverId: string, toolName: string) => boolean;
+  getServerTools: (serverId: string) => Tool[];
+  getEnabledToolsCount: (serverId: string) => number;
+  getDisabledToolsCount: (serverId: string) => number;
+  getTotalToolsCount: () => number;
+  getEnabledToolsTotal: () => number;
 
   // Helper methods
   isServerActive: (serverId: string) => boolean;
@@ -64,7 +84,10 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
   providerErrors: {},
   providersSynced: false,
 
-
+  // Tools initial state
+  toolsCache: {},
+  disabledTools: {},
+  loadingTools: {},
 
   // Load active servers from configuration
   loadActiveServers: async () => {
@@ -237,6 +260,49 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
     }
   },
 
+  // Enable a server (move config to active + connect)
+  enableServer: async (serverId: string) => {
+    try {
+      // 1. Get server config (already available in activeServers with enabled=false)
+      const server = get().getServerById(serverId);
+      if (!server) {
+        console.error('Server not found:', serverId);
+        return;
+      }
+
+      // 2. Move from disabled to mcpServers in config (persistence)
+      const result = await window.levante.mcp.enableServer(serverId);
+      if (!result.success) {
+        console.error('Failed to enable server in config:', result.error);
+        return;
+      }
+
+      // 3. Connect using existing connectServer logic (handles OAuth, runtime errors, etc.)
+      // This will update activeServers and connectionStatus appropriately
+      await get().connectServer({ ...server, enabled: true });
+    } catch (error) {
+      // connectServer may throw for OAuth/runtime errors - these are handled by the UI
+      // Only log unexpected errors
+      if (!(error as any).code && !(error as any).errorCode) {
+        console.error('Failed to enable server:', error);
+      }
+      throw error; // Re-throw for UI handling
+    }
+  },
+
+  // Disable a server (disconnect + move config to disabled)
+  disableServer: async (serverId: string) => {
+    try {
+      // Use disconnectServer which already does:
+      // 1. mcpService.disconnectServer() - runtime disconnection
+      // 2. configManager.disableServer() - moves config to disabled section
+      // 3. Updates store state (activeServers.enabled=false, connectionStatus='disconnected')
+      await get().disconnectServer(serverId);
+    } catch (error) {
+      console.error('Failed to disable server:', error);
+    }
+  },
+
   // Test connection to a server
   testConnection: async (config: MCPServerConfig) => {
     try {
@@ -329,13 +395,29 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
           window.levante.analytics?.trackMCP?.(server.name || server.id, 'removed').catch(() => { });
         }
 
-        set(state => ({
-          activeServers: state.activeServers.filter(s => s.id !== serverId),
-          connectionStatus: {
-            ...state.connectionStatus,
-            [serverId]: 'disconnected'
-          }
-        }));
+        // Clean up tools cache and disabled tools
+        try {
+          await window.levante.mcp.clearServerTools(serverId);
+        } catch (clearError) {
+          console.warn('Failed to clear server tools:', clearError);
+        }
+
+        set(state => {
+          const newToolsCache = { ...state.toolsCache };
+          const newDisabledTools = { ...state.disabledTools };
+          delete newToolsCache[serverId];
+          delete newDisabledTools[serverId];
+
+          return {
+            activeServers: state.activeServers.filter(s => s.id !== serverId),
+            connectionStatus: {
+              ...state.connectionStatus,
+              [serverId]: 'disconnected'
+            },
+            toolsCache: newToolsCache,
+            disabledTools: newDisabledTools
+          };
+        });
       } else {
         set({ error: result.error || 'Failed to remove server' });
       }
@@ -548,5 +630,168 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
     });
 
     return Array.from(categories).sort();
+  },
+
+  // Load tools cache from preferences
+  loadToolsCache: async () => {
+    try {
+      const result = await window.levante.mcp.getToolsCache();
+      if (result.success && result.data) {
+        set({ toolsCache: result.data });
+      }
+    } catch (error) {
+      console.error('Failed to load tools cache:', error);
+    }
+  },
+
+  // Load disabled tools from preferences
+  loadDisabledTools: async () => {
+    try {
+      const result = await window.levante.mcp.getDisabledTools();
+      if (result.success && result.data) {
+        set({ disabledTools: result.data });
+      }
+    } catch (error) {
+      console.error('Failed to load disabled tools:', error);
+    }
+  },
+
+  // Fetch tools from a server (with cache update)
+  fetchServerTools: async (serverId: string) => {
+    set(state => ({
+      loadingTools: { ...state.loadingTools, [serverId]: true }
+    }));
+
+    try {
+      const result = await window.levante.mcp.listTools(serverId);
+
+      if (result.success && result.data) {
+        const tools = result.data;
+
+        // Update local cache
+        set(state => ({
+          toolsCache: {
+            ...state.toolsCache,
+            [serverId]: {
+              tools,
+              lastUpdated: Date.now()
+            }
+          },
+          loadingTools: { ...state.loadingTools, [serverId]: false }
+        }));
+
+        return tools;
+      }
+
+      set(state => ({
+        loadingTools: { ...state.loadingTools, [serverId]: false }
+      }));
+      return [];
+    } catch (error) {
+      console.error('Failed to fetch server tools:', error);
+      set(state => ({
+        loadingTools: { ...state.loadingTools, [serverId]: false }
+      }));
+      return [];
+    }
+  },
+
+  // Toggle a specific tool
+  toggleTool: async (serverId: string, toolName: string, enabled: boolean) => {
+    try {
+      const result = await window.levante.mcp.toggleTool(serverId, toolName, enabled);
+
+      if (result.success) {
+        set(state => {
+          const newDisabledTools = { ...state.disabledTools };
+          if (result.data && result.data.length > 0) {
+            newDisabledTools[serverId] = result.data;
+          } else {
+            delete newDisabledTools[serverId];
+          }
+          return { disabledTools: newDisabledTools };
+        });
+      }
+    } catch (error) {
+      console.error('Failed to toggle tool:', error);
+    }
+  },
+
+  // Toggle all tools from a server
+  toggleAllTools: async (serverId: string, enabled: boolean) => {
+    try {
+      const result = await window.levante.mcp.toggleAllTools(serverId, enabled);
+
+      if (result.success) {
+        set(state => {
+          const newDisabledTools = { ...state.disabledTools };
+          if (result.data && result.data.length > 0) {
+            newDisabledTools[serverId] = result.data;
+          } else {
+            delete newDisabledTools[serverId];
+          }
+          return { disabledTools: newDisabledTools };
+        });
+      }
+    } catch (error) {
+      console.error('Failed to toggle all tools:', error);
+    }
+  },
+
+  // Check if a tool is enabled
+  isToolEnabled: (serverId: string, toolName: string) => {
+    const { disabledTools } = get();
+
+    // If no entry for this server, all are enabled
+    if (!disabledTools[serverId]) {
+      return true;
+    }
+
+    // Enabled if NOT in the disabled list
+    return !disabledTools[serverId].includes(toolName);
+  },
+
+  // Get tools from a server from cache
+  getServerTools: (serverId: string) => {
+    const { toolsCache } = get();
+    return toolsCache[serverId]?.tools || [];
+  },
+
+  // Count enabled tools for a server
+  getEnabledToolsCount: (serverId: string) => {
+    const { disabledTools, toolsCache } = get();
+    const totalTools = toolsCache[serverId]?.tools?.length || 0;
+    const disabledCount = disabledTools[serverId]?.length || 0;
+
+    return totalTools - disabledCount;
+  },
+
+  // Count disabled tools for a server
+  getDisabledToolsCount: (serverId: string) => {
+    const { disabledTools } = get();
+    return disabledTools[serverId]?.length || 0;
+  },
+
+  // Count total tools from all servers
+  getTotalToolsCount: () => {
+    const { toolsCache } = get();
+    return Object.values(toolsCache).reduce(
+      (sum, cache) => sum + (cache.tools?.length || 0),
+      0
+    );
+  },
+
+  // Count total enabled tools
+  getEnabledToolsTotal: () => {
+    const { disabledTools, toolsCache, activeServers } = get();
+
+    return activeServers.reduce((sum, server) => {
+      if (!server.enabled) return sum;
+
+      const totalTools = toolsCache[server.id]?.tools?.length || 0;
+      const disabledCount = disabledTools[server.id]?.length || 0;
+
+      return sum + (totalTools - disabledCount);
+    }, 0);
   }
 }));

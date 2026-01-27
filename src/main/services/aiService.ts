@@ -941,7 +941,13 @@ export class AIService {
       const builtInTools = await getBuiltInTools(builtInToolsConfig);
 
       if (enableMCP) {
-        const mcpTools = await getMCPTools();
+        // Get disabled tools from preferences for filtering
+        const { preferencesService } = await import("./preferencesService");
+        await preferencesService.initialize();
+        const prefs = await preferencesService.getAll();
+        const disabledTools = prefs.mcp?.disabledTools;
+
+        const mcpTools = await getMCPTools(disabledTools);
         tools = { ...builtInTools, ...mcpTools };
         this.logger.aiSdk.debug("Passing tools to streamText", {
           toolCount: Object.keys(tools).length,
@@ -1755,7 +1761,13 @@ export class AIService {
       // Get MCP tools if enabled
       let tools = {};
       if (enableMCP) {
-        tools = await getMCPTools();
+        // Get disabled tools from preferences for filtering
+        const { preferencesService } = await import("./preferencesService");
+        await preferencesService.initialize();
+        const prefs = await preferencesService.getAll();
+        const disabledTools = prefs.mcp?.disabledTools;
+
+        tools = await getMCPTools(disabledTools);
       }
 
       // Get built-in tools config for system prompt

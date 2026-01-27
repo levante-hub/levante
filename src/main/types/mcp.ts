@@ -54,7 +54,7 @@ export interface ToolAnnotations {
 
 export interface Tool {
   name: string;
-  description: string;
+  description?: string;
   inputSchema?: {
     type: string;
     properties?: Record<string, any>;
@@ -64,6 +64,38 @@ export interface Tool {
   _meta?: Record<string, any>;
   /** Tool behavior annotations (MCP spec) */
   annotations?: ToolAnnotations;
+}
+
+/**
+ * Tool con información de servidor para UI
+ */
+export interface ServerTool extends Tool {
+  serverId: string;
+  serverName?: string;
+  enabled: boolean;  // Si está seleccionada para uso
+}
+
+/**
+ * Cache de tools por servidor
+ */
+export interface ToolsCache {
+  [serverId: string]: {
+    tools: Tool[];
+    lastUpdated: number;  // timestamp
+  };
+}
+
+/**
+ * Tools deshabilitadas por servidor
+ * serverId → array de toolNames bloqueados
+ * Si un servidor no está en el objeto, todas sus tools están habilitadas (default)
+ * Ventajas de este enfoque:
+ * - Nuevas tools quedan habilitadas automáticamente
+ * - Lista más compacta (normalmente se bloquean pocas tools)
+ * - Patrón usado por Claude Desktop (disallowedTools) y mcp-use
+ */
+export interface DisabledTools {
+  [serverId: string]: string[];  // toolNames bloqueados
 }
 
 export interface ToolCall {

@@ -17,7 +17,7 @@ import type {
   HTMLAttributes,
   KeyboardEventHandler,
 } from 'react';
-import { Children } from 'react';
+import { Children, forwardRef, useCallback, useEffect, useRef } from 'react';
 
 export type PromptInputProps = HTMLAttributes<HTMLFormElement>;
 
@@ -36,53 +36,99 @@ export type PromptInputTextareaProps = ComponentProps<typeof Textarea> & {
   maxHeight?: number;
 };
 
-export const PromptInputTextarea = ({
-  onChange,
-  className,
-  placeholder = 'What would you like to know?',
-  minHeight = 48,
-  maxHeight = 164,
-  ...props
-}: PromptInputTextareaProps) => {
-  const handleKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = (e) => {
-    if (e.key === 'Enter') {
-      // Don't submit if IME composition is in progress
-      if (e.nativeEvent.isComposing) {
-        return;
-      }
+export const PromptInputTextarea = forwardRef<
+  HTMLTextAreaElement,
+  PromptInputTextareaProps
+>(
+  (
+    {
+      onChange,
+      className,
+      placeholder = 'What would you like to know?',
+      minHeight = 48,
+      maxHeight = 164,
+      ...props
+    },
+    ref
+  ) => {
+    const internalRef = useRef<HTMLTextAreaElement>(null);
 
-      if (e.shiftKey) {
-        // Allow newline
-        return;
-      }
+    // Merge refs to support both external ref and internal ref
+    const setRefs = useCallback(
+      (element: HTMLTextAreaElement | null) => {
+        internalRef.current = element;
+        if (typeof ref === 'function') {
+          ref(element);
+        } else if (ref) {
+          ref.current = element;
+        }
+      },
+      [ref]
+    );
 
-      // Submit on Enter (without Shift)
-      e.preventDefault();
-      const form = e.currentTarget.form;
-      if (form) {
-        form.requestSubmit();
-      }
-    }
-  };
+    const adjustHeight = useCallback(() => {
+      const textarea = internalRef.current;
+      if (!textarea) return;
 
-  return (
-    <Textarea
-      className={cn(
-        'w-full resize-none rounded-none border-none p-3 shadow-none outline-none ring-0',
-        'field-sizing-content max-h-[6lh] bg-transparent dark:bg-transparent',
-        'focus-visible:ring-0',
-        className
-      )}
-      name="message"
-      onChange={(e) => {
-        onChange?.(e);
-      }}
-      onKeyDown={handleKeyDown}
-      placeholder={placeholder}
-      {...props}
-    />
-  );
-};
+      // Reset height to recalculate
+      textarea.style.height = 'auto';
+
+      // Calculate new height within bounds
+      const newHeight = Math.min(Math.max(textarea.scrollHeight, minHeight), maxHeight);
+      textarea.style.height = `${newHeight}px`;
+    }, [minHeight, maxHeight]);
+
+    useEffect(() => {
+      adjustHeight();
+    }, [props.value, adjustHeight]);
+
+    const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      onChange?.(e);
+      adjustHeight();
+    };
+
+    const handleKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = (e) => {
+      if (e.key === 'Enter') {
+        // Don't submit if IME composition is in progress
+        if (e.nativeEvent.isComposing) {
+          return;
+        }
+
+        if (e.shiftKey) {
+          // Allow newline
+          return;
+        }
+
+        // Submit on Enter (without Shift)
+        e.preventDefault();
+        const form = e.currentTarget.form;
+        if (form) {
+          form.requestSubmit();
+        }
+      }
+    };
+
+    return (
+      <Textarea
+        ref={setRefs}
+        className={cn(
+          'w-full resize-none rounded-none border-none p-3 shadow-none outline-none ring-0',
+          'overflow-y-auto bg-transparent dark:bg-transparent',
+          'focus-visible:ring-0',
+          className
+        )}
+        style={{ minHeight: `${minHeight}px` }}
+        name="message"
+        onChange={handleChange}
+        onKeyDown={handleKeyDown}
+        placeholder={placeholder}
+        {...props}
+      />
+    );
+  }
+);
+
+PromptInputTextarea.displayName = 'PromptInputTextarea';
 
 export type PromptInputToolbarProps = HTMLAttributes<HTMLDivElement>;
 

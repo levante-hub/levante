@@ -208,5 +208,12 @@
         "apply_note": "Los cambios se aplican a nuevas conexiones de servidores MCP"
       }
     }
+  },
+  "mcp_tools": {
+    "select_all": "Seleccionar todo",
+    "loading": "Cargando herramientas...",
+    "no_tools": "No hay herramientas disponibles",
+    "warning": "Tienes {{count}} herramientas habilitadas. Considera deshabilitar las que no uses para mejorar el rendimiento (recomendado: <40).",
+    "over_limit": "Tienes {{count}} herramientas habilitadas. Esto excede el límite recomendado de 80 y puede afectar significativamente el rendimiento."
   }
 }

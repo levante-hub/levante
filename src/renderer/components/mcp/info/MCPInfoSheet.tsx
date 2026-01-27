@@ -33,6 +33,7 @@ export function MCPInfoSheet({
 
   if (!entry) return null;
 
+  const displayName = entry.displayName || entry.name;
   const template = entry.configuration?.template;
   const transportType = template?.type || entry.transport?.type || 'stdio';
   const isHttpBased = transportType === 'http' || transportType === 'sse' || transportType === 'streamable-http';
@@ -73,7 +74,7 @@ export function MCPInfoSheet({
               {entry.logoUrl && !logoError ? (
                 <img
                   src={entry.logoUrl}
-                  alt={`${entry.name} logo`}
+                  alt={`${displayName} logo`}
                   className="w-full h-full object-contain"
                   onError={() => setLogoError(true)}
                 />
@@ -84,7 +85,7 @@ export function MCPInfoSheet({
               )}
             </div>
             <div className="flex-1">
-              <SheetTitle className="text-2xl">{entry.name}</SheetTitle>
+              <SheetTitle className="text-2xl">{displayName}</SheetTitle>
               <div className="flex items-center gap-2 mt-2">
                 <Badge variant="secondary">{entry.category}</Badge>
                 {entry.source && (

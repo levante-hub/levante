@@ -8,7 +8,7 @@
 import { tool, jsonSchema } from "ai";
 import { mcpService, configManager } from "../../ipc/mcpHandlers";
 import { mcpHealthService } from "../mcpHealthService";
-import type { Tool } from "../../types/mcp";
+import type { Tool, DisabledTools } from "../../types/mcp";
 import { getLogger } from "../logging";
 
 // Import from modules
@@ -25,8 +25,11 @@ const logger = getLogger();
 /**
  * Get all MCP tools from connected servers and convert them to AI SDK format
  * Optimized: Connects to servers in parallel for faster initialization
+ * @param disabledTools - Optional object mapping serverId to array of disabled tool names
  */
-export async function getMCPTools(): Promise<Record<string, any>> {
+export async function getMCPTools(
+  disabledTools?: DisabledTools
+): Promise<Record<string, any>> {
   const startTime = Date.now();
 
   try {
@@ -105,16 +108,29 @@ export async function getMCPTools(): Promise<Record<string, any>> {
     });
 
     // PHASE 3: Convert tools to AI SDK format
+    let skippedDisabledCount = 0;
+
     for (const result of toolsResults) {
       if (result.status !== "fulfilled" || !result.value.success) continue;
 
       const { serverId, tools: serverTools } = result.value;
+      const serverDisabledTools = disabledTools?.[serverId] || [];
 
       for (const mcpTool of serverTools) {
         if (!mcpTool.name || mcpTool.name.trim() === "") {
           logger.aiSdk.error("Invalid tool name from server", {
             serverId,
             tool: mcpTool,
+          });
+          continue;
+        }
+
+        // Skip disabled tools
+        if (serverDisabledTools.includes(mcpTool.name)) {
+          skippedDisabledCount++;
+          logger.aiSdk.debug("Skipping disabled tool", {
+            serverId,
+            toolName: mcpTool.name,
           });
           continue;
         }
@@ -151,13 +167,14 @@ export async function getMCPTools(): Promise<Record<string, any>> {
     }
 
     // Log summary
-    const disabledCount = Object.keys(config.disabled || {}).length;
+    const disabledServersCount = Object.keys(config.disabled || {}).length;
     const totalDuration = Date.now() - startTime;
 
     logger.aiSdk.info("MCP tools loading complete", {
       totalCount: Object.keys(allTools).length,
       activeServers: serverEntries.length,
-      disabledServers: disabledCount,
+      disabledServers: disabledServersCount,
+      disabledTools: skippedDisabledCount,
       durationMs: totalDuration,
       toolNames: Object.keys(allTools),
     });

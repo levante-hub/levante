@@ -133,4 +133,35 @@ export const mcpApi = {
 
   getPrompt: (serverId: string, name: string, args?: Record<string, any>) =>
     ipcRenderer.invoke('levante/mcp/get-prompt', serverId, name, args),
+
+  // Tools management
+  getToolsCache: () =>
+    ipcRenderer.invoke('levante/mcp/get-tools-cache'),
+
+  getDisabledTools: () =>
+    ipcRenderer.invoke('levante/mcp/get-disabled-tools'),
+
+  setDisabledTools: (serverId: string, toolNames: string[]) =>
+    ipcRenderer.invoke('levante/mcp/set-disabled-tools', serverId, toolNames),
+
+  toggleTool: (serverId: string, toolName: string, enabled: boolean) =>
+    ipcRenderer.invoke('levante/mcp/toggle-tool', serverId, toolName, enabled),
+
+  toggleAllTools: (serverId: string, enabled: boolean) =>
+    ipcRenderer.invoke('levante/mcp/toggle-all-tools', serverId, enabled),
+
+  clearServerTools: (serverId: string) =>
+    ipcRenderer.invoke('levante/mcp/clear-server-tools', serverId),
+
+  // Event listeners
+  onToolsUpdated: (
+    callback: (data: { serverId: string; tools: any[] }) => void
+  ) => {
+    const handler = (_event: any, data: any) => callback(data);
+    ipcRenderer.on('levante/mcp/tools-updated', handler);
+
+    return () => {
+      ipcRenderer.removeListener('levante/mcp/tools-updated', handler);
+    };
+  },
 };

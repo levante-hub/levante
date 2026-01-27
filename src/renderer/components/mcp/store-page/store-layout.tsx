@@ -118,22 +118,21 @@ export function StoreLayout({ mode, onModeChange }: StoreLayoutProps) {
 
     const query = searchQuery.toLowerCase();
     return filteredByProvider.filter(entry =>
-      entry.name.toLowerCase().includes(query) ||
+      (entry.displayName || entry.name).toLowerCase().includes(query) ||
       entry.description.toLowerCase().includes(query) ||
       entry.category.toLowerCase().includes(query)
     );
   };
 
   useEffect(() => {
-    // Load initial data (solo instalados, NO sincronizar proveedores)
+    // Load initial data
+    // Note: loadActiveServers is now called globally in useMCPEvents hook
+    // but we call it here too to ensure the data is fresh when entering the page
     loadActiveServers();
 
     // ✅ ELIMINADO: syncAllProviders() - ahora es lazy (se ejecuta al cambiar de tab)
-
-    // Refresh connection status every 30 seconds
-    const interval = setInterval(refreshConnectionStatus, 30000);
-    return () => clearInterval(interval);
-  }, [loadActiveServers, refreshConnectionStatus]);
+    // ✅ ELIMINADO: setInterval(refreshConnectionStatus) - ahora se hace globalmente en useMCPEvents
+  }, [loadActiveServers]);
 
   // ✅ NUEVO: Lazy loading de proveedores cuando se cambia a modo "store"
   useEffect(() => {
@@ -220,6 +219,8 @@ export function StoreLayout({ mode, onModeChange }: StoreLayoutProps) {
     const registryEntry = getRegistryEntryById(entryId);
     if (!registryEntry) return;
 
+    const displayName = registryEntry.displayName || registryEntry.name;
+
     // Detectar si hay campos que requieren input del usuario
     const fieldsNeedingInput = registryEntry.configuration?.fields?.filter(
       (field: MCPConfigField) => field.key !== 'command' && field.key !== 'args' && field.key !== 'baseUrl'
@@ -230,7 +231,7 @@ export function StoreLayout({ mode, onModeChange }: StoreLayoutProps) {
       setApiKeysModalState({
         isOpen: true,
         entryId,
-        serverName: registryEntry.name,
+        serverName: displayName,
         fields: fieldsNeedingInput,
       });
       return;
@@ -266,7 +267,7 @@ export function StoreLayout({ mode, onModeChange }: StoreLayoutProps) {
       // Construir config desde template según el tipo de transporte
       const serverConfig: MCPServerConfig = {
         id: entryId,
-        name: registryEntry.name,
+        name: registryEntry.name, // Use technical name for config, not displayName
         transport: transportType,
       };
 
@@ -351,11 +352,11 @@ export function StoreLayout({ mode, onModeChange }: StoreLayoutProps) {
       await loadActiveServers();
 
       // Intentar conectar (esto instalará el runtime si es necesario)
-      const toastId = toast.loading(t('messages.connecting', { name: registryEntry.name }));
+      const toastId = toast.loading(t('messages.connecting', { name: displayName }));
 
       try {
         await connectServer(serverConfig);
-        toast.success(t('messages.added', { name: registryEntry.name }), { id: toastId });
+        toast.success(t('messages.added', { name: displayName }), { id: toastId });
       } catch (connectError: any) {
         // Server is saved but connection failed
         // This can happen if runtime installation fails or OAuth is required
@@ -383,7 +384,7 @@ export function StoreLayout({ mode, onModeChange }: StoreLayoutProps) {
           toast.error(t('messages.runtime_not_available'), { id: toastId });
         } else {
           // Server saved, but couldn't connect - user can try to connect manually
-          toast.warning(t('messages.added_not_connected', { name: registryEntry.name }), { id: toastId });
+          toast.warning(t('messages.added_not_connected', { name: displayName }), { id: toastId });
         }
       }
     } catch (error) {

@@ -259,5 +259,12 @@
         "apply_note": "Changes apply to new MCP server connections"
       }
     }
+  },
+  "mcp_tools": {
+    "select_all": "Select all",
+    "loading": "Loading tools...",
+    "no_tools": "No tools available",
+    "warning": "You have {{count}} tools enabled. Consider disabling unused tools for better performance (recommended: <40).",
+    "over_limit": "You have {{count}} tools enabled. This exceeds the recommended limit of 80 and may significantly impact performance."
   }
 }

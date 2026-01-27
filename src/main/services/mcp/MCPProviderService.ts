@@ -125,6 +125,7 @@ export class MCPProviderService {
     return {
       id: server.id,
       name: server.name,
+      displayName: server.displayName,
       description: server.description,
       category: server.category,
       icon: server.icon,

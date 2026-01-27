@@ -130,15 +130,16 @@ function searchMCPServers(
         .filter(entry => !configuredIds.has(entry.id)) // Exclude configured
         .map(entry => {
             let score = 0;
+            const displayName = entry.displayName || entry.name;
             const searchableText = [
-                entry.name,
+                displayName,
                 entry.description,
                 entry.category,
                 entry.id
             ].join(' ').toLowerCase();
 
             // Exact match in name gets highest score
-            if (entry.name.toLowerCase().includes(queryLower)) score += 10;
+            if (displayName.toLowerCase().includes(queryLower)) score += 10;
 
             // ID match
             if (entry.id.toLowerCase().includes(queryLower)) score += 8;
@@ -159,7 +160,7 @@ function searchMCPServers(
 
     return scored.map(({ entry }) => ({
         id: entry.id,
-        name: entry.name,
+        name: entry.displayName || entry.name,
         description: entry.description,
         category: entry.category,
         icon: entry.icon,
