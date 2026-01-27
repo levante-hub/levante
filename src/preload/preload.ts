@@ -55,6 +55,7 @@ import { analyticsApi } from "./api/analytics";
 import { mermaidApi } from "./api/mermaid";
 import { widgetApi } from "./api/widget";
 import { announcementsApi } from "./api/announcements";
+import { skillsApi } from "./api/skills";
 
 // Re-export types for backwards compatibility
 export type {
@@ -751,6 +752,19 @@ export interface LevanteAPI {
       error?: string;
     }>;
   };
+
+  // Skills API
+  skills: {
+    list: () => Promise<{ success: boolean; data?: import('../types/skills').Skill[]; error?: string }>;
+    get: (id: string) => Promise<{ success: boolean; data?: import('../types/skills').Skill; error?: string }>;
+    getEnabled: () => Promise<{ success: boolean; data?: import('../types/skills').Skill[]; error?: string }>;
+    enable: (id: string) => Promise<{ success: boolean; error?: string }>;
+    disable: (id: string) => Promise<{ success: boolean; error?: string }>;
+    toggle: (id: string) => Promise<{ success: boolean; error?: string }>;
+    refresh: () => Promise<{ success: boolean; data?: import('../types/skills').Skill[]; error?: string }>;
+    getPath: () => Promise<{ success: boolean; data?: string; error?: string }>;
+    validate: (id: string) => Promise<{ success: boolean; data?: import('../types/skills').SkillValidationResult; error?: string }>;
+  };
 }
 
 // Assemble the complete API from modules
@@ -804,6 +818,9 @@ const api: LevanteAPI = {
 
   // Announcements API
   announcements: announcementsApi,
+
+  // Skills API
+  skills: skillsApi,
 };
 
 // Use `contextBridge` APIs to expose Electron APIs to

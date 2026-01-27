@@ -33,6 +33,7 @@
     "models": "Models",
     "settings": "Settings",
     "mcp": "MCP Store",
+    "skills": "Skills",
     "active_mcps": "Active MCPs",
     "inference": "Inference"
   },

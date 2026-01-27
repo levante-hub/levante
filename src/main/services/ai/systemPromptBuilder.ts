@@ -204,6 +204,22 @@ Example response format:
 Click the button above to add it. Once configured, I'll be able to help you with GitHub operations."`;
   }
 
+  // Add enabled skills context
+  try {
+    const { skillsService } = await import('../skills');
+    const skillsContext = skillsService.getSkillsForPrompt();
+    if (skillsContext) {
+      systemPrompt += skillsContext;
+      logger.aiSdk.debug('Skills context added to system prompt', {
+        enabledSkillsCount: skillsService.getEnabledSkills().length
+      });
+    }
+  } catch (error) {
+    logger.aiSdk.debug('Failed to load skills context (skills may not be initialized)', {
+      error: error instanceof Error ? error.message : error
+    });
+  }
+
   // Debug log for final system prompt
   logger.aiSdk.debug('Final system prompt generated', {
     enabled: personalization?.enabled || false,

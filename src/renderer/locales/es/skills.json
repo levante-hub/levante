@@ -1,0 +1,15 @@
+{
+  "title": "Agent Skills",
+  "subtitle": "Extiende las capacidades de la IA con skills personalizados",
+  "refresh": "Actualizar",
+  "open_folder": "Abrir Carpeta",
+  "total_skills": "{{count}} skills",
+  "enabled_skills": "{{count}} activos",
+  "empty_title": "No se encontraron skills",
+  "empty_description": "Crea una carpeta con un archivo SKILL.md en tu directorio de skills para empezar. Los skills siguen el estándar Agent Skills (agentskills.io).",
+  "open_skills_folder": "Abrir Carpeta de Skills",
+  "toggle_skill": "Alternar skill",
+  "active": "Activo",
+  "skill_enabled": "Skill activado",
+  "skill_disabled": "Skill desactivado"
+}

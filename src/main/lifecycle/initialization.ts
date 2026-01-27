@@ -30,6 +30,8 @@ import { setupAttachmentHandlers } from "../ipc/attachmentHandlers";
 import { registerAnalyticsHandlers } from "../ipc/analyticsHandlers";
 import { setupWidgetHandlers } from "../ipc/widgetHandlers";
 import { setupAnnouncementHandlers } from "../ipc/announcementHandlers";
+import { registerSkillsHandlers } from "../ipc/skillsHandlers";
+import { skillsService } from "../services/skills";
 
 const logger = getLogger();
 
@@ -104,6 +106,17 @@ export async function initializeServices(): Promise<void> {
       error: error instanceof Error ? error.message : error,
     });
   }
+
+  // 6. Initialize skills service
+  try {
+    await skillsService.initialize();
+    logger.core.info("Skills service initialized successfully");
+  } catch (error) {
+    logger.core.error("Failed to initialize skills service", {
+      error: error instanceof Error ? error.message : error,
+    });
+    // Continue with degraded functionality - skills are optional
+  }
 }
 
 /**
@@ -131,6 +144,7 @@ export async function registerIPCHandlers(getMainWindow: () => BrowserWindow | n
   setupOAuthHandlers();
   setupWidgetHandlers();
   setupAnnouncementHandlers();
+  registerSkillsHandlers();
 
   logger.core.info("All IPC handlers registered successfully");
 }

@@ -13,7 +13,7 @@ import {
   SidebarTrigger,
   useSidebar
 } from '@/components/ui/sidebar'
-import { MessageSquare, Settings, User, Bot, Store, Plus, PanelLeftClose, PanelLeft } from 'lucide-react'
+import { MessageSquare, Settings, User, Bot, Store, Plus, PanelLeftClose, PanelLeft, Sparkles } from 'lucide-react'
 import { getRendererLogger } from '@/services/logger'
 import { Button } from '@/components/ui/button'
 import { useTranslation } from 'react-i18next'
@@ -86,6 +86,15 @@ function MainLayoutContent({ children, title, currentPage, onPageChange, sidebar
         </SidebarContent>
         <SidebarFooter>
         <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              onClick={() => onPageChange?.('skills')}
+              isActive={currentPage === 'skills'}
+            >
+              <Sparkles className="w-4 h-4" />
+              {t('navigation.skills')}
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
               onClick={() => onPageChange?.('store')}

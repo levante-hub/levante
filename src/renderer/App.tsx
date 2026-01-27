@@ -4,6 +4,7 @@ import ChatPage from '@/pages/ChatPage'
 import SettingsPage from '@/pages/SettingsPage'
 import ModelPage from '@/pages/ModelPage'
 import StorePage from '@/pages/StorePage'
+import SkillsPage from '@/pages/SkillsPage'
 import { OnboardingWizard } from '@/pages/OnboardingWizard'
 import { MCPDeepLinkModal } from '@/components/mcp/deep-link/MCPDeepLinkModal'
 import { AnnouncementModal } from '@/components/announcements/AnnouncementModal'
@@ -418,6 +419,7 @@ function App() {
       case 'settings': return <SettingsPage />
       case 'model': return <ModelPage />
       case 'store': return <StorePage />
+      case 'skills': return <SkillsPage />
       default: return <ChatPage />
     }
   }

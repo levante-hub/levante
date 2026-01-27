@@ -1,0 +1,15 @@
+{
+  "title": "Agent Skills",
+  "subtitle": "Extend AI capabilities with custom skills",
+  "refresh": "Refresh",
+  "open_folder": "Open Folder",
+  "total_skills": "{{count}} skills",
+  "enabled_skills": "{{count}} enabled",
+  "empty_title": "No skills found",
+  "empty_description": "Create a folder with a SKILL.md file in your skills directory to get started. Skills follow the Agent Skills standard (agentskills.io).",
+  "open_skills_folder": "Open Skills Folder",
+  "toggle_skill": "Toggle skill",
+  "active": "Active",
+  "skill_enabled": "Skill enabled",
+  "skill_disabled": "Skill disabled"
+}
