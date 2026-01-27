@@ -5,7 +5,7 @@
  * Handles discovery, loading, and management of skills.
  */
 
-import { readdir, readFile, stat, mkdir } from 'fs/promises';
+import { readdir, readFile, writeFile, stat, mkdir } from 'fs/promises';
 import { join, basename } from 'path';
 import { existsSync } from 'fs';
 import matter from 'gray-matter';
@@ -70,7 +70,7 @@ class SkillsServiceImpl {
    * Get the skills config file path
    */
   private getConfigPath(): string {
-    return join(directoryService.getBasePath(), SKILLS_CONFIG_FILE);
+    return join(directoryService.getBaseDir(), SKILLS_CONFIG_FILE);
   }
 
   /**
@@ -100,9 +100,10 @@ class SkillsServiceImpl {
     const configPath = this.getConfigPath();
     
     try {
-      await directoryService.writeFile(
+      await writeFile(
         configPath,
-        JSON.stringify(this.config, null, 2)
+        JSON.stringify(this.config, null, 2),
+        'utf-8'
       );
       logger.core.debug('Saved skills config');
     } catch (error) {
