@@ -1,14 +1,23 @@
 /**
- * UIResourceMessage - Renders MCP UI Resources using @mcp-ui/client
- * Also provides OpenAI Apps SDK bridge compatibility for widgets that use window.openai API
+ * UIResourceMessage - Renders MCP UI Resources using @mcp-ui/client v6
+ *
+ * For MCP Apps (SEP-1865) widgets: Uses AppRenderer which handles the full
+ * JSON-RPC 2.0 protocol, ui/initialize handshake, and AppBridge internally.
+ *
+ * For OpenAI Apps SDK widgets: Uses widget proxy with bridge injection.
+ * For standard MCP-UI widgets: Uses UIResourceRenderer.
  */
 
 import React, { useState, useCallback, Suspense, useMemo, useEffect, useRef } from 'react';
 import {
   UIResourceRenderer,
+  AppRenderer,
   basicComponentLibrary,
   type UIActionResult,
+  type AppRendererHandle,
+  type SandboxConfig,
 } from '@mcp-ui/client';
+import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { useThemeDetector } from '@/hooks/useThemeDetector';
 import { useUIResourceActions } from '@/hooks/useUIResourceActions';
 import type { UIResource, UIResourceDisplayMode } from '@/types/ui-resource';
@@ -20,7 +29,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Maximize2, Minimize2, PictureInPicture2, X } from 'lucide-react';
+import { Maximize2, PictureInPicture2, X } from 'lucide-react';
 import { logger } from '@/services/logger';
 import { FullscreenChatInput } from './FullscreenChatInput';
 import type { UIMessage } from '@ai-sdk/react';
@@ -130,13 +139,75 @@ function UIResourceLoading() {
 }
 
 /**
+ * Error Boundary for UIResourceRenderer to catch initialization errors
+ */
+class UIResourceErrorBoundary extends React.Component<
+  { children: React.ReactNode; onError: (error: Error) => void },
+  { hasError: boolean }
+> {
+  constructor(props: { children: React.ReactNode; onError: (error: Error) => void }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    logger.mcp.error('UIResourceRenderer error caught by boundary', {
+      error: error.message,
+      componentStack: errorInfo.componentStack,
+    });
+
+    // Check if this is an MCP-UI initialization error
+    const isMcpUiError =
+      error.message?.includes('ui/initialize') ||
+      error.message?.includes('Method not found') ||
+      error.message?.includes('-32601');
+
+    if (isMcpUiError) {
+      const mcpUiError = new Error(
+        'Server does not support MCP-UI protocol. Only standard MCP tools/resources/prompts are available.'
+      );
+      this.props.onError(mcpUiError);
+    } else {
+      this.props.onError(error);
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return <UIResourceLoading />;
+    }
+    return this.props.children;
+  }
+}
+
+/**
  * Error boundary fallback
  */
 function UIResourceError({ error }: { error: Error }) {
+  const isMcpUiError = error.message.includes('MCP-UI') || error.message.includes('ui/initialize');
+
   return (
     <div className="flex flex-col items-center justify-center p-4 min-h-[100px] bg-destructive/10 border border-destructive/20 rounded-lg">
-      <p className="text-destructive text-sm font-medium">Failed to load widget</p>
-      <p className="text-muted-foreground text-xs mt-1">{error.message}</p>
+      <p className="text-destructive text-sm font-medium">
+        {isMcpUiError ? 'MCP-UI Not Supported' : 'Failed to load widget'}
+      </p>
+      <p className="text-muted-foreground text-xs mt-1 max-w-md text-center">
+        {isMcpUiError ? (
+          <>
+            This MCP server does not support UI widgets. You can still use its tools, resources, and prompts through chat.
+            <br />
+            <span className="text-xs opacity-75 mt-1 inline-block">
+              (Error: Method 'ui/initialize' not found)
+            </span>
+          </>
+        ) : (
+          error.message
+        )}
+      </p>
     </div>
   );
 }
@@ -171,6 +242,10 @@ export function UIResourceMessage({
   const [widgetId, setWidgetId] = useState<string | null>(null);
   // Track which HTML content we've already stored to avoid duplicates
   const storedHtmlRef = useRef<string | null | undefined>(null);
+
+  // Sandbox config for MCP Apps widgets (AppRenderer v6)
+  const [sandboxConfig, setSandboxConfig] = useState<SandboxConfig | null>(null);
+  const appRendererRef = useRef<AppRendererHandle>(null);
 
   // PiP dragging state
   const [pipPosition, setPipPosition] = useState({ x: 0, y: 0 });
@@ -292,16 +367,38 @@ export function UIResourceMessage({
     return { widgetHtmlContent: htmlContent, widgetBaseUrl: baseUrl };
   }, [resource]);
 
-  // Check if this is an HTML resource that needs the HTTP proxy
-  // Both MCP Apps and OpenAI SDK widgets need the proxy for:
-  // - Real origin (not null from srcdoc)
-  // - Permissive CSP for external scripts
-  // - Proper bridge injection based on protocol
-  const needsWidgetProxy = useMemo(() => {
-    // Use HTTP proxy for any widget with HTML content that uses a bridge protocol
-    const needsProxy = (isAppsSdkWidget || widgetProtocol === 'mcp-apps') && !!widgetHtmlContent;
+  // Fetch sandbox proxy URL for MCP Apps widgets using AppRenderer v6
+  useEffect(() => {
+    if (widgetProtocol !== 'mcp-apps') return;
 
-    return needsProxy;
+    let mounted = true;
+    async function fetchSandboxUrl() {
+      try {
+        const proxyInfo = await window.levante?.widget?.getProxyInfo();
+        if (!mounted || !proxyInfo?.success || !proxyInfo.port) return;
+
+        const sandboxUrl = new URL(`http://127.0.0.1:${proxyInfo.port}/sandbox-proxy`);
+        setSandboxConfig({
+          url: sandboxUrl,
+          permissions: 'allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-top-navigation-by-user-activation',
+        });
+        logger.mcp.debug('MCP Apps sandbox config ready', { port: proxyInfo.port });
+      } catch (err) {
+        logger.mcp.error('Failed to get sandbox proxy URL', { error: err });
+      }
+    }
+    fetchSandboxUrl();
+    return () => { mounted = false; };
+  }, [widgetProtocol]);
+
+  // Check if this is an HTML resource that needs the HTTP proxy
+  // Only OpenAI SDK widgets need the proxy (for bridge injection + real origin)
+  // MCP Apps widgets now use AppRenderer v6 which handles its own sandbox
+  const needsWidgetProxy = useMemo(() => {
+    // MCP Apps widgets use AppRenderer, not the proxy
+    if (widgetProtocol === 'mcp-apps') return false;
+    // Use HTTP proxy for OpenAI SDK widgets with HTML content
+    return isAppsSdkWidget && !!widgetHtmlContent;
   }, [isAppsSdkWidget, widgetProtocol, widgetHtmlContent]);
 
   // Store HTML content via widget HTTP proxy for Apps SDK widgets
@@ -396,10 +493,12 @@ export function UIResourceMessage({
     return () => window.removeEventListener('keydown', handleGlobalKeyDown, true);
   }, [displayMode]);
 
-  // Set up bridge event listeners for both MCP Apps (JSON-RPC 2.0) and OpenAI SDK
+  // Set up bridge event listeners for OpenAI SDK widgets (and MCP Apps fallback when AppRenderer not ready)
   useEffect(() => {
-    // Handle both MCP Apps and OpenAI SDK widgets
+    // Skip if neither Apps SDK nor MCP Apps
     if (!isAppsSdkWidget && widgetProtocol !== 'mcp-apps') return;
+    // If MCP Apps has AppRenderer ready, skip manual JSON-RPC handling
+    if (widgetProtocol === 'mcp-apps' && sandboxConfig) return;
 
     // Handle JSON-RPC 2.0 messages from MCP Apps (SEP-1865)
     const handleJsonRpcMessage = async (event: MessageEvent, data: any) => {
@@ -511,9 +610,50 @@ export function UIResourceMessage({
             break;
           }
 
+          case 'ui/initialize': {
+            // MCP-UI initialization request - widget wants to establish UI protocol
+            // Respond with host capabilities, info, and context
+            logger.mcp.info('[MCP Apps] Widget requesting UI initialization', {
+              appInfo: params.appInfo,
+              protocolVersion: params.protocolVersion,
+              appCapabilities: params.appCapabilities,
+            });
+            sendResponse({
+              protocolVersion: params.protocolVersion || '2025-11-21',
+              hostInfo: {
+                name: 'Levante',
+                version: '1.6.0',
+              },
+              hostCapabilities: {
+                tools: true,
+                resources: true,
+              },
+              hostContext: {
+                theme: theme || 'light',
+                locale: typeof navigator !== 'undefined' ? navigator.language : 'en-US',
+                displayMode: displayMode || 'inline',
+                maxHeight: 600,
+                userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'Levante/1.6.0',
+              },
+            });
+            break;
+          }
+
           case 'ui/notifications/initialized': {
             // Widget initialized notification
             logger.mcp.info('[MCP Apps] Widget initialized', { widgetId: params.widgetId });
+            break;
+          }
+
+          case 'ui/notifications/size-changed': {
+            // Widget size changed notification
+            logger.mcp.debug('[MCP Apps] Widget size changed', { width: params.width, height: params.height });
+            break;
+          }
+
+          case 'ui/notifications/log': {
+            // Widget log notification
+            logger.mcp.debug('[MCP Apps] Widget log', { level: params.level, message: params.message });
             break;
           }
 
@@ -748,7 +888,7 @@ export function UIResourceMessage({
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [isAppsSdkWidget, widgetProtocol, serverId, onToolCall, onPrompt]);
+  }, [isAppsSdkWidget, widgetProtocol, sandboxConfig, serverId, onToolCall, onPrompt]);
 
   // Build globals object for Apps SDK communication
   const buildGlobals = useCallback(() => ({
@@ -775,18 +915,34 @@ export function UIResourceMessage({
   const sendGlobalsToIframe = useCallback((targetWindow: Window) => {
     const globals = buildGlobals();
 
-    // Standard OpenAI Apps SDK format (primary)
-    targetWindow.postMessage({
-      type: 'openai:set_globals',
-      globals,
-    }, '*');
+    if (widgetProtocol === 'mcp-apps') {
+      // MCP Apps (SEP-1865) uses JSON-RPC 2.0 notifications
+      targetWindow.postMessage({
+        jsonrpc: '2.0',
+        method: 'ui/host-context-change',
+        params: globals,
+      }, '*');
+    } else if (widgetProtocol === 'openai-sdk' || isAppsSdkWidget) {
+      // OpenAI Apps SDK format
+      targetWindow.postMessage({
+        type: 'openai:set_globals',
+        globals,
+      }, '*');
 
-    // Legacy format for older widgets
-    targetWindow.postMessage({
-      type: 'openai-bridge-set-globals',
-      payload: globals,
-    }, '*');
-  }, [buildGlobals]);
+      // Legacy format for older widgets
+      targetWindow.postMessage({
+        type: 'openai-bridge-set-globals',
+        payload: globals,
+      }, '*');
+    } else {
+      // Default: JSON-RPC 2.0 notification
+      targetWindow.postMessage({
+        jsonrpc: '2.0',
+        method: 'ui/host-context-change',
+        params: globals,
+      }, '*');
+    }
+  }, [buildGlobals, widgetProtocol, isAppsSdkWidget]);
 
   // For Apps SDK widgets, send set_globals proactively after iframe loads
   // These widgets use external SDKs that don't send ui-lifecycle-iframe-ready
@@ -857,15 +1013,135 @@ export function UIResourceMessage({
       try {
         const result = await handleUIAction(action);
         return result;
-      } catch (err) {
+      } catch (err: any) {
+        const errorMessage = err?.message || String(err);
+
+        // Detect if server doesn't support MCP-UI protocol
+        // Error -32601 means "Method not found" in JSON-RPC
+        if (
+          errorMessage.includes('ui/initialize') ||
+          (errorMessage.includes('Method not found') && errorMessage.includes('ui')) ||
+          err?.code === -32601
+        ) {
+          logger.mcp.warn('MCP server does not support UI protocol', {
+            serverId,
+            error: errorMessage,
+            errorCode: err?.code,
+            note: 'This is expected for servers without MCP-UI capabilities',
+          });
+          setError(new Error('Server does not support MCP-UI protocol. Only standard MCP tools/resources/prompts are available.'));
+          return { status: 'error', data: { error: 'MCP-UI not supported by server' } };
+        }
+
         logger.mcp.error('UIResource action error', {
-          error: err instanceof Error ? err.message : String(err),
+          error: errorMessage,
         });
+        setError(err instanceof Error ? err : new Error(errorMessage));
         return { status: 'error' };
       }
     },
-    [handleUIAction]
+    [handleUIAction, serverId]
   );
+
+  // --- AppRenderer v6 callbacks for MCP Apps widgets ---
+
+  // Extract tool name from resource metadata for AppRenderer
+  const toolName = useMemo(() => {
+    const meta = resource.resource?._meta as Record<string, unknown> | undefined;
+    return (meta?.toolName as string) || getWidgetName(resource);
+  }, [resource]);
+
+  // Build host context for AppRenderer
+  const hostContext = useMemo(() => ({
+    theme: (theme === 'dark' ? 'dark' : 'light') as 'dark' | 'light',
+    locale: typeof navigator !== 'undefined' ? navigator.language : 'en-US',
+    displayMode: displayMode || 'inline',
+    maxHeight: displayMode === 'fullscreen' ? undefined : 600,
+  }), [theme, displayMode]);
+
+  // Build toolResult for AppRenderer from bridge options
+  const appToolResult = useMemo<CallToolResult | undefined>(() => {
+    if (!bridgeOptions?.toolOutput) return undefined;
+    const output = bridgeOptions.toolOutput;
+    // If it already has a content array, use it directly
+    if (Array.isArray(output.content)) {
+      return output as CallToolResult;
+    }
+    // Wrap in standard CallToolResult format
+    return {
+      content: [{ type: 'text', text: JSON.stringify(output) }],
+    };
+  }, [bridgeOptions]);
+
+  // Handle tool calls from MCP Apps widget via IPC
+  const handleAppCallTool = useCallback(async (params: { name: string; arguments?: Record<string, unknown> }) => {
+    logger.mcp.info('[MCP Apps] AppRenderer tool call', { toolName: params.name, serverId });
+    if (serverId && window.levante?.mcp?.callTool) {
+      const result = await window.levante.mcp.callTool(serverId, {
+        name: params.name,
+        arguments: params.arguments || {},
+      });
+      const data = (result?.data || result) as any;
+      return {
+        content: data?.content || [],
+        structuredContent: data?.structuredContent,
+        _meta: data?._meta,
+      } as CallToolResult;
+    }
+    throw new Error('MCP service not available');
+  }, [serverId]);
+
+  // Handle resource read from MCP Apps widget via IPC
+  const handleAppReadResource = useCallback(async (params: { uri: string }) => {
+    logger.mcp.info('[MCP Apps] AppRenderer read resource', { uri: params.uri, serverId });
+    if (serverId && window.levante?.mcp?.readResource) {
+      const result = await window.levante.mcp.readResource(serverId, params.uri);
+      const data = (result?.data || result) as any;
+      return { contents: data?.contents || [] };
+    }
+    throw new Error('MCP service not available');
+  }, [serverId]);
+
+  // Handle open link from MCP Apps widget
+  const handleAppOpenLink = useCallback(async (params: { url: string }) => {
+    logger.mcp.info('[MCP Apps] AppRenderer open link', { url: params.url });
+    if (params.url) {
+      window.levante?.openExternal?.(params.url);
+    }
+    return {};
+  }, []);
+
+  // Handle message from MCP Apps widget (chat prompt)
+  // The v6 API sends { role: 'user', content: ContentBlock[] }
+  const handleAppMessage = useCallback(async (params: { role: string; content: Array<{ type: string; text?: string }> }) => {
+    const text = params.content
+      ?.filter((block) => block.type === 'text' && block.text)
+      .map((block) => block.text)
+      .join('\n');
+    logger.mcp.info('[MCP Apps] AppRenderer message', { text, role: params.role });
+    if (text && onPrompt) {
+      onPrompt(text);
+    }
+    return {};
+  }, [onPrompt]);
+
+  // Handle size changes from MCP Apps widget
+  const handleAppSizeChanged = useCallback((params: { width?: number; height?: number }) => {
+    logger.mcp.debug('[MCP Apps] AppRenderer size changed', params);
+  }, []);
+
+  // Handle logging messages from MCP Apps widget
+  const handleAppLoggingMessage = useCallback((params: { level?: string; data?: unknown }) => {
+    logger.mcp.debug('[MCP Apps] Widget log', params);
+  }, []);
+
+  // Handle errors from AppRenderer
+  const handleAppError = useCallback((err: Error) => {
+    logger.mcp.error('[MCP Apps] AppRenderer error', { error: err.message });
+    setError(err);
+  }, []);
+
+  // --- End AppRenderer v6 callbacks ---
 
   // Modal close handler - sends response back to widget
   const handleModalClose = useCallback((result?: unknown) => {
@@ -919,6 +1195,30 @@ export function UIResourceMessage({
     };
   }, [isDragging]);
 
+  // Check if this is an MCP Apps widget that should use AppRenderer v6
+  const useMcpAppsRenderer = widgetProtocol === 'mcp-apps' && !!widgetHtmlContent && !!sandboxConfig;
+  const isMcpAppsLoading = widgetProtocol === 'mcp-apps' && !!widgetHtmlContent && !sandboxConfig;
+
+  // Render function for MCP Apps widget content via AppRenderer v6
+  const renderMcpAppsWidget = () => (
+    <AppRenderer
+      ref={appRendererRef}
+      toolName={toolName}
+      html={widgetHtmlContent!}
+      sandbox={sandboxConfig!}
+      toolInput={bridgeOptions?.toolInput}
+      toolResult={appToolResult}
+      hostContext={hostContext}
+      onCallTool={handleAppCallTool}
+      onReadResource={handleAppReadResource}
+      onOpenLink={handleAppOpenLink}
+      onMessage={handleAppMessage}
+      onSizeChanged={handleAppSizeChanged}
+      onLoggingMessage={handleAppLoggingMessage}
+      onError={handleAppError}
+    />
+  );
+
   // Handle closed state
   if (isClosed) {
     return null;
@@ -931,7 +1231,6 @@ export function UIResourceMessage({
 
   // Inline mode
   if (displayMode === 'inline') {
-    // Show loading state while proxy URL is being fetched for widgets that need the proxy
     const isLoadingProxy = needsWidgetProxy && !widgetProxyUrl;
 
     return (
@@ -940,26 +1239,25 @@ export function UIResourceMessage({
         className={cn(
           'relative group rounded-lg overflow-hidden bg-background',
           'min-h-[100px]',
-          // Add focus styling for keyboard navigation
           'focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2',
           className
         )}
-        // Make container focusable for keyboard navigation
         tabIndex={0}
-        // Focus the iframe when container is clicked
         onClick={() => {
-          // Use direct ref for better performance
           if (iframeRef.current) {
             iframeRef.current.focus();
           } else {
-            // Fallback to querySelector
             const iframe = containerRef.current?.querySelector('iframe');
             if (iframe) iframe.focus();
           }
         }}
       >
-        {/* Show loading state while proxy URL is being fetched */}
-        {isLoadingProxy ? (
+        {/* MCP Apps widget via AppRenderer v6 */}
+        {useMcpAppsRenderer ? (
+          renderMcpAppsWidget()
+        ) : isMcpAppsLoading ? (
+          <UIResourceLoading />
+        ) : isLoadingProxy ? (
           <UIResourceLoading />
         ) : widgetProxyUrl ? (
           <iframe
@@ -976,51 +1274,43 @@ export function UIResourceMessage({
               border: 'none',
             }}
             onLoad={() => {
-              // Send globals to iframe after it loads
               if (iframeRef.current?.contentWindow) {
-                const globals = buildGlobals();
-                iframeRef.current.contentWindow.postMessage({
-                  type: 'openai:set_globals',
-                  globals,
-                }, '*');
+                sendGlobalsToIframe(iframeRef.current.contentWindow);
                 iframeRef.current.focus();
-                logger.mcp.debug('Widget proxy iframe loaded, sent globals', { widgetId });
+                logger.mcp.debug('Widget proxy iframe loaded, sent globals', { widgetId, protocol: widgetProtocol });
               }
             }}
           />
         ) : (
-          <Suspense fallback={<UIResourceLoading />}>
-            <UIResourceRenderer
-              resource={rendererResource}
-              onUIAction={onUIAction}
-              htmlProps={{
-                // Note: For non-Apps SDK widgets, use standard rendering
-                iframeRenderData: {
-                  theme,
-                  locale: typeof navigator !== 'undefined' ? navigator.language : 'en',
-                  // Pass widget data for the HTML template to access
-                  ...widgetData,
-                },
-                // Auto-resize iframe based on content height
-                autoResizeIframe: { height: true },
-                // Allow widget interactivity while maintaining security
-                sandboxPermissions: 'allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-top-navigation-by-user-activation',
-                style: {
-                  width: '100%',
-                  minHeight: '100px',
-                  border: 'none',
-                },
-                // Pass iframe ref for direct focus control (MCP-UI recommended)
-                iframeProps: {
-                  ref: iframeRef as React.RefObject<HTMLIFrameElement>,
-                  title: 'MCP Widget',
-                },
-              }}
-              remoteDomProps={{
-                library: basicComponentLibrary,
-              }}
-            />
-          </Suspense>
+          <UIResourceErrorBoundary onError={setError}>
+            <Suspense fallback={<UIResourceLoading />}>
+              <UIResourceRenderer
+                resource={rendererResource}
+                onUIAction={onUIAction}
+                htmlProps={{
+                  iframeRenderData: {
+                    theme,
+                    locale: typeof navigator !== 'undefined' ? navigator.language : 'en',
+                    ...widgetData,
+                  },
+                  autoResizeIframe: { height: true },
+                  sandboxPermissions: 'allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-top-navigation-by-user-activation',
+                  style: {
+                    width: '100%',
+                    minHeight: '100px',
+                    border: 'none',
+                  },
+                  iframeProps: {
+                    ref: iframeRef as React.RefObject<HTMLIFrameElement>,
+                    title: 'MCP Widget',
+                  },
+                }}
+                remoteDomProps={{
+                  library: basicComponentLibrary,
+                }}
+              />
+            </Suspense>
+          </UIResourceErrorBoundary>
         )}
         <WidgetControls mode={displayMode} onModeChange={setDisplayMode} />
       </div>
@@ -1043,7 +1333,11 @@ export function UIResourceMessage({
             if (iframe) iframe.focus();
           }}
         >
-          {isLoadingProxy ? (
+          {useMcpAppsRenderer ? (
+            renderMcpAppsWidget()
+          ) : isMcpAppsLoading ? (
+            <UIResourceLoading />
+          ) : isLoadingProxy ? (
             <UIResourceLoading />
           ) : widgetProxyUrl ? (
             <iframe
@@ -1060,39 +1354,37 @@ export function UIResourceMessage({
               onLoad={(e) => {
                 const iframe = e.currentTarget;
                 if (iframe.contentWindow) {
-                  const globals = { ...buildGlobals(), displayMode: 'fullscreen' };
-                  iframe.contentWindow.postMessage({
-                    type: 'openai:set_globals',
-                    globals,
-                  }, '*');
+                  sendGlobalsToIframe(iframe.contentWindow);
                   iframe.focus();
                 }
               }}
             />
           ) : (
-            <Suspense fallback={<UIResourceLoading />}>
-              <UIResourceRenderer
-                resource={rendererResource}
-                onUIAction={onUIAction}
-                htmlProps={{
-                  iframeRenderData: {
-                    theme,
-                    locale: typeof navigator !== 'undefined' ? navigator.language : 'en',
-                    displayMode: 'fullscreen',
-                    ...widgetData,
-                  },
-                  sandboxPermissions: 'allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-top-navigation-by-user-activation',
-                  style: {
-                    width: '100%',
-                    height: '100%',
-                    border: 'none',
-                  },
-                }}
-                remoteDomProps={{
-                  library: basicComponentLibrary,
-                }}
-              />
-            </Suspense>
+            <UIResourceErrorBoundary onError={setError}>
+              <Suspense fallback={<UIResourceLoading />}>
+                <UIResourceRenderer
+                  resource={rendererResource}
+                  onUIAction={onUIAction}
+                  htmlProps={{
+                    iframeRenderData: {
+                      theme,
+                      locale: typeof navigator !== 'undefined' ? navigator.language : 'en',
+                      displayMode: 'fullscreen',
+                      ...widgetData,
+                    },
+                    sandboxPermissions: 'allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-top-navigation-by-user-activation',
+                    style: {
+                      width: '100%',
+                      height: '100%',
+                      border: 'none',
+                    },
+                  }}
+                  remoteDomProps={{
+                    library: basicComponentLibrary,
+                  }}
+                />
+              </Suspense>
+            </UIResourceErrorBoundary>
           )}
         </div>
 
@@ -1161,7 +1453,11 @@ export function UIResourceMessage({
               if (iframe) iframe.focus();
             }}
           >
-            {isLoadingProxy ? (
+            {useMcpAppsRenderer ? (
+              renderMcpAppsWidget()
+            ) : isMcpAppsLoading ? (
+              <UIResourceLoading />
+            ) : isLoadingProxy ? (
               <UIResourceLoading />
             ) : widgetProxyUrl ? (
               <iframe
@@ -1178,39 +1474,37 @@ export function UIResourceMessage({
                 onLoad={(e) => {
                   const iframe = e.currentTarget;
                   if (iframe.contentWindow) {
-                    const globals = { ...buildGlobals(), displayMode: 'pip' };
-                    iframe.contentWindow.postMessage({
-                      type: 'openai:set_globals',
-                      globals,
-                    }, '*');
+                    sendGlobalsToIframe(iframe.contentWindow);
                     iframe.focus();
                   }
                 }}
               />
             ) : (
-              <Suspense fallback={<UIResourceLoading />}>
-                <UIResourceRenderer
-                  resource={rendererResource}
-                  onUIAction={onUIAction}
-                  htmlProps={{
-                    iframeRenderData: {
-                      theme,
-                      locale: typeof navigator !== 'undefined' ? navigator.language : 'en',
-                      displayMode: 'pip',
-                      ...widgetData,
-                    },
-                    sandboxPermissions: 'allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-top-navigation-by-user-activation',
-                    style: {
-                      width: '100%',
-                      height: '100%',
-                      border: 'none',
-                    },
-                  }}
-                  remoteDomProps={{
-                    library: basicComponentLibrary,
-                  }}
-                />
-              </Suspense>
+              <UIResourceErrorBoundary onError={setError}>
+                <Suspense fallback={<UIResourceLoading />}>
+                  <UIResourceRenderer
+                    resource={rendererResource}
+                    onUIAction={onUIAction}
+                    htmlProps={{
+                      iframeRenderData: {
+                        theme,
+                        locale: typeof navigator !== 'undefined' ? navigator.language : 'en',
+                        displayMode: 'pip',
+                        ...widgetData,
+                      },
+                      sandboxPermissions: 'allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-top-navigation-by-user-activation',
+                      style: {
+                        width: '100%',
+                        height: '100%',
+                        border: 'none',
+                      },
+                    }}
+                    remoteDomProps={{
+                      library: basicComponentLibrary,
+                    }}
+                  />
+                </Suspense>
+              </UIResourceErrorBoundary>
             )}
           </div>
         </div>
@@ -1259,15 +1553,26 @@ export function UIResourceMessage({
                 onLoad={(e) => {
                   const iframe = e.currentTarget;
                   if (iframe.contentWindow) {
-                    // Send globals to modal iframe
-                    iframe.contentWindow.postMessage({
-                      type: 'openai:set_globals',
-                      globals: {
-                        ...buildGlobals(),
-                        isModal: true,
-                        modalId: modalRequest.modalId,
-                      },
-                    }, '*');
+                    // Send globals to modal iframe using correct protocol
+                    const globals = {
+                      ...buildGlobals(),
+                      isModal: true,
+                      modalId: modalRequest.modalId,
+                    };
+
+                    // Send in correct format based on widget protocol
+                    if (widgetProtocol === 'mcp-apps') {
+                      iframe.contentWindow.postMessage({
+                        jsonrpc: '2.0',
+                        method: 'ui/host-context-change',
+                        params: globals,
+                      }, '*');
+                    } else {
+                      iframe.contentWindow.postMessage({
+                        type: 'openai:set_globals',
+                        globals,
+                      }, '*');
+                    }
                   }
                 }}
               />

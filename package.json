@@ -44,9 +44,9 @@
     "@huggingface/inference": "^4.13.5",
     "@lancedb/lancedb": "^0.23.0",
     "@libsql/client": "^0.15.12",
-    "@mcp-ui/client": "^5.17.1",
-    "@mcp-ui/server": "^5.16.3",
-    "@modelcontextprotocol/sdk": "^1.25.2",
+    "@mcp-ui/client": "^6.0.0",
+    "@mcp-ui/server": "^6.0.1",
+    "@modelcontextprotocol/sdk": "1.26.0",
     "@openrouter/ai-sdk-provider": "^1.5.4",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",
@@ -98,7 +98,7 @@
     "keytar": "^7.9.0",
     "langchain": "^1.2.3",
     "lucide-react": "^0.541.0",
-    "mcp-use": "^1.13.4",
+    "mcp-use": "^1.16.4",
     "mermaid": "^11.12.2",
     "next-themes": "^0.4.6",
     "pdf-parse": "^2.4.5",
@@ -161,7 +161,7 @@
     "vitest": "^3.2.4"
   },
   "engines": {
-    "node": ">=22.20.0",
+    "node": ">=22.22.0",
     "pnpm": ">=8.0.0"
   },
   "packageManager": "pnpm@9.4.0",

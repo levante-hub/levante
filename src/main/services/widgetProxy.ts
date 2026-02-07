@@ -215,6 +215,12 @@ function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): voi
     return;
   }
 
+  // Serve MCP Apps sandbox proxy HTML (used by AppRenderer from @mcp-ui/client v6)
+  if (url.pathname === '/sandbox-proxy') {
+    handleSandboxProxy(res);
+    return;
+  }
+
   // Handle /_next/image proxy requests (for Next.js Image optimization)
   if (url.pathname === '/_next/image') {
     handleNextImageProxy(url, res);
@@ -237,6 +243,77 @@ function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): voi
 
   res.writeHead(404, { 'Content-Type': 'text/plain' });
   res.end('Not found');
+}
+
+/**
+ * Serve the MCP Apps sandbox proxy HTML
+ * This is the thin proxy page used by @mcp-ui/client v6 AppRenderer.
+ *
+ * Uses a nested iframe with srcdoc to render widget HTML. This is necessary because:
+ * - AppBridge stores iframe.contentWindow reference at connect time (line 8510 in @mcp-ui/client)
+ * - PostMessageTransport checks event.source === storedContentWindow (line 8259)
+ * - document.write() causes contentWindow to become a stale reference in Chromium/Electron
+ * - Nested iframe keeps the outer contentWindow stable for source validation
+ *
+ * The sandbox proxy forwards ALL messages bidirectionally between host and widget.
+ * No sandbox/allow attributes on nested iframe (outer iframe already has sandbox from library).
+ */
+function handleSandboxProxy(res: http.ServerResponse): void {
+  const sandboxHtml = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<style>*{margin:0;padding:0}html,body,iframe{width:100%;height:100%;border:none;overflow:hidden}</style>
+</head><body><script>
+(function() {
+  var widgetFrame = null;
+  var pendingMessages = [];
+
+  window.addEventListener('message', function(event) {
+    var data = event.data;
+
+    if (event.source === window.parent) {
+      // From host (AppBridge) → intercept sandbox-resource-ready, forward rest to widget
+      if (data && typeof data === 'object' && data.method === 'ui/notifications/sandbox-resource-ready') {
+        var html = data.params && data.params.html;
+        if (html) {
+          widgetFrame = document.createElement('iframe');
+          widgetFrame.style.cssText = 'width:100%;height:100%;border:none;';
+          widgetFrame.srcdoc = html;
+          document.body.appendChild(widgetFrame);
+          widgetFrame.addEventListener('load', function() {
+            for (var i = 0; i < pendingMessages.length; i++) {
+              widgetFrame.contentWindow.postMessage(pendingMessages[i], '*');
+            }
+            pendingMessages = [];
+          });
+        }
+        return;
+      }
+      // Forward all other messages to widget
+      if (widgetFrame && widgetFrame.contentWindow) {
+        widgetFrame.contentWindow.postMessage(data, '*');
+      } else {
+        pendingMessages.push(data);
+      }
+    } else if (widgetFrame && event.source === widgetFrame.contentWindow) {
+      // From widget → forward to host (AppBridge)
+      window.parent.postMessage(data, '*');
+    }
+  });
+
+  // Signal to parent that sandbox proxy is ready
+  window.parent.postMessage({
+    method: 'ui/notifications/sandbox-proxy-ready',
+    params: {}
+  }, '*');
+})();
+</script></body></html>`;
+
+  res.writeHead(200, {
+    'Content-Type': 'text/html; charset=utf-8',
+    'Content-Security-Policy': WIDGET_CSP,
+    'X-Content-Type-Options': 'nosniff',
+  });
+  res.end(sandboxHtml);
 }
 
 /**
