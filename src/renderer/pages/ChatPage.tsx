@@ -103,6 +103,9 @@ const ChatPage = () => {
   const justCreatedSessionRef = useRef(false);
   const [sessionCwdOverrides, setSessionCwdOverrides] = useState<Record<string, string>>({});
 
+  // Track if we're currently processing the pending first message (to avoid multiple executions)
+  const pendingMessageProcessingRef = useRef(false);
+
   const promptInputRef = useRef<HTMLTextAreaElement>(null);
 
   // Streaming context for mermaid processing
@@ -859,14 +862,17 @@ const ChatPage = () => {
 
   // Handle pending first message after session creation
   useEffect(() => {
-    if (pendingFirstMessage === null || !currentSession) {
+    // Guard: skip if no pending message, no session, or already processing
+    if (pendingFirstMessage === null || !currentSession || pendingMessageProcessingRef.current) {
       return;
     }
 
+    // Mark as processing to avoid multiple executions
+    pendingMessageProcessingRef.current = true;
+
     const messageText = pendingFirstMessage;
     const attachmentFiles = pendingFirstAttachments || [];
-    setPendingFirstMessage(null);
-    setPendingFirstAttachments(null);
+    // DON'T clear pendingFirstMessage here - keep it so isChatEmpty is false
 
     logger.core.info('Sending pending first message', {
       sessionId: currentSession.id,
@@ -966,6 +972,10 @@ const ChatPage = () => {
           }
         );
 
+        // Clear pending state AFTER sendMessageAI (status is now 'submitted')
+        setPendingFirstMessage(null);
+        setPendingFirstAttachments(null);
+
         if (savedAttachments.length > 0) {
           attachFilesToLatestUserMessage(savedAttachments);
         }
@@ -975,10 +985,16 @@ const ChatPage = () => {
           sessionId: currentSession.id,
         });
 
+        // Clear pending state on error too
+        setPendingFirstMessage(null);
+        setPendingFirstAttachments(null);
+
         setInput(messageText);
         if (attachmentFiles.length > 0) {
           setAttachedFiles(attachmentFiles);
         }
+      } finally {
+        pendingMessageProcessingRef.current = false;
       }
     };
 
@@ -1010,7 +1026,8 @@ const ChatPage = () => {
   }, [pendingPrompt, currentSession, setPendingPrompt]);
 
   // Check if chat is empty
-  const isChatEmpty = messages.length === 0 && status !== 'streaming';
+  // Consider pendingFirstMessage to show BreathingLogo while first message is being sent
+  const isChatEmpty = messages.length === 0 && status !== 'streaming' && pendingFirstMessage === null;
 
   // Show loading indicator while loading messages
   if (isLoadingMessages) {
