@@ -1306,10 +1306,12 @@ ChatPageWithProvider.getSidebarContent = (
   onDeleteProject?: (projectId: string, projectName: string, sessionCount: number) => void,
   coworkModeEnabled: boolean = false,
   effectiveCwd: string | null = null,
+  onExitProject?: () => void,
 ) => {
   return (
     <SidebarSections
       onNewChat={onNewChat}
+      onExitProject={onExitProject}
       loading={loading}
       coworkModeEnabled={coworkModeEnabled}
       effectiveCwd={effectiveCwd}

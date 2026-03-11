@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { Search, MessageSquare, FolderTree, FolderOpen, Plus, MoreVertical, Pencil, Trash2 } from 'lucide-react';
+import { Search, MessageSquare, FolderTree, FolderOpen, Plus, MoreVertical, Pencil, Trash2, ArrowLeft } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -34,6 +34,7 @@ type SidebarSection = 'chats' | 'files';
 export interface SidebarSectionsProps {
   chatListProps: Omit<ChatListContentProps, 'searchQuery'>;
   onNewChat: () => void;
+  onExitProject?: () => void;
   loading?: boolean;
   coworkModeEnabled: boolean;
   effectiveCwd: string | null;
@@ -42,6 +43,7 @@ export interface SidebarSectionsProps {
 export function SidebarSections({
   chatListProps,
   onNewChat,
+  onExitProject,
   loading,
   coworkModeEnabled,
   effectiveCwd,
@@ -73,100 +75,121 @@ export function SidebarSections({
     }
   }, [searchOpen]);
 
+  const isInsideProject = Boolean(selectedProjectId);
+
   return (
     <div className="flex flex-col h-full">
       {/* New Chat + Projects + Search */}
       <div className="px-2">
-        <Collapsible open={projectsOpen} onOpenChange={setProjectsOpen}>
+        {isInsideProject && onExitProject ? (
+          /* Inside a project: show back button + new chat */
           <SidebarMenu>
-            {/* New Chat */}
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={onExitProject}>
+                <ArrowLeft className="w-4 h-4" />
+                {t('chat_list.exit_project')}
+              </SidebarMenuButton>
+            </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton onClick={onNewChat} disabled={loading}>
                 <Plus className="w-4 h-4" />
                 {t('chat_list.new_chat')}
               </SidebarMenuButton>
             </SidebarMenuItem>
-
-            {/* Projects */}
-            <SidebarMenuItem>
-              <CollapsibleTrigger asChild>
-                <SidebarMenuButton>
-                  <FolderOpen className="w-4 h-4" />
-                  {t('chat_list.projects_section')}
-                  {projects.length > 0 && (
-                    <span className="ml-auto text-xs text-muted-foreground">
-                      {projects.length}
-                    </span>
-                  )}
-                </SidebarMenuButton>
-              </CollapsibleTrigger>
-            </SidebarMenuItem>
           </SidebarMenu>
+        ) : (
+          /* Normal view: new chat + projects collapsible */
+          <Collapsible open={projectsOpen} onOpenChange={setProjectsOpen}>
+            <SidebarMenu>
+              {/* New Chat */}
+              <SidebarMenuItem>
+                <SidebarMenuButton onClick={onNewChat} disabled={loading}>
+                  <Plus className="w-4 h-4" />
+                  {t('chat_list.new_chat')}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
 
-          <CollapsibleContent>
-            {projects.map((project) => (
-              <div
-                key={project.id}
-                className={cn(
-                  'group flex items-center gap-2 px-2 py-1.5 rounded-lg mx-2 mb-0.5 cursor-pointer',
-                  'hover:bg-accent/30 transition-colors',
-                  selectedProjectId === project.id && 'bg-accent/50'
-                )}
-                onClick={() => onProjectSelect?.(project)}
-              >
-                <FolderOpen size={14} className="shrink-0 text-muted-foreground" />
-                <span className="text-sm font-medium truncate flex-1">{project.name}</span>
+              {/* Projects */}
+              <SidebarMenuItem>
+                <CollapsibleTrigger asChild>
+                  <SidebarMenuButton>
+                    <FolderOpen className="w-4 h-4" />
+                    {t('chat_list.projects_section')}
+                    {projects.length > 0 && (
+                      <span className="ml-auto text-xs text-muted-foreground">
+                        {projects.length}
+                      </span>
+                    )}
+                  </SidebarMenuButton>
+                </CollapsibleTrigger>
+              </SidebarMenuItem>
+            </SidebarMenu>
 
-                {(onEditProject || onDeleteProject) && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="opacity-0 group-hover:opacity-100 transition-opacity h-5 w-5 p-0 shrink-0"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <MoreVertical size={12} />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      {onEditProject && (
-                        <DropdownMenuItem onSelect={() => onEditProject(project)}>
-                          <Pencil size={14} className="mr-2" />
-                          {t('chat_list.edit_project')}
-                        </DropdownMenuItem>
-                      )}
-                      {onDeleteProject && (
-                        <DropdownMenuItem
-                          onSelect={() =>
-                            onDeleteProject(
-                              project.id,
-                              project.name,
-                              sessions.filter((s) => s.project_id === project.id).length
-                            )
-                          }
-                          className="text-destructive focus:text-destructive"
+            <CollapsibleContent>
+              {projects.map((project) => (
+                <div
+                  key={project.id}
+                  className={cn(
+                    'group flex items-center gap-2 px-2 py-1.5 rounded-lg mx-2 mb-0.5 cursor-pointer',
+                    'hover:bg-accent/30 transition-colors',
+                    selectedProjectId === project.id && 'bg-accent/50'
+                  )}
+                  onClick={() => onProjectSelect?.(project)}
+                >
+                  <FolderOpen size={14} className="shrink-0 text-muted-foreground" />
+                  <span className="text-sm font-medium truncate flex-1">{project.name}</span>
+
+                  {(onEditProject || onDeleteProject) && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity h-5 w-5 p-0 shrink-0"
+                          onClick={(e) => e.stopPropagation()}
                         >
-                          <Trash2 size={14} className="mr-2" />
-                          {t('chat_list.delete_project')}
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-              </div>
-            ))}
+                          <MoreVertical size={12} />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {onEditProject && (
+                          <DropdownMenuItem onSelect={() => onEditProject(project)}>
+                            <Pencil size={14} className="mr-2" />
+                            {t('chat_list.edit_project')}
+                          </DropdownMenuItem>
+                        )}
+                        {onDeleteProject && (
+                          <DropdownMenuItem
+                            onSelect={() =>
+                              onDeleteProject(
+                                project.id,
+                                project.name,
+                                sessions.filter((s) => s.project_id === project.id).length
+                              )
+                          }
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 size={14} className="mr-2" />
+                            {t('chat_list.delete_project')}
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </div>
+              ))}
 
-            {projects.length === 0 && onCreateProject && (
-              <button
-                className="w-full text-xs text-muted-foreground hover:text-foreground px-4 py-2 text-left"
-                onClick={onCreateProject}
-              >
-                + {t('chat_list.new_project')}
-              </button>
-            )}
-          </CollapsibleContent>
-        </Collapsible>
+              {projects.length === 0 && onCreateProject && (
+                <button
+                  className="w-full text-xs text-muted-foreground hover:text-foreground px-4 py-2 text-left"
+                  onClick={onCreateProject}
+                >
+                  + {t('chat_list.new_project')}
+                </button>
+              )}
+            </CollapsibleContent>
+          </Collapsible>
+        )}
 
         {/* Search */}
         <SidebarMenu>

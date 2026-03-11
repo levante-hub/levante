@@ -59,6 +59,7 @@
     "new_conversation_in_project": "New conversation",
     "edit_project": "Edit",
     "delete_project": "Delete",
+    "exit_project": "All chats",
     "project_modal": {
       "title_create": "New Project",
       "title_edit": "Edit Project",

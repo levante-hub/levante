@@ -626,6 +626,12 @@ function App() {
     }
   }
 
+  // Handle exiting project scope back to all chats
+  const handleExitProject = () => {
+    setSelectedProject(null);
+    setCurrentPage('chat');
+  };
+
   // Handle new chat with navigation
   const handleNewChat = () => {
     if (selectedProject) {
@@ -677,6 +683,7 @@ function App() {
         },
         Boolean(coworkMode),
         effectiveSidebarCwd,
+        handleExitProject,
       );
     }
     return null;
