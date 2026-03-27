@@ -72,6 +72,7 @@ import { subscriptionOAuthApi } from "./api/subscriptionOAuth";
 import { filesystemApi } from "./api/filesystem";
 import { compactionApi } from "./api/compaction";
 import { contextBudgetApi } from "./api/contextBudget";
+import { originsApi } from "./api/origins";
 
 // Re-export types for backwards compatibility
 export type {
@@ -1001,6 +1002,18 @@ export interface LevanteAPI {
     }>;
   };
 
+  // Origins API
+  origins: {
+    telegram: {
+      start: () => Promise<{ success: boolean; data?: import('../types/origins').OriginStatusEvent; error?: string }>;
+      stop: () => Promise<{ success: boolean; error?: string }>;
+      status: () => Promise<{ success: boolean; data?: import('../types/origins').OriginStatusEvent; error?: string }>;
+      validateToken: (token: string) => Promise<{ success: boolean; data?: { username: string; firstName: string }; error?: string }>;
+      unlinkOwner: () => Promise<{ success: boolean; error?: string }>;
+      onStatusChange: (callback: (status: import('../types/origins').OriginStatusEvent) => void) => () => void;
+    };
+  };
+
   // Skills API
   skills: {
     getCatalog: () => Promise<import('../types/skills').IPCResult<import('../types/skills').SkillsCatalogResponse>>;
@@ -1093,6 +1106,9 @@ const api: LevanteAPI = {
 
   // Context Budget API
   contextBudget: contextBudgetApi,
+
+  // Origins API
+  origins: originsApi,
 
   // Skills API
   skills: skillsApi,

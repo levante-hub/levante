@@ -32,6 +32,7 @@ export class LoggerConfigService {
         core: true,            // Siempre habilitado
         analytics: true,       // Siempre habilitado
         oauth: !isProd,        // ← CAMBIO: solo en dev
+        telegram: !isProd,
       },
       output: {
         console: !isProd,      // ← CAMBIO: console solo en dev
@@ -88,6 +89,7 @@ export class LoggerConfigService {
         core: this.parseBoolean(env.DEBUG_CORE, defaultConfig.categories.core),
         analytics: this.parseBoolean(env.DEBUG_ANALYTICS, defaultConfig.categories.analytics),
         oauth: this.parseBoolean(env.DEBUG_OAUTH, defaultConfig.categories.oauth),
+        telegram: this.parseBoolean(env.DEBUG_TELEGRAM, defaultConfig.categories.telegram),
       },
       output: {
         console: isProd ? false : true,  // ← CAMBIO: override console en prod

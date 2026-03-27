@@ -8,3 +8,4 @@ export { DeveloperModeSection } from './DeveloperModeSection';
 export { RuntimesSection } from './RuntimesSection';
 export { MCPSection } from './MCPSection';
 export { ReasoningSection } from './ReasoningSection';
+export { OriginsSection } from './OriginsSection';

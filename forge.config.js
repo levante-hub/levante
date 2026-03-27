@@ -141,6 +141,22 @@ module.exports = {
         }
       }
 
+      // Copiar telegraf (external - AbortSignal incompatible when bundled by Vite)
+      console.log('  ✓ Finding telegraf dependencies...');
+      const telegrafDeps = await getAllDependencies('telegraf');
+
+      for (const dep of telegrafDeps) {
+        if (allDeps.has(dep) || updateAppDeps.has(dep) || winstonDeps.has(dep) || winstonRotateDeps.has(dep)) continue;
+
+        const srcPath = path.join(projectNodeModules, dep);
+        const destPath = path.join(packageNodeModules, dep);
+
+        if (await fs.pathExists(srcPath)) {
+          console.log(`    - ${dep}`);
+          await fs.copy(srcPath, destPath, { overwrite: true, dereference: true });
+        }
+      }
+
       // NOTE: mcp-use bundled by Vite, only winston kept external for Logger
 
       console.log(`✅ Copied external dependencies successfully`);

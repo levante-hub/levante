@@ -39,6 +39,7 @@ import { setupSubscriptionOAuthHandlers } from "../ipc/subscriptionOAuthHandlers
 import { setupFileSystemHandlers } from "../ipc/fileSystemHandlers";
 import { setupCompactionHandlers } from "../ipc/compactionHandlers";
 import { setupContextBudgetHandlers } from "../ipc/contextBudgetHandlers";
+import { setupOriginsHandlers } from "../ipc/originsHandlers";
 import { registerPdfProtocol } from "../services/filesystem/pdfProtocolService";
 
 const logger = getLogger();
@@ -118,6 +119,25 @@ export async function initializeServices(): Promise<void> {
   // 6. Register PDF protocol handler
   registerPdfProtocol();
   logger.core.info("PDF protocol registered successfully");
+
+  // 7. Auto-start Origins (Telegram) if enabled
+  try {
+    const origins = preferencesService.get("origins") as
+      | { telegram?: { enabled?: boolean; botToken?: string } }
+      | undefined;
+    if (origins?.telegram?.enabled && origins.telegram.botToken) {
+      const { telegramService } = await import("../services/telegramService");
+      telegramService.start().catch((error) => {
+        logger.core.error("Failed to auto-start Telegram bot", {
+          error: error instanceof Error ? error.message : error,
+        });
+      });
+    }
+  } catch (error) {
+    logger.core.error("Failed to check Origins auto-start", {
+      error: error instanceof Error ? error.message : error,
+    });
+  }
 }
 
 /**
@@ -154,6 +174,7 @@ export async function registerIPCHandlers(getMainWindow: () => BrowserWindow | n
   setupPlatformHandlers();
   setupSubscriptionOAuthHandlers();
   setupFileSystemHandlers(getMainWindow);
+  setupOriginsHandlers();
 
   // Note: Log viewer handlers are registered separately in main.ts after window creation
 

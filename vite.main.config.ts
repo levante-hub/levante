@@ -37,6 +37,9 @@ export default defineConfig(({ command }) => {
         /^winston\/.*/,
         'winston-daily-rotate-file',
         // NOTE: mcp-use bundled by Vite, but winston kept external for Logger
+        // Telegraf must be external — its internal fetch/undici conflicts with Electron's AbortSignal when bundled
+        'telegraf',
+        /^telegraf\/.*/,
       ]
     }
   },

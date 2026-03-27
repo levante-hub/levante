@@ -59,6 +59,7 @@ export class Logger implements LoggerService {
   public readonly core: CategoryLogger;
   public readonly analytics: CategoryLogger;
   public readonly oauth: CategoryLogger;
+  public readonly telegram: CategoryLogger;
 
   constructor() {
     this.configService = new LoggerConfigService();
@@ -74,6 +75,7 @@ export class Logger implements LoggerService {
     this.core = new CategoryLoggerImpl('core', this, this.configService);
     this.analytics = new CategoryLoggerImpl('analytics', this, this.configService);
     this.oauth = new CategoryLoggerImpl('oauth', this, this.configService);
+    this.telegram = new CategoryLoggerImpl('telegram', this, this.configService);
   }
 
   // ← NUEVO: Crear Winston logger

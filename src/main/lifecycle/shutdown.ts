@@ -35,6 +35,17 @@ export async function gracefulShutdown(): Promise<void> {
     });
   }
 
+  // 0.5. Stop Telegram bot
+  try {
+    const { telegramService } = await import("../services/telegramService");
+    await telegramService.stop();
+    logger.core.info("Telegram bot stopped");
+  } catch (error) {
+    logger.core.error("Error stopping Telegram bot", {
+      error: error instanceof Error ? error.message : error,
+    });
+  }
+
   // 1. Disconnect all MCP servers
   try {
     await mcpService.disconnectAll();

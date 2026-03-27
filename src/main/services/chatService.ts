@@ -10,7 +10,8 @@ import {
   GetMessagesQuery,
   GetChatSessionsQuery,
   DatabaseResult,
-  PaginatedResult
+  PaginatedResult,
+  SessionType
 } from '../../types/database';
 import { getLogger } from './logging';
 import { escapeLikePattern } from '../utils/sqlSanitizer';
@@ -88,7 +89,7 @@ export class ChatService {
         id: row[0] as string,
         title: row[1] as string,
         model: row[2] as string,
-        session_type: (sessionType === 'chat' || sessionType === 'inference') ? sessionType : 'chat',
+        session_type: (sessionType === 'chat' || sessionType === 'inference' || sessionType === 'origin-telegram') ? sessionType as SessionType : 'chat',
         folder_id: row[4] as string,
         created_at: row[5] as number,
         updated_at: row[6] as number,
@@ -119,19 +120,25 @@ export class ChatService {
       const params: InValue[] = [];
       const countParams: InValue[] = [];
 
+      // Always exclude origin sessions from normal listing
+      const originFilter = "session_type NOT LIKE 'origin-%'";
+
       if (folder_id) {
-        sql += ' WHERE folder_id = ?';
-        countSql += ' WHERE folder_id = ?';
+        sql += ` WHERE ${originFilter} AND folder_id = ?`;
+        countSql += ` WHERE ${originFilter} AND folder_id = ?`;
         params.push(folder_id as InValue);
         countParams.push(folder_id as InValue);
       } else if (project_id === null) {
-        sql += ' WHERE project_id IS NULL';
-        countSql += ' WHERE project_id IS NULL';
+        sql += ` WHERE ${originFilter} AND project_id IS NULL`;
+        countSql += ` WHERE ${originFilter} AND project_id IS NULL`;
       } else if (project_id !== undefined) {
-        sql += ' WHERE project_id = ?';
-        countSql += ' WHERE project_id = ?';
+        sql += ` WHERE ${originFilter} AND project_id = ?`;
+        countSql += ` WHERE ${originFilter} AND project_id = ?`;
         params.push(project_id as InValue);
         countParams.push(project_id as InValue);
+      } else {
+        sql += ` WHERE ${originFilter}`;
+        countSql += ` WHERE ${originFilter}`;
       }
 
       sql += ' ORDER BY updated_at DESC LIMIT ? OFFSET ?';
@@ -150,7 +157,7 @@ export class ChatService {
           id: row[0] as string,
           title: row[1] as string,
           model: row[2] as string,
-          session_type: (sessionType === 'chat' || sessionType === 'inference') ? sessionType : 'chat',
+          session_type: (sessionType === 'chat' || sessionType === 'inference' || sessionType === 'origin-telegram') ? sessionType as SessionType : 'chat',
           folder_id: row[4] as string,
           created_at: row[5] as number,
           updated_at: row[6] as number,

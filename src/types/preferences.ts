@@ -1,6 +1,8 @@
 import type { ProviderConfig, ProviderType } from "./models";
 import type { ReasoningConfig } from "./reasoning";
 import { DEFAULT_REASONING_CONFIG } from "./reasoning";
+import type { OriginsPreferences } from "./origins";
+import { DEFAULT_ORIGINS_PREFERENCES } from "./origins";
 
 export interface MCPPreferences {
   /** MCP SDK selection */
@@ -97,6 +99,8 @@ export interface UIPreferences {
   coworkModeCwd: string | null;
   /** Enable other providers alongside Levante Platform in platform mode */
   useOtherProviders: boolean;
+  /** Origins configuration (Telegram, etc.) */
+  origins?: OriginsPreferences;
 }
 
 export type PreferenceKey = keyof UIPreferences;
@@ -168,5 +172,6 @@ export const DEFAULT_PREFERENCES: UIPreferences = {
   enableSkills: true,
   coworkMode: false,
   coworkModeCwd: null,
-  useOtherProviders: false
+  useOtherProviders: false,
+  origins: DEFAULT_ORIGINS_PREFERENCES,
 };

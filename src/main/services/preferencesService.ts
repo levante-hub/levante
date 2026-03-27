@@ -230,6 +230,24 @@ export class PreferencesService {
           useOtherProviders: {
             type: 'boolean',
             default: false
+          },
+          origins: {
+            type: 'object',
+            default: {},
+            properties: {
+              telegram: {
+                type: 'object',
+                properties: {
+                  botToken: { type: 'string', default: '' },
+                  ownerPassword: { type: 'string', default: '' },
+                  ownerChatId: { type: ['number', 'null'], default: null },
+                  model: { type: 'string', default: '' },
+                  systemPrompt: { type: 'string', default: 'You are a helpful AI assistant responding via Telegram. Be concise and clear. Format code blocks with triple backticks.' },
+                  enabled: { type: 'boolean', default: false },
+                  sessionId: { type: ['string', 'null'], default: null },
+                },
+              },
+            },
           }
         }
       });

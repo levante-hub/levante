@@ -26,7 +26,7 @@ const logger = getRendererLogger();
 interface Session {
   id: string;
   model?: string;
-  session_type?: 'chat' | 'inference';
+  session_type?: string;
 }
 
 interface UseModelSelectionOptions {

@@ -5,7 +5,7 @@
  * - 'chat': Normal conversational chat with LLMs
  * - 'inference': Hugging Face inference tasks (text-to-image, image-to-image, etc.)
  */
-export type SessionType = "chat" | "inference";
+export type SessionType = "chat" | "inference" | "origin-telegram";
 
 export interface Project {
   id: string;

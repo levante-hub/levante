@@ -8,7 +8,8 @@ import {
   ReasoningSection,
   DeveloperModeSection,
   RuntimesSection,
-  MCPSection
+  MCPSection,
+  OriginsSection
 } from '@/components/settings';
 import { usePlatformStore } from '@/stores/platformStore';
 import { usePreference } from '@/hooks/usePreferences';
@@ -52,6 +53,7 @@ const SettingsPage = () => {
         <DeveloperModeSection />
         {developerMode && <RuntimesSection />}
         <MCPSection />
+        <OriginsSection />
       </div>
     </div>
   );

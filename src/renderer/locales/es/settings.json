@@ -6,7 +6,8 @@
     "security": "Seguridad",
     "privacy": "Privacidad y Analytics",
     "ai_configuration": "Configuración de IA",
-    "mcp_configuration": "Configuración de MCP"
+    "mcp_configuration": "Configuración de MCP",
+    "origins": "Levante Origins"
   },
   "privacy": {
     "your_id": "Tu ID anónimo"
@@ -215,5 +216,34 @@
     "no_tools": "No hay herramientas disponibles",
     "warning": "Tienes {{count}} herramientas habilitadas. Considera deshabilitar las que no uses para mejorar el rendimiento (recomendado: <40).",
     "over_limit": "Tienes {{count}} herramientas habilitadas. Esto excede el límite recomendado de 80 y puede afectar significativamente el rendimiento."
+  },
+  "origins": {
+    "description": "Conecta canales de mensajería externos para interactuar con la IA de Levante. El bot funciona mientras la app de escritorio esté abierta.",
+    "save_button": "Guardar Origins",
+    "telegram": {
+      "bot_token": {
+        "label": "Bot Token",
+        "description": "Crea un bot en @BotFather en Telegram para obtener un token"
+      },
+      "owner_password": {
+        "label": "Contraseña de propietario",
+        "description": "La primera persona que envíe esta contraseña se vinculará como propietario",
+        "placeholder": "Establece una contraseña para autenticación"
+      },
+      "model": {
+        "label": "Modelo",
+        "description": "Modelo de IA para respuestas en Telegram (mismo formato que escritorio)"
+      },
+      "system_prompt": {
+        "label": "System Prompt",
+        "description": "Personaliza el comportamiento de la IA en Telegram"
+      },
+      "auto_start": {
+        "label": "Iniciar automáticamente con la app"
+      },
+      "owner_linked": "Propietario vinculado",
+      "owner_not_linked": "Propietario no vinculado",
+      "unlink": "Desvincular"
+    }
   }
 }
