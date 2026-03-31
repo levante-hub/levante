@@ -4,8 +4,6 @@ import type { ProviderConfig } from '../../../../types/models'
 // Mock dependencies
 const mockGetProfile = vi.fn()
 const mockIsAuthenticated = vi.fn()
-const mockGetAllowedModels = vi.fn()
-const mockGetStatus = vi.fn()
 const mockPreferencesGet = vi.fn()
 
 vi.mock('../../userProfileService', () => ({
@@ -17,8 +15,6 @@ vi.mock('../../userProfileService', () => ({
 vi.mock('../../platformService', () => ({
   platformService: {
     isAuthenticated: () => mockIsAuthenticated(),
-    getAllowedModels: () => mockGetAllowedModels(),
-    getStatus: () => mockGetStatus(),
   },
 }))
 
@@ -54,8 +50,6 @@ describe('resolveModelTarget', () => {
     vi.clearAllMocks()
     mockGetProfile.mockResolvedValue({ appMode: 'standalone' })
     mockIsAuthenticated.mockResolvedValue(false)
-    mockGetAllowedModels.mockReturnValue([])
-    mockGetStatus.mockResolvedValue({ isAuthenticated: false, user: null, allowedModels: [] })
     mockPreferencesGet.mockImplementation((key: string) => {
       if (key === 'providers') return [makeProvider()]
       if (key === 'useOtherProviders') return false
@@ -66,7 +60,6 @@ describe('resolveModelTarget', () => {
   it('qualified platform ref resolves to platform target', async () => {
     mockGetProfile.mockResolvedValue({ appMode: 'platform' })
     mockIsAuthenticated.mockResolvedValue(true)
-    mockGetAllowedModels.mockReturnValue(['gpt-4o'])
 
     const ref = buildModelRef('levante-platform', 'gpt-4o')
     const target = await resolveModelTarget(ref)
@@ -96,10 +89,9 @@ describe('resolveModelTarget', () => {
     expect(target.providerId).toBe('openrouter')
   })
 
-  it('raw legacy with platform collision prioritizes platform', async () => {
+  it('raw legacy in platform hybrid routes to platform when authenticated', async () => {
     mockGetProfile.mockResolvedValue({ appMode: 'platform' })
     mockIsAuthenticated.mockResolvedValue(true)
-    mockGetAllowedModels.mockReturnValue(['gpt-4o'])
     mockPreferencesGet.mockImplementation((key: string) => {
       if (key === 'providers') return [makeProvider()]
       if (key === 'useOtherProviders') return true
@@ -112,23 +104,25 @@ describe('resolveModelTarget', () => {
     expect(target.rawModelId).toBe('gpt-4o')
   })
 
-  it('raw legacy with multiple standalone providers throws ambiguity error', async () => {
+  it('raw legacy in platform hybrid falls back to standalone when auth expired', async () => {
+    mockGetProfile.mockResolvedValue({ appMode: 'platform' })
+    mockIsAuthenticated.mockResolvedValue(false)
     mockPreferencesGet.mockImplementation((key: string) => {
-      if (key === 'providers') {
-        return [
-          makeProvider({ id: 'openrouter', name: 'OpenRouter' }),
-          makeProvider({ id: 'openai', name: 'OpenAI', type: 'openai' }),
-        ]
-      }
-      if (key === 'useOtherProviders') return false
+      if (key === 'providers') return [makeProvider()]
+      if (key === 'useOtherProviders') return true
       return undefined
     })
 
-    // In standalone mode, findProviderForModel returns the first match.
-    // Ambiguity only occurs in platform hybrid mode
+    const target = await resolveModelTarget('gpt-4o')
+
+    expect(target.source).toBe('provider')
+    expect(target.rawModelId).toBe('gpt-4o')
+    expect(target.providerId).toBe('openrouter')
+  })
+
+  it('raw legacy with multiple standalone providers throws ambiguity error', async () => {
     mockGetProfile.mockResolvedValue({ appMode: 'platform' })
-    mockIsAuthenticated.mockResolvedValue(true)
-    mockGetAllowedModels.mockReturnValue([]) // Not in platform
+    mockIsAuthenticated.mockResolvedValue(false)
     mockPreferencesGet.mockImplementation((key: string) => {
       if (key === 'providers') {
         return [
@@ -175,5 +169,20 @@ describe('resolveModelTarget', () => {
 
     const ref = buildModelRef('levante-platform', 'gpt-4o')
     await expect(resolveModelTarget(ref)).rejects.toThrow('session expired')
+  })
+
+  it('raw legacy in platform pure routes to platform (server-side filtering)', async () => {
+    mockGetProfile.mockResolvedValue({ appMode: 'platform' })
+    mockIsAuthenticated.mockResolvedValue(true)
+    mockPreferencesGet.mockImplementation((key: string) => {
+      if (key === 'providers') return []
+      if (key === 'useOtherProviders') return false
+      return undefined
+    })
+
+    const target = await resolveModelTarget('mistral-large-3')
+
+    expect(target.source).toBe('platform')
+    expect(target.rawModelId).toBe('mistral-large-3')
   })
 })

@@ -1,4 +1,4 @@
-import { parseModelRef, isQualifiedModelRef, getRawModelId } from '../../../shared/modelRefs'
+import { parseModelRef, isQualifiedModelRef } from '../../../shared/modelRefs'
 import { platformService } from '../platformService'
 import { userProfileService } from '../userProfileService'
 import { getLogger } from '../logging'
@@ -43,11 +43,6 @@ function findProviderForModel(providers: ProviderConfig[], modelId: string): Pro
   })
 }
 
-function isPlatformModel(rawModelId: string): boolean {
-  const allowedModels = platformService.getAllowedModels()
-  return allowedModels.includes(rawModelId)
-}
-
 async function validatePlatformAuth(): Promise<void> {
   const isAuth = await platformService.isAuthenticated()
   if (!isAuth) {
@@ -65,18 +60,7 @@ export async function resolveModelTarget(modelRef: string): Promise<ResolvedMode
     const { providerId, modelId: rawModelId } = parsed
 
     if (providerId === 'levante-platform') {
-      // Validate platform auth
       await validatePlatformAuth()
-
-      // Validate model belongs to platform (refresh cache if needed)
-      if (!isPlatformModel(rawModelId)) {
-        await platformService.getStatus()
-        if (!isPlatformModel(rawModelId)) {
-          throw new Error(
-            `Model "${rawModelId}" is not available in your Levante Platform plan.`
-          )
-        }
-      }
 
       return {
         source: 'platform',
@@ -142,18 +126,9 @@ export async function resolveModelTarget(modelRef: string): Promise<ResolvedMode
   // Platform mode with raw value
   const useOtherProviders = await getUseOtherProviders()
 
-  // Case C: Legacy raw in platform pure
+  // Case C: Legacy raw in platform pure — send to platform, server filters by plan
   if (!useOtherProviders) {
     await validatePlatformAuth()
-
-    if (!isPlatformModel(modelRef)) {
-      await platformService.getStatus()
-      if (!isPlatformModel(modelRef)) {
-        throw new Error(
-          `Model "${modelRef}" is not available in your Levante Platform plan.`
-        )
-      }
-    }
 
     return {
       source: 'platform',
@@ -164,7 +139,19 @@ export async function resolveModelTarget(modelRef: string): Promise<ResolvedMode
     }
   }
 
-  // Case D: Legacy raw in platform hybrid
+  // Case D: Legacy raw in platform hybrid — platform has priority, fallback to standalone
+  const isAuth = await platformService.isAuthenticated()
+  if (isAuth) {
+    return {
+      source: 'platform',
+      providerId: 'levante-platform',
+      providerType: 'levante-platform',
+      rawModelId: modelRef,
+      storedModelRef: modelRef,
+    }
+  }
+
+  // Platform auth expired, try standalone providers
   const providers = await getProviders()
   const standaloneMatches = providers.filter((p) => {
     if (p.modelSource === 'dynamic') {
@@ -174,42 +161,11 @@ export async function resolveModelTarget(modelRef: string): Promise<ResolvedMode
     }
   })
 
-  const isInPlatform = isPlatformModel(modelRef)
-
-  if (isInPlatform) {
-    // Platform has priority, but we need auth
-    const isAuth = await platformService.isAuthenticated()
-    if (isAuth) {
-      return {
-        source: 'platform',
-        providerId: 'levante-platform',
-        providerType: 'levante-platform',
-        rawModelId: modelRef,
-        storedModelRef: modelRef,
-      }
-    }
-
-    // Platform auth expired but model exists in standalone too
-    if (standaloneMatches.length === 1) {
-      logger.aiSdk.warn('Platform auth expired, falling back to standalone provider', {
-        modelId: modelRef,
-        providerId: standaloneMatches[0].id,
-      })
-      return {
-        source: 'provider',
-        providerId: standaloneMatches[0].id,
-        providerType: standaloneMatches[0].type,
-        rawModelId: modelRef,
-        storedModelRef: modelRef,
-        provider: standaloneMatches[0],
-      }
-    }
-
-    throw new Error('Levante Platform session expired. Please log in again.')
-  }
-
-  // Not in platform
   if (standaloneMatches.length === 1) {
+    logger.aiSdk.warn('Platform auth expired, falling back to standalone provider', {
+      modelId: modelRef,
+      providerId: standaloneMatches[0].id,
+    })
     return {
       source: 'provider',
       providerId: standaloneMatches[0].id,
@@ -227,8 +183,5 @@ export async function resolveModelTarget(modelRef: string): Promise<ResolvedMode
     )
   }
 
-  // Not found anywhere
-  throw new Error(
-    `Model "${modelRef}" not found in any configured source. Please select a valid model.`
-  )
+  throw new Error('Levante Platform session expired. Please log in again.')
 }
