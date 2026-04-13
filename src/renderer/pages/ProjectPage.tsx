@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
-import { FolderOpen, ArrowUp, MoreVertical, Trash2, Loader2, AlertTriangle, RefreshCw } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { FolderOpen, ArrowUp, MoreVertical, Trash2, AlertTriangle } from 'lucide-react';
 import { ChatSession, Project } from '../../types/database';
 import { ModelSearchableSelect } from '@/components/ai-elements/model-searchable-select';
 import { Button } from '@/components/ui/button';

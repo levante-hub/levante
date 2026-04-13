@@ -100,7 +100,7 @@ export default function AccountPage() {
   const { t } = useTranslation('account');
   const { t: tc } = useTranslation('common');
   const { t: tChat } = useTranslation('chat');
-  const { user, models, isLoading, modelsLoading, modelsError, modelsLoadState, fetchModels, retryModels, logout } = usePlatformStore();
+  const { user, models, modelsLoading, modelsError, modelsLoadState, fetchModels, retryModels, logout } = usePlatformStore();
   const [useOtherProviders, setUseOtherProviders] = usePreference('useOtherProviders');
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showProvidersView, setShowProvidersView] = useState(false);

@@ -362,7 +362,7 @@ function App() {
     }
 
     const platformState = usePlatformStore.getState();
-    const { appMode: currentAppMode, models: currentPlatformModels, modelsLoadState } = platformState;
+    const { appMode: currentAppMode, modelsLoadState } = platformState;
 
     // In platform mode, ensure the catalog is initialized before resolving
     if (currentAppMode === 'platform' && modelsLoadState !== 'ready' && modelsLoadState !== 'error') {
