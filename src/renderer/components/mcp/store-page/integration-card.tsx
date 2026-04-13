@@ -12,7 +12,7 @@ import {
   Users,
   AlertTriangle,
   FlaskConical,
-  Server
+  Square
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -74,7 +74,6 @@ export function IntegrationCard({
   const description = entry?.description || t('server.custom_description');
   const category = entry?.category || 'custom';
   const logoUrl = entry?.logoUrl;
-  const icon = entry?.icon;
   const [logoError, setLogoError] = React.useState(false);
 
   // Get provider homepage if available
@@ -113,10 +112,8 @@ export function IntegrationCard({
                   className="w-full h-full object-contain"
                   onError={() => setLogoError(true)}
                 />
-              ) : icon ? (
-                <span className="text-xl">{icon}</span>
               ) : (
-                <Server className="w-5 h-5 text-muted-foreground" />
+                <Square className="w-5 h-5 text-muted-foreground" />
               )}
             </div>
             <div className="flex-1 min-w-0">

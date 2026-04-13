@@ -8,6 +8,7 @@ export type StreamingErrorCategory =
   | 'quota_exceeded'
   | 'unauthorized'
   | 'model_not_available'
+  | 'context_too_long'
   | 'unknown';
 
 export interface ClassifiedStreamingError {
@@ -68,6 +69,27 @@ const ERROR_PATTERNS: Array<{ category: StreamingErrorCategory; patterns: string
       'model does not exist',
     ],
     statusCodes: [404],
+  },
+  {
+    category: 'context_too_long',
+    patterns: [
+      'maximum context length',
+      'context length',
+      'context window',
+      'prompt is too long',
+      'prompt too long',
+      'input tokens exceed',
+      'input is too long',
+      'requested too many tokens',
+      'tokens exceed',
+      'too many tokens',
+      'request too large',
+      'request entity too large',
+      'payload size exceeds',
+      'content length exceeds',
+      'conversation too long',
+    ],
+    statusCodes: [413],
   },
 ];
 

@@ -1,6 +1,6 @@
 {
   "name": "levante",
-  "version": "1.7.5",
+  "version": "1.8.0",
   "description": "A friendly, private desktop chat app with AI and MCP integration",
   "main": ".vite/build/main.js",
   "homepage": "https://github.com/minte-community/levante",
@@ -97,7 +97,6 @@
     "input-otp": "^1.4.2",
     "jwt-decode": "^4.0.0",
     "katex": "^0.16.33",
-    "keytar": "^7.9.0",
     "langchain": "^1.2.28",
     "lexical": "^0.41.0",
     "lucide-react": "^0.541.0",
@@ -183,12 +182,22 @@
       "@langchain/core": "^1.1.8",
       "langchain": "^1.2.3",
       "react-router": ">=7.12.0",
-      "tar": ">=7.5.7",
+      "tar": ">=7.5.11",
       "minimatch": ">=9.0.7",
       "@electron/asar>minimatch": "^3.0.4",
       "rollup": ">=4.59.0",
-      "hono": ">=4.11.7",
-      "serialize-javascript": ">=7.0.3"
+      "hono": ">=4.12.7",
+      "serialize-javascript": ">=7.0.5",
+      "flatted": ">=3.4.2",
+      "picomatch": ">=4.0.4",
+      "path-to-regexp": ">=8.4.0",
+      "@xmldom/xmldom": "^0.8.12",
+      "lodash": ">=4.18.0",
+      "lodash-es": ">=4.18.0",
+      "brace-expansion": ">=5.0.5",
+      "express-rate-limit": ">=8.2.2",
+      "@hono/node-server": ">=1.19.10",
+      "@tootallnate/once": ">=3.0.1"
     }
   }
 }

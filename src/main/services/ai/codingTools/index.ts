@@ -18,9 +18,11 @@ import {
 import { createKillTaskTool, KillTaskToolConfig } from "./tools/kill-task";
 import { createListTasksTool, ListTasksToolConfig } from "./tools/list-tasks";
 import { createPresentFilesTool } from "./tools/present-files";
+import { createTodoWriteTool } from "./tools/todo-write";
 
 export interface CodingToolsConfig {
   cwd: string;
+  sessionId?: string;
   enabled?: {
     bash?: boolean;
     read?: boolean;
@@ -32,6 +34,7 @@ export interface CodingToolsConfig {
     taskOutput?: boolean;
     killTask?: boolean;
     listTasks?: boolean;
+    todoWrite?: boolean;
   };
   // Config específica por herramienta
   bash?: Partial<BashToolConfig>;
@@ -57,6 +60,7 @@ export function getCodingTools(config: CodingToolsConfig) {
     taskOutput: true,
     killTask: true,
     listTasks: true,
+    todoWrite: true,
     ...config.enabled,
   };
 
@@ -132,6 +136,10 @@ export function getCodingTools(config: CodingToolsConfig) {
   tools.present_files = createPresentFilesTool({
     cwd: config.cwd,
   });
+
+  if (enabled.todoWrite !== false) {
+    tools.todo_write = createTodoWriteTool();
+  }
 
   return tools;
 }

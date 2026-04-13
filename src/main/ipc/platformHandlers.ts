@@ -4,7 +4,8 @@
  */
 
 import { ipcMain } from 'electron';
-import { platformService } from '../services/platformService';
+import { platformService, PlatformModelFetchError } from '../services/platformService';
+import type { FetchModelsReason } from '../services/platformService';
 import { getLogger } from '../services/logging';
 
 const logger = getLogger();
@@ -69,17 +70,27 @@ export function setupPlatformHandlers(): void {
   });
 
   // Fetch models with metadata from platform API
-  ipcMain.handle('levante/platform/models', async (_, baseUrl?: string) => {
+  ipcMain.handle('levante/platform/models', async (_, payload?: { baseUrl?: string; reason?: FetchModelsReason } | string) => {
+    // Support legacy signature (plain string) and new payload object
+    const baseUrl = typeof payload === 'string' ? payload : payload?.baseUrl;
+    const reason = typeof payload === 'string' ? undefined : payload?.reason;
+
     try {
-      const models = await platformService.fetchModelsWithMetadata(baseUrl);
+      const models = await platformService.fetchModelsWithMetadata(baseUrl, reason);
       return { success: true, data: models };
     } catch (error) {
+      const code = error instanceof PlatformModelFetchError ? error.code : 'UNKNOWN';
+      const message = error instanceof Error ? error.message : 'Model fetch failed';
+
       logger.models.error('Platform model fetch failed', {
-        error: error instanceof Error ? error.message : error,
+        reason,
+        code,
+        error: message,
       });
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Model fetch failed',
+        error: message,
+        code,
       };
     }
   });

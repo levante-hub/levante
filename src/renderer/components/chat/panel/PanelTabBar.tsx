@@ -31,7 +31,7 @@ export function PanelTabBar({
   onOpenExternal,
 }: PanelTabBarProps) {
   return (
-    <div className="flex items-center gap-1 px-2 py-1.5 border-b shrink-0 bg-muted/30">
+    <div className="flex items-center gap-1 px-2 py-1.5 shrink-0 border-b border-[hsl(var(--panel-border))] bg-[hsl(var(--panel-muted))]">
       <Monitor size={13} className="text-muted-foreground shrink-0" />
 
       <div className="flex-1 flex items-center gap-1 overflow-x-auto min-w-0 scrollbar-none">

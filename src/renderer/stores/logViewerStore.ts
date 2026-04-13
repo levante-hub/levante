@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { devtools } from 'zustand/middleware';
 import type { LogCategory, LogLevel, LogEntryUI } from '../../main/types/logger';
 
 /**
@@ -57,8 +56,7 @@ const ALL_LEVELS: LogLevel[] = ['debug', 'info', 'warn', 'error'];
  * Create the log viewer store
  */
 export const useLogViewerStore = create<LogViewerState>()(
-  devtools(
-    (set, get) => ({
+  (set, get) => ({
       // Initial state
       entries: [],
       isWatching: false,
@@ -262,9 +260,7 @@ export const useLogViewerStore = create<LogViewerState>()(
       setError: (error) => {
         set({ error });
       },
-    }),
-    { name: 'LogViewerStore' }
-  )
+  })
 );
 
 /**

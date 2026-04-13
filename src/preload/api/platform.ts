@@ -15,8 +15,8 @@ export const platformApi = {
   getStatus: () =>
     ipcRenderer.invoke('levante/platform/status'),
 
-  getModels: (baseUrl?: string) =>
-    ipcRenderer.invoke('levante/platform/models', baseUrl),
+  getModels: (payload?: { baseUrl?: string; reason?: string } | string) =>
+    ipcRenderer.invoke('levante/platform/models', payload),
 
   getOrgId: (): Promise<{ success: boolean; data?: string }> =>
     ipcRenderer.invoke('levante/platform/org-id'),

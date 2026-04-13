@@ -5,6 +5,7 @@
  */
 
 import { useRef, useState, useCallback, useEffect } from 'react';
+import type { UIMessage } from '@ai-sdk/react';
 import { useSidePanelStore } from '@/stores/sidePanelStore';
 import { PanelTabBar, PanelContextBar, PanelContent } from './panel';
 import { useSidebar } from '@/components/ui/sidebar';
@@ -13,13 +14,20 @@ const MIN_PANEL_WIDTH = 320;
 const MIN_CHAT_WIDTH = 300;
 const DEFAULT_PANEL_WIDTH = 960;
 
-export function SidePanel() {
+interface SidePanelProps {
+  onPrompt?: (prompt: string) => void;
+  onSendMessage?: (text: string) => void;
+  chatMessages?: UIMessage[];
+}
+
+export function SidePanel({ onPrompt, onSendMessage, chatMessages }: SidePanelProps) {
   const tabs = useSidePanelStore((state) => state.tabs);
   const activeTabId = useSidePanelStore((state) => state.activeTabId);
   const isPanelOpen = useSidePanelStore((state) => state.isPanelOpen);
   const closeTab = useSidePanelStore((state) => state.closeTab);
   const setActiveTab = useSidePanelStore((state) => state.setActiveTab);
   const closePanel = useSidePanelStore((state) => state.closePanel);
+  const reloadWidgetTab = useSidePanelStore((state) => state.reloadWidgetTab);
 
   const { setOpen: setSidebarOpen } = useSidebar();
 
@@ -81,7 +89,14 @@ export function SidePanel() {
   );
 
   const handleReload = () => {
-    setIframeKey((value) => value + 1);
+    if (activeTab?.type === 'server') {
+      setIframeKey((value) => value + 1);
+      return;
+    }
+
+    if (activeTab?.type === 'widget') {
+      reloadWidgetTab(activeTab.id);
+    }
   };
 
   const handleOpenExternal = () => {
@@ -97,11 +112,11 @@ export function SidePanel() {
   return (
     <div ref={containerRef} className="flex shrink-0 h-full" style={{ width }}>
       <div
-        className="w-1 cursor-col-resize hover:bg-primary/30 active:bg-primary/50 transition-colors shrink-0 h-full"
+        className="h-full w-1.5 shrink-0 cursor-col-resize bg-transparent transition-colors hover:bg-[hsl(var(--panel-resize-handle))] active:bg-[hsl(var(--panel-border))]"
         onMouseDown={handleMouseDown}
       />
 
-      <div className="flex-1 min-h-0 min-w-0 flex flex-col border-l bg-background overflow-hidden">
+      <div className="flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden border-l border-[hsl(var(--panel-border))] bg-[hsl(var(--panel-background))] text-[hsl(var(--panel-foreground))] shadow-[-12px_0_28px_-24px_rgba(0,0,0,0.65)]">
         <PanelTabBar
           tabs={tabs}
           activeTabId={activeTabId}
@@ -115,7 +130,14 @@ export function SidePanel() {
 
         <PanelContextBar tab={activeTab} />
 
-        <PanelContent tab={activeTab} isDragging={isDragging} iframeKey={iframeKey} />
+        <PanelContent
+          tab={activeTab}
+          isDragging={isDragging}
+          iframeKey={iframeKey}
+          onPrompt={onPrompt}
+          onSendMessage={onSendMessage}
+          chatMessages={chatMessages}
+        />
       </div>
     </div>
   );

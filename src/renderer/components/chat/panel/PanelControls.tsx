@@ -60,6 +60,18 @@ export function PanelControls({ tab, onReload, onOpenExternal, onClose }: PanelC
         </>
       )}
 
+      {tab?.type === 'widget' && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6"
+          onClick={onReload}
+          title="Reload widget"
+        >
+          <RefreshCw size={12} />
+        </Button>
+      )}
+
       {tab?.type === 'file' && (
         <Button
           variant="ghost"

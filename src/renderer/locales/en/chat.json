@@ -16,6 +16,8 @@
     "no_models_found": "No models found.",
     "required_title": "Select a model",
     "required_description": "Choose a model before sending your message",
+    "load_error": "Failed to load models",
+    "retry": "Retry",
     "context": "{{count}} context",
     "context_k": "{{count}}k context",
     "private_badge": "Private"
@@ -112,7 +114,9 @@
     "no_conversations": "No conversations yet. Start a new one!",
     "untitled": "Untitled",
     "today": "Today",
-    "yesterday": "Yesterday"
+    "yesterday": "Yesterday",
+    "models_error": "Failed to load models",
+    "retry": "Retry"
   },
   "tools_menu": {
     "button_label": "Settings",
@@ -235,6 +239,12 @@
     "drop_to_reference": "Drop file to reference",
     "max_mentions_reached": "Maximum {{count}} file mentions per message"
   },
+  "todo_panel": {
+    "title": "Tasks",
+    "pending": "{{count}} pending",
+    "completed_ratio": "{{completed}}/{{total}}",
+    "in_progress": "{{count}} in progress"
+  },
   "background_tasks": {
     "title": "Background Tasks",
     "running_count": "{{count}} running",
@@ -274,6 +284,8 @@
     "tokens_remaining": "Tokens remaining",
     "context_unknown": "Context window unknown for this model/provider",
     "compact_success": "Conversation compacted",
-    "compact_error": "Could not compact"
+    "compact_success_degraded": "Conversation compacted (reduced mode, some details may have been summarized)",
+    "compact_error": "Could not compact",
+    "compact_error_context_too_long": "Could not compact: the conversation still exceeds the model limit after all reduction stages. Consider starting a new session."
   }
 }

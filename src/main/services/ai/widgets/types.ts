@@ -131,7 +131,9 @@ export function detectWidgetProtocol(
   toolResult?: { content?: Array<{ type: string; resource?: { uri?: string; mimeType?: string } }> }
 ): WidgetProtocol {
   // 1. Check for MCP Apps (SEP-1865)
-  if (toolMeta?.['ui/resourceUri']) {
+  // Support both nested format (_meta.ui.resourceUri — official spec/FastMCP)
+  // and flat key format (_meta["ui/resourceUri"] — legacy)
+  if (toolMeta?.['ui/resourceUri'] || (toolMeta?.ui as Record<string, unknown>)?.resourceUri) {
     return 'mcp-apps';
   }
 
@@ -185,7 +187,8 @@ export function extractWidgetMetadata(
 
   switch (protocol) {
     case 'mcp-apps':
-      metadata.resourceUri = toolMeta?.['ui/resourceUri'] as string;
+      metadata.resourceUri = (toolMeta?.['ui/resourceUri'] ||
+        (toolMeta?.ui as Record<string, unknown>)?.resourceUri) as string;
       break;
 
     case 'openai-sdk':

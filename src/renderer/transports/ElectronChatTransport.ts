@@ -191,6 +191,7 @@ export class ElectronChatTransport implements ChatTransport<UIMessage> {
       messages: contextMessages,
       model,
       enableMCP,
+      ...(chatId !== 'new-chat' && { sessionId: chatId }),
       ...(coworkMode && coworkModeCwd && {
         codeMode: {
           enabled: true,

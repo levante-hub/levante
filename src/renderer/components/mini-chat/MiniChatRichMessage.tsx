@@ -10,6 +10,7 @@ import { type UIMessage } from '@ai-sdk/react';
 import { Response } from '@/components/ai-elements/response';
 import { Wrench, CheckCircle2, XCircle, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { isToolHidden } from '@/constants/hiddenTools';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -166,6 +167,9 @@ export function MiniChatRichMessage({ message, isStreaming }: MiniChatRichMessag
         // Tool call part - clickeable to open in main window
         // In AI SDK v5, tool parts have type like 'tool-${toolName}'
         if (typeof part.type === 'string' && part.type.startsWith('tool-')) {
+          // Hide internal housekeeping tools from the UI
+          if (isToolHidden(part.type)) return null;
+
           const toolName = part.type.replace('tool-', '');
           const toolState = (part as any).state;
 

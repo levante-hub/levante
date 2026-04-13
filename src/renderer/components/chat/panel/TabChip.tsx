@@ -4,7 +4,7 @@
  * Individual tab button for unified panel tab bar.
  */
 
-import { X, FileCode, FileText, File } from 'lucide-react';
+import { X, FileCode, FileText, File, Puzzle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import type { PanelTab } from '@/stores/sidePanelStore';
@@ -43,6 +43,9 @@ function TabIcon({ tab }: { tab: PanelTab }) {
     case 'doc':
       return <FileText className="h-3 w-3 shrink-0 text-blue-400" />;
 
+    case 'widget':
+      return <Puzzle className="h-3 w-3 shrink-0 text-amber-500" />;
+
     default:
       return <File className="h-3 w-3 shrink-0" />;
   }
@@ -67,23 +70,30 @@ function TabLabel({ tab }: { tab: PanelTab }) {
     case 'doc':
       return <span className="max-w-[120px] truncate">{tab.fileName}</span>;
 
+    case 'widget':
+      return <span className="max-w-[120px] truncate">{tab.title}</span>;
+
     default:
       return null;
   }
 }
 
 export function TabChip({ tab, isActive, onSelect, onClose }: TabChipProps) {
-  const title = tab.type === 'server' ? tab.command : tab.filePath;
+  const title = tab.type === 'server'
+    ? tab.command
+    : tab.type === 'widget'
+      ? tab.title
+      : tab.filePath;
 
   return (
     <button
       type="button"
       onClick={onSelect}
       className={cn(
-        'flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md transition-colors shrink-0 group',
+        'flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md transition-colors shrink-0 group border border-transparent',
         isActive
-          ? 'bg-primary text-primary-foreground'
-          : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+          ? 'bg-background text-foreground border-[hsl(var(--panel-border))]'
+          : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
       )}
       title={title}
     >

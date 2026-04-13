@@ -339,7 +339,8 @@ function createAISDKTool(
         logger.aiSdk.debug("[AI-SDK] Widget protocol detection", {
           toolName: mcpTool.name,
           detectedProtocol,
-          hasUiResourceUri: !!toolMeta["ui/resourceUri"],
+          hasUiResourceUri: !!(toolMeta["ui/resourceUri"] || (toolMeta.ui as Record<string, unknown>)?.resourceUri),
+          hasUiResourceUriNested: !!(toolMeta.ui as Record<string, unknown>)?.resourceUri,
           hasOpenaiOutputTemplate: !!toolMeta["openai/outputTemplate"],
         });
 
@@ -413,8 +414,13 @@ function createAISDKTool(
         }
 
         // Check for MCP Apps (SEP-1865) widget format with ui/resourceUri
+        // Support both nested (_meta.ui.resourceUri — official spec/FastMCP)
+        // and flat key (_meta["ui/resourceUri"] — legacy)
         const uiResourceUri =
-          result._meta?.["ui/resourceUri"] || mcpTool._meta?.["ui/resourceUri"];
+          result._meta?.["ui/resourceUri"] ||
+          (result._meta?.ui as Record<string, unknown>)?.resourceUri ||
+          mcpTool._meta?.["ui/resourceUri"] ||
+          (mcpTool._meta?.ui as Record<string, unknown>)?.resourceUri;
         if (
           uiResourceUri &&
           typeof uiResourceUri === "string" &&

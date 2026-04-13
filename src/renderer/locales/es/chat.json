@@ -16,6 +16,8 @@
     "no_models_found": "No se encontraron modelos.",
     "required_title": "Selecciona un modelo",
     "required_description": "Elige un modelo antes de enviar tu mensaje",
+    "load_error": "Error al cargar modelos",
+    "retry": "Reintentar",
     "context": "{{count}} contexto",
     "context_k": "{{count}}k contexto",
     "private_badge": "Privado"
@@ -112,7 +114,9 @@
     "no_conversations": "No hay conversaciones aún. ¡Empieza una nueva!",
     "untitled": "Sin título",
     "today": "Hoy",
-    "yesterday": "Ayer"
+    "yesterday": "Ayer",
+    "models_error": "Error al cargar modelos",
+    "retry": "Reintentar"
   },
   "tools_menu": {
     "button_label": "Configuración",
@@ -235,6 +239,12 @@
     "drop_to_reference": "Suelta el archivo para referenciarlo",
     "max_mentions_reached": "Maximo {{count}} menciones de archivo por mensaje"
   },
+  "todo_panel": {
+    "title": "Tareas",
+    "pending": "{{count}} pendientes",
+    "completed_ratio": "{{completed}}/{{total}}",
+    "in_progress": "{{count}} en progreso"
+  },
   "background_tasks": {
     "title": "Tareas en Background",
     "running_count": "{{count}} ejecutándose",
@@ -274,6 +284,8 @@
     "tokens_remaining": "Tokens restantes",
     "context_unknown": "Context window desconocida para este modelo/proveedor",
     "compact_success": "Conversación compactada",
-    "compact_error": "No se pudo compactar"
+    "compact_success_degraded": "Conversación compactada en modo reducido; algunos detalles pueden haberse resumido",
+    "compact_error": "No se pudo compactar",
+    "compact_error_context_too_long": "No se pudo compactar: la conversación sigue excediendo el límite del modelo incluso tras todas las etapas de reducción. Considera iniciar una nueva sesión."
   }
 }

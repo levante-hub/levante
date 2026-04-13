@@ -25,10 +25,11 @@ import {
 import { ToolCall } from '@/components/ai-elements/tool-call';
 import { ToolApprovalInline } from '@/components/ai-elements/tool-approval';
 import { DiffViewer } from '@/components/ai-elements/diff-viewer';
-import { UIResourceMessage } from '@/components/chat/UIResourceMessage';
+import { isToolHidden } from '@/constants/hiddenTools';
 import { PresentedFilesCard } from './PresentedFilesCard';
+import { WidgetPlaceholder } from './WidgetPlaceholder';
 import { MessageAttachments } from '@/components/chat/MessageAttachments';
-import { extractUIResources } from '@/types/ui-resource';
+import { getWidgetTabsFromPart } from '@/lib/widgetTabs';
 import { cn } from '@/lib/utils';
 import { getRendererLogger } from '@/services/logger';
 import type { UIMessage } from '@ai-sdk/react';
@@ -347,6 +348,9 @@ export function ChatMessageItem({
 
                   // Tool calls (MCP)
                   if (part?.type?.startsWith('tool-')) {
+                    // Hide internal housekeeping tools from the UI
+                    if (isToolHidden(part.type)) return null;
+
                     // Si está esperando aprobación, mostrar UI de aprobación
                     if (part.state === 'approval-requested' && addToolApprovalResponse) {
                       const toolName = part.toolName || part.type.replace(/^tool-/, '');
@@ -397,6 +401,7 @@ export function ChatMessageItem({
                       <ToolCallPart
                         key={`${message.id}-${i}`}
                         part={part}
+                        partIndex={i}
                         messageId={message.id}
                         onPrompt={onPrompt}
                         onSendMessage={onSendMessage}
@@ -407,13 +412,17 @@ export function ChatMessageItem({
 
                   // Check for standalone UI resource parts (data parts)
                   if (part?.value?.type === 'ui-resource' && part?.value?.resource) {
+                    const standaloneWidgets = getWidgetTabsFromPart(part, message.id, i);
+
                     return (
-                      <UIResourceMessage
-                        key={`${message.id}-${i}`}
-                        resource={part.value.resource}
-                        className="w-full"
-                        onPrompt={onPrompt}
-                      />
+                      <div key={`${message.id}-${i}`} className="my-2 space-y-2">
+                        {standaloneWidgets.map((widget) => (
+                          <WidgetPlaceholder
+                            key={widget.id}
+                            widget={widget}
+                          />
+                        ))}
+                      </div>
                     );
                   }
 
@@ -518,13 +527,14 @@ export function ChatMessageItem({
 
 interface ToolCallPartProps {
   part: any;
+  partIndex: number;
   messageId: string;
   onPrompt: (prompt: string) => void;
   onSendMessage?: (text: string) => void;
   chatMessages?: UIMessage[];
 }
 
-function ToolCallPart({ part, messageId, onPrompt, onSendMessage, chatMessages }: ToolCallPartProps) {
+function ToolCallPart({ part, partIndex, messageId, onPrompt, onSendMessage, chatMessages }: ToolCallPartProps) {
   // Extract tool name from type if toolName field is not available
   // During streaming, AI SDK v5 doesn't include toolName field
   // Format: "tool-{toolName}" -> extract toolName
@@ -556,14 +566,8 @@ function ToolCallPart({ part, messageId, onPrompt, onSendMessage, chatMessages }
     status,
   };
 
-  // Check if tool output contains UI resources
-  const uiResources = part.state === 'output-available'
-    ? extractUIResources(part.output)
-    : [];
-
-  // Extract serverId from toolName (format: serverId_toolName)
-  const toolNameParts = toolName.split('_');
-  const serverId = toolNameParts.length > 1 ? toolNameParts[0] : undefined;
+  // Extract widget descriptors from tool output
+  const widgets = getWidgetTabsFromPart(part, messageId, partIndex);
 
   // Inline diff rendering for write/edit tools
   const normalizedToolName = toolName.trim().toLowerCase();
@@ -610,18 +614,12 @@ function ToolCallPart({ part, messageId, onPrompt, onSendMessage, chatMessages }
           </CollapsibleContent>
         </Collapsible>
       )}
-      {/* Render UI Resources from tool output - separated from tool call */}
-      {uiResources.length > 0 && (
-        <div className="my-4">
-          {uiResources.map((resource, resourceIdx) => (
-            <UIResourceMessage
-              key={`${messageId}-ui-${resourceIdx}`}
-              resource={resource}
-              serverId={serverId}
-              className="w-full"
-              onPrompt={onPrompt}
-              onSendMessage={onSendMessage}
-              chatMessages={chatMessages}
+      {widgets.length > 0 && (
+        <div className="my-2 space-y-2">
+          {widgets.map((widget) => (
+            <WidgetPlaceholder
+              key={widget.id}
+              widget={widget}
             />
           ))}
         </div>

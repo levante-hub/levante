@@ -273,17 +273,29 @@ export class MCPUseService implements IMCPService {
 
         const client = new MCPClient(clientConfig, clientOptions);
 
-        // Create and initialize session with timeout to prevent hanging on auth required
-        const createSessionWithTimeout = async (timeoutMs: number) => {
-          return Promise.race([
-            client.createSession(config.id, true),
-            new Promise<never>((_, reject) =>
-              setTimeout(() => reject(new Error('Connection timeout - authentication may be required')), timeoutMs)
-            )
-          ]);
+        // Create session without auto-initialize to inject MCP Apps extension capability
+        const session = await client.createSession(config.id, false);
+
+        // Inject MCP Apps (SEP-1865) extension capability before connection.
+        // mcp-use's MCPClient doesn't forward clientOptions to connectors,
+        // but connectors read opts.clientOptions.capabilities in buildClientOptions().
+        (session.connector as any).opts.clientOptions = {
+          capabilities: {
+            extensions: {
+              "io.modelcontextprotocol/ui": {
+                mimeTypes: ["text/html;profile=mcp-app"],
+              },
+            },
+          },
         };
 
-        const session = await createSessionWithTimeout(10000); // 10 second timeout
+        // Initialize with timeout (connector.connect() will include the extensions)
+        await Promise.race([
+          session.initialize(),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('Connection timeout - authentication may be required')), 10000)
+          )
+        ]);
 
         this.clients.set(config.id, client);
         this.sessions.set(config.id, session);

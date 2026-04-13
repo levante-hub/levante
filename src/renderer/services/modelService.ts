@@ -12,6 +12,7 @@ import { fetchGroqModels } from './model/providers/groqProvider';
 import { fetchXAIModels } from './model/providers/xAIProvider';
 import { fetchHuggingFaceModels } from './model/providers/huggingfaceProvider';
 import { classifyModel, getCompatibleCategories, type ModelClassification } from '../../utils/modelClassification';
+import { resolveFirstSyncSelectedIds } from './model/topModels';
 
 const logger = getRendererLogger();
 
@@ -689,7 +690,8 @@ class ModelServiceImpl {
           model.isSelected = selectedIds.has(model.id);
         });
       } else {
-        // No persisted selection state yet: preserve in-memory flags if present.
+        // No persisted selection state yet (first sync for this provider).
+        // Preserve any existing in-memory selection state if it already exists.
         const existingSelections: Record<string, boolean> = {};
         provider.models.forEach(m => {
           if (m.isSelected !== undefined) {
@@ -697,9 +699,20 @@ class ModelServiceImpl {
           }
         });
 
+        const hadExistingSelectionState = Object.keys(existingSelections).length > 0;
+        const selectedIds = resolveFirstSyncSelectedIds(models, provider.type, existingSelections);
+
         models.forEach(model => {
-          model.isSelected = existingSelections[model.id] ?? false;
+          model.isSelected = selectedIds.has(model.id);
         });
+
+        if (!hadExistingSelectionState && selectedIds.size > 0) {
+          logger.models.info('Auto-selected top models for new provider', {
+            providerId: provider.id,
+            providerType: provider.type,
+            count: selectedIds.size,
+          });
+        }
       }
 
       // Preserve user-defined models (inference models)

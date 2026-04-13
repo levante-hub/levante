@@ -58,7 +58,7 @@ async function handleChatStream(
   activeStreams.set(streamId, {
     cancel: () => {
       isCancelled = true;
-      logger.aiSdk.info("Stream cancelled", { streamId });
+      logger.aiSdk.info("Stream cancelled", { streamId, sessionId: request.sessionId });
     },
   });
 
@@ -125,7 +125,6 @@ async function handleStopStream(
     const streamControl = activeStreams.get(streamId);
     if (streamControl) {
       streamControl.cancel();
-      activeStreams.delete(streamId);
       logger.aiSdk.info("Stream stopped successfully", { streamId });
       return { success: true };
     } else {

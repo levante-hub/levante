@@ -64,6 +64,12 @@
     --sidebar-border: 22 16% 88%;       /* Warm sandy border */
 
     --sidebar-ring: 22 30% 52%;         /* Warm ring */
+
+    --panel-background: 24 22% 94%;
+    --panel-foreground: 20 12% 10%;
+    --panel-muted: 24 18% 92%;
+    --panel-border: 22 14% 84%;
+    --panel-resize-handle: 22 14% 80%;
   }
 
   .dark {
@@ -110,6 +116,12 @@
     --sidebar-accent-foreground: 0 0% 88%; /* #E0E0E0 */
     --sidebar-border: 0 0% 15.3%;       /* #272727 */
     --sidebar-ring: 0 0% 88%;           /* #E0E0E0 */
+
+    --panel-background: 0 0% 16.5%;
+    --panel-foreground: 0 0% 88%;
+    --panel-muted: 0 0% 19.5%;
+    --panel-border: 0 0% 28%;
+    --panel-resize-handle: 0 0% 34%;
   }
 }
 
@@ -212,6 +224,18 @@
     50% {
       transform: scale(1.05);
       opacity: 1;
+    }
+  }
+
+  /* Fade slide-in for inline todo items */
+  @keyframes fade-slide-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
     }
   }
 

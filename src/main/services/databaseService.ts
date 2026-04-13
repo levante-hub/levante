@@ -417,6 +417,13 @@ export class DatabaseService {
           `ALTER TABLE messages ADD COLUMN output_tokens INTEGER DEFAULT NULL`,
           `ALTER TABLE messages ADD COLUMN total_tokens INTEGER DEFAULT NULL`
         ]
+      },
+      {
+        version: 12,
+        name: 'Drop agent_todos table (moved to transcript-derived)',
+        queries: [
+          `DROP TABLE IF EXISTS agent_todos`
+        ]
       }
     ];
   }

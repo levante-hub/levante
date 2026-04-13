@@ -40,11 +40,16 @@ import { usePreference } from '@/hooks/usePreferences';
 import { useToolAutoApproval } from '@/hooks/useToolAutoApproval';
 import { SidePanel } from '@/components/chat/SidePanel';
 import { WebPreviewToast } from '@/components/chat/WebPreviewToast';
+import { useSidePanelStore } from '@/stores/sidePanelStore';
+import { getWidgetTabsFromMessage, getWidgetTabIdsFromMessages } from '@/lib/widgetTabs';
 import { useWebPreview } from '@/hooks/useWebPreview';
 import type { FileMentionPayload } from '@/components/chat/lexical/FileMentionNode';
 import { toast } from 'sonner';
 import { shouldAutoSendAfterApproval } from '@/utils/toolApprovalAutoSend';
 import { ContextUsageIndicator, type ContextUsageData } from '@/components/chat/ContextUsageIndicator';
+import { InlineTodoList } from '@/components/chat/TodoPanel';
+import { useTodoDerivation } from '@/hooks/useTodoDerivation';
+import { useTodoStore } from '@/stores/todoStore';
 import type { TokenUsage, ContextBudgetEstimate } from '../../preload/types';
 
 // AI SDK v5 imports
@@ -200,6 +205,7 @@ const ChatPage = () => {
   const updateLearnedOverhead = useChatStore((state) => state.updateLearnedOverhead);
   const recalculateContextBudget = useChatStore((state) => state.recalculateContextBudget);
   const currentSession = useChatStore((state) => state.currentSession);
+  const todosInProgress = useTodoStore((s) => s.todos.some((t) => t.status === 'in_progress'));
   const persistMessage = useChatStore((state) => state.persistMessage);
   const editMessage = useChatStore((state) => state.editMessage); // ← NEW
   const createSession = useChatStore((state) => state.createSession);
@@ -211,6 +217,11 @@ const ChatPage = () => {
   const setPendingPrompt = useChatStore((state) => state.setPendingPrompt);
   const skipNextHistoricalLoad = useChatStore((state) => state.skipNextHistoricalLoad);
   const setSkipNextHistoricalLoad = useChatStore((state) => state.setSkipNextHistoricalLoad);
+
+  // Widget panel store
+  const openWidgetTab = useSidePanelStore((state) => state.openWidgetTab);
+  const clearWidgetTabs = useSidePanelStore((state) => state.clearWidgetTabs);
+  const seenWidgetIdsRef = useRef<Set<string>>(new Set());
 
   // Track previous session ID to detect changes
   const previousSessionIdRef = useRef<string | null>(null);
@@ -250,6 +261,8 @@ const ChatPage = () => {
     filteredAvailableModels,
     groupedModelsByProvider,
     modelsLoading,
+    modelsError,
+    retryModels,
     currentModelInfo,
     modelTaskType,
     handleModelChange,
@@ -393,6 +406,10 @@ const ChatPage = () => {
       return next;
     });
   }, [currentSession?.id]);
+
+  const seedSeenWidgetIds = useCallback((nextMessages: UIMessage[]) => {
+    seenWidgetIdsRef.current = getWidgetTabIdsFromMessages(nextMessages);
+  }, []);
 
   // Web preview hook — activa la suscripción a eventos de detección de puertos
   useWebPreview();
@@ -641,6 +658,8 @@ const ChatPage = () => {
     },
   });
 
+  useTodoDerivation(messages);
+
   // Context usage calculation (includes overhead from system prompt + tools + skills)
   const contextUsage = useMemo(() => {
     const contextLength = currentModelInfo?.contextLength || 0;
@@ -668,13 +687,21 @@ const ChatPage = () => {
       });
 
       if (!result.success) {
-        throw new Error(result.error || 'Compaction failed');
+        if (result.errorCategory === 'context_too_long' && result.exhaustedStages) {
+          throw new Error(t('context_usage.compact_error_context_too_long'));
+        }
+
+        throw new Error(result.error || t('context_usage.compact_error'));
       }
 
       const historical = await loadHistoricalMessages(currentSession.id);
       setMessages(historical);
 
-      toast.success(t('context_usage.compact_success'));
+      if (result.stage && result.stage > 1) {
+        toast.success(t('context_usage.compact_success_degraded'));
+      } else {
+        toast.success(t('context_usage.compact_success'));
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t('context_usage.compact_error'));
     } finally {
@@ -806,10 +833,10 @@ const ChatPage = () => {
   // Listen for session load events from mini-chat
   useEffect(() => {
     const unsubscribe = window.levante.onSessionLoad?.((data: { sessionId: string }) => {
-      logger.core.info('Loading session from mini-chat', { sessionId: data.sessionId });
-
-      // Load the session transferred from mini-chat
-      loadSession(data.sessionId);
+      void (async () => {
+        logger.core.info('Loading session from mini-chat', { sessionId: data.sessionId });
+        await loadSession(data.sessionId);
+      })();
     });
 
     return () => {
@@ -830,10 +857,12 @@ const ChatPage = () => {
     // Update ref
     previousSessionIdRef.current = currentSessionId;
 
-    // Clear attachments, MCP resources, auto-approvals, and file mentions when changing sessions
+    // Clear attachments, MCP resources, auto-approvals, file mentions, and widget tabs when changing sessions
     clearAttachments();
     clearResources();
     clearAutoApprovals();
+    clearWidgetTabs();
+    seenWidgetIdsRef.current = new Set();
     setFileMentions([]);
     setPendingFirstMentions(null);
     setPendingMessageAfterStopMentions(null);
@@ -863,6 +892,7 @@ const ChatPage = () => {
       loadHistoricalMessages(currentSessionId)
         .then((msgs) => {
           logger.core.info('Loaded historical messages', { count: msgs.length });
+          seedSeenWidgetIds(msgs);
           setMessages(msgs);
           setIsLoadingMessages(false);
         })
@@ -875,9 +905,26 @@ const ChatPage = () => {
       // No session (new chat) - clear messages
       logger.core.info('New chat started, clearing messages');
       setMessages([]);
+      seedSeenWidgetIds([]);
       focusPromptInput();
     }
-  }, [currentSession?.id, skipNextHistoricalLoad, loadHistoricalMessages, setMessages, clearAttachments, clearResources, clearAutoApprovals, focusPromptInput, setSkipNextHistoricalLoad]);
+  }, [currentSession?.id, skipNextHistoricalLoad, loadHistoricalMessages, setMessages, clearAttachments, clearResources, clearAutoApprovals, clearWidgetTabs, seedSeenWidgetIds, focusPromptInput, setSkipNextHistoricalLoad]);
+
+  // Auto-open new widget tabs in the side panel
+  useEffect(() => {
+    if (!currentSession || isLoadingMessages) return;
+    if (!messages.length) return;
+
+    const widgets = messages.flatMap((message) => getWidgetTabsFromMessage(message));
+    const newWidgets = widgets.filter((widget) => !seenWidgetIdsRef.current.has(widget.id));
+
+    if (newWidgets.length === 0) return;
+
+    for (const widget of newWidgets) {
+      seenWidgetIdsRef.current.add(widget.id);
+      openWidgetTab(widget);
+    }
+  }, [messages, currentSession, isLoadingMessages, openWidgetTab]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1366,6 +1413,8 @@ const ChatPage = () => {
                     availableModels={filteredAvailableModels}
                     groupedModelsByProvider={groupedModelsByProvider || undefined}
                     modelsLoading={modelsLoading}
+                    modelsError={modelsError}
+                    onRetryModels={retryModels ?? undefined}
                     status={isCompacting ? 'submitted' : status}
                     modelTaskType={modelTaskType}
                     currentModelInfo={currentModelInfo}
@@ -1406,8 +1455,11 @@ const ChatPage = () => {
                     />
                   ))}
 
-                  {/* Streaming indicator */}
-                  {(status === 'streaming' || status === 'submitted') && (
+                  {/* Inline todo list */}
+                  <InlineTodoList />
+
+                  {/* Streaming indicator (hidden when todos are in progress) */}
+                  {(status === 'streaming' || status === 'submitted') && !todosInProgress && (
                     <Message from="assistant">
                       <MessageContent>
                         <BreathingLogo />
@@ -1453,6 +1505,8 @@ const ChatPage = () => {
                   availableModels={filteredAvailableModels}
                   groupedModelsByProvider={groupedModelsByProvider || undefined}
                   modelsLoading={modelsLoading}
+                  modelsError={modelsError}
+                  onRetryModels={retryModels ?? undefined}
                   status={isCompacting ? 'submitted' : status}
                   modelTaskType={modelTaskType}
                   currentModelInfo={currentModelInfo}
@@ -1476,7 +1530,11 @@ const ChatPage = () => {
         </div>
 
         {/* Panel lateral de preview */}
-        <SidePanel />
+        <SidePanel
+          onPrompt={setInput}
+          onSendMessage={handleSendMessage}
+          chatMessages={messages}
+        />
       </div>
     </>
   );

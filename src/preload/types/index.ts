@@ -8,6 +8,7 @@ export interface ChatRequest {
   model: string;
   webSearch?: boolean;
   enableMCP?: boolean;
+  sessionId?: string;
   projectDescription?: string; // Descripción del proyecto (inyectada en system prompt)
   // Contexto de proyecto para carga de skills por scope
   projectContext?: {

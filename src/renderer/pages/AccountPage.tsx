@@ -100,7 +100,7 @@ export default function AccountPage() {
   const { t } = useTranslation('account');
   const { t: tc } = useTranslation('common');
   const { t: tChat } = useTranslation('chat');
-  const { user, models, isLoading, fetchModels, logout } = usePlatformStore();
+  const { user, models, modelsLoading, modelsError, modelsLoadState, fetchModels, retryModels, logout } = usePlatformStore();
   const [useOtherProviders, setUseOtherProviders] = usePreference('useOtherProviders');
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showProvidersView, setShowProvidersView] = useState(false);
@@ -258,9 +258,9 @@ export default function AccountPage() {
               variant="outline"
               size="sm"
               onClick={handleRefreshModels}
-              disabled={isLoading}
+              disabled={modelsLoading}
             >
-              {isLoading ? (
+              {modelsLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : (
                 <RefreshCw className="h-4 w-4 mr-2" />
@@ -268,6 +268,20 @@ export default function AccountPage() {
               {t('refresh_models')}
             </Button>
           </div>
+
+          {/* Error alert */}
+          {modelsError && models.length === 0 && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription className="flex items-center justify-between">
+                <span>{t('models_load_error')}</span>
+                <Button variant="outline" size="sm" onClick={() => retryModels()} disabled={modelsLoading}>
+                  {modelsLoading ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                  {t('retry_models')}
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
 
           {/* Search */}
           {models.length > 0 && (
@@ -282,8 +296,16 @@ export default function AccountPage() {
             </div>
           )}
 
-          {models.length === 0 ? (
+          {modelsLoading && models.length === 0 ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              {t('models_loading')}
+            </div>
+          ) : models.length === 0 && modelsLoadState === 'ready' ? (
             <p className="text-sm text-muted-foreground">{t('no_models')}</p>
+          ) : models.length === 0 ? (
+            // error state already shown above, just a fallback
+            !modelsError && <p className="text-sm text-muted-foreground">{t('no_models')}</p>
           ) : filteredModels.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t('no_search_results')}</p>
           ) : (

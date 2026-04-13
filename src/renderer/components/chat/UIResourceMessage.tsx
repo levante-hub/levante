@@ -36,6 +36,8 @@ interface UIResourceMessageProps {
   onSendMessage?: (text: string) => void;
   onToolCall?: (toolName: string, params: Record<string, unknown>) => Promise<unknown>;
   chatMessages?: UIMessage[];
+  panelMode?: boolean;
+  onClose?: () => void;
 }
 
 /**
@@ -152,6 +154,8 @@ export function UIResourceMessage({
   onSendMessage,
   onToolCall,
   chatMessages,
+  panelMode = false,
+  onClose,
 }: UIResourceMessageProps) {
   const theme = useThemeDetector();
   const [displayMode, setDisplayMode] = useState<UIResourceDisplayMode>('inline');
@@ -599,9 +603,12 @@ export function UIResourceMessage({
           }
 
           case 'ui/close': {
-            // Widget close request
             logger.mcp.info('[MCP Apps] Widget requesting close');
-            setIsClosed(true);
+            if (onClose) {
+              onClose();
+            } else {
+              setIsClosed(true);
+            }
             break;
           }
 
@@ -843,9 +850,12 @@ export function UIResourceMessage({
 
         case 'openai-bridge-close':
         case 'openai:requestClose': {
-          // Handle widget close request
           logger.mcp.info('Widget requesting close');
-          setIsClosed(true);
+          if (onClose) {
+            onClose();
+          } else {
+            setIsClosed(true);
+          }
           break;
         }
 
@@ -1072,7 +1082,13 @@ export function UIResourceMessage({
         {/* When fullscreen: keep a placeholder in the original chat position so layout
             doesn't collapse. When inline: this renders nothing (condition is false). */}
         {isFullscreen && (
-          <div className={cn('relative rounded-lg bg-background min-h-[400px]', className)} />
+          <div
+            className={cn(
+              'relative bg-background',
+              panelMode ? 'h-full w-full min-h-0' : 'rounded-lg min-h-[400px]',
+              className
+            )}
+          />
         )}
 
         <div
@@ -1081,8 +1097,8 @@ export function UIResourceMessage({
             ? 'fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex flex-col'
             : cn(
                 'relative group rounded-lg overflow-hidden bg-background',
-                'min-h-[100px]',
-                'focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2',
+                panelMode ? 'h-full w-full min-h-0' : 'min-h-[100px]',
+                !panelMode && 'focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2',
                 className
               )
           }
@@ -1119,9 +1135,11 @@ export function UIResourceMessage({
                 style={{
                   width: '100%',
                   border: 'none',
-                  ...(isFullscreen
+                  ...(panelMode && !isFullscreen
                     ? { height: '100%', display: 'block' }
-                    : { height: '400px', minHeight: '200px' }
+                    : isFullscreen
+                      ? { height: '100%', display: 'block' }
+                      : { height: '400px', minHeight: '200px' }
                   ),
                 }}
                 onLoad={() => {
@@ -1147,14 +1165,16 @@ export function UIResourceMessage({
                       locale: typeof navigator !== 'undefined' ? navigator.language : 'en',
                       ...widgetData,
                     },
-                    autoResizeIframe: isFullscreen ? undefined : { height: true },
+                    autoResizeIframe: panelMode || isFullscreen ? undefined : { height: true },
                     sandboxPermissions: 'allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-top-navigation-by-user-activation',
                     style: {
                       width: '100%',
                       border: 'none',
-                      ...(isFullscreen
+                      ...(panelMode && !isFullscreen
                         ? { height: '100%' }
-                        : { minHeight: '100px' }
+                        : isFullscreen
+                          ? { height: '100%' }
+                          : { minHeight: '100px' }
                       ),
                     },
                     iframeProps: !isFullscreen ? {
@@ -1188,7 +1208,7 @@ export function UIResourceMessage({
               />
             </div>
           ) : (
-            <WidgetControls mode={displayMode} onModeChange={setDisplayMode} />
+            <WidgetControls mode={displayMode} onModeChange={setDisplayMode} onClose={onClose} />
           )}
         </div>
       </>
@@ -1204,7 +1224,9 @@ export function UIResourceMessage({
         {/* Placeholder in original position */}
         <div
           className={cn(
-            'rounded-lg border border-dashed bg-muted/20 p-4 text-center text-muted-foreground text-sm',
+            panelMode
+              ? 'h-full w-full flex items-center justify-center bg-muted/20 text-muted-foreground text-sm'
+              : 'rounded-lg border border-dashed bg-muted/20 p-4 text-center text-muted-foreground text-sm',
             className
           )}
         >

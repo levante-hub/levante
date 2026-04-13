@@ -16,7 +16,8 @@ export async function buildSystemPrompt(
   mcpDiscoveryEnabled: boolean = true,
   projectDescription?: string,
   skills?: InstalledSkill[],
-  codeModePrompt?: string | null
+  codeModePrompt?: string | null,
+  todoToolsEnabled: boolean = false
 ): Promise<string> {
   // Add current date information
   const currentDate = new Date();
@@ -220,6 +221,17 @@ Click the button above to add it. Once configured, I'll be able to help you with
     logger.aiSdk.info('Code Mode: agent prompt injected into system prompt', {
       promptLength: codeModePrompt.length,
     });
+  }
+
+  if (todoToolsEnabled) {
+    systemPrompt += `
+
+TASK TRACKING:
+When tracking multi-step work, call \`todo_write\` with the full task list every time you need to add tasks, start one (\`in_progress\`), finish one (\`completed\`), or rename/reorder. Reuse the same \`id\` for a task across turns. Pass an empty array when all work is done.
+- Use it for multi-step work in Cowork mode.
+- Keep task subjects short and imperative.
+- Do not create todos for trivial one-step actions.
+`;
   }
 
   const skillsSection = buildSkillsContext(skills ?? []);

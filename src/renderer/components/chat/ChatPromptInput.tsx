@@ -72,6 +72,8 @@ interface ChatPromptInputProps {
   availableModels: Model[];
   groupedModelsByProvider?: GroupedModelsByProvider;
   modelsLoading: boolean;
+  modelsError?: string | null;
+  onRetryModels?: () => void | Promise<void>;
   status?: ChatStatus;
   modelTaskType?: string; // Add task type for smart placeholders
   currentModelInfo?: Model; // Current model info for tool approval warning
@@ -113,6 +115,8 @@ export function ChatPromptInput({
   availableModels,
   groupedModelsByProvider,
   modelsLoading,
+  modelsError,
+  onRetryModels,
   status,
   modelTaskType,
   currentModelInfo,
@@ -273,14 +277,30 @@ export function ChatPromptInput({
           )}
         </PromptInputTools>
         <div className="flex items-center gap-2">
-          <ModelSearchableSelect
-            value={model}
-            onValueChange={onModelChange}
-            models={availableModels}
-            groupedModels={groupedModelsByProvider}
-            loading={modelsLoading}
-            placeholder={availableModels.length === 0 ? t('model_selector.no_models') : t('model_selector.label')}
-          />
+          {modelsError && availableModels.length === 0 ? (
+            <div className="flex items-center gap-1.5 text-xs text-destructive">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate max-w-[160px]">{t('model_selector.load_error')}</span>
+              {onRetryModels && (
+                <button
+                  type="button"
+                  onClick={() => onRetryModels()}
+                  className="underline underline-offset-2 hover:opacity-80 shrink-0"
+                >
+                  {t('model_selector.retry')}
+                </button>
+              )}
+            </div>
+          ) : (
+            <ModelSearchableSelect
+              value={model}
+              onValueChange={onModelChange}
+              models={availableModels}
+              groupedModels={groupedModelsByProvider}
+              loading={modelsLoading}
+              placeholder={availableModels.length === 0 ? t('model_selector.no_models') : t('model_selector.label')}
+            />
+          )}
           {/* Tool Approval Warning */}
           {showToolApprovalWarning && (
             <TooltipProvider>

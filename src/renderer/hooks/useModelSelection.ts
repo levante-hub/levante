@@ -41,6 +41,8 @@ interface UseModelSelectionReturn {
   filteredAvailableModels: Model[];
   groupedModelsByProvider: GroupedModelsByProvider | null;
   modelsLoading: boolean;
+  modelsError: string | null;
+  retryModels: (() => Promise<void>) | null;
   currentModelInfo: Model | undefined;
   modelTaskType: string | undefined;
   handleModelChange: (newModelId: string) => void;
@@ -87,6 +89,10 @@ export function useModelSelection(options: UseModelSelectionOptions): UseModelSe
   // Platform mode state
   const appMode = usePlatformStore(s => s.appMode);
   const platformModels = usePlatformStore(s => s.models);
+  const platformModelsLoadState = usePlatformStore(s => s.modelsLoadState);
+  const platformModelsLoading = usePlatformStore(s => s.modelsLoading);
+  const platformModelsError = usePlatformStore(s => s.modelsError);
+  const platformRetryModels = usePlatformStore(s => s.retryModels);
   const isPlatformMode = appMode === 'platform';
 
   // Load preferences
@@ -119,6 +125,12 @@ export function useModelSelection(options: UseModelSelectionOptions): UseModelSe
 
   // Load available models on component mount
   useEffect(() => {
+    // In platform mode, if the catalog is still idle or loading, signal loading to consumers
+    if (isPlatformMode && (platformModelsLoadState === 'idle' || platformModelsLoadState === 'loading')) {
+      setModelsLoading(true);
+      return; // will re-run when platformModels / platformModelsLoadState changes
+    }
+
     const loadModels = async () => {
       setModelsLoading(true);
       try {
@@ -153,7 +165,7 @@ export function useModelSelection(options: UseModelSelectionOptions): UseModelSe
     if (onLoadUserName) {
       onLoadUserName();
     }
-  }, [onLoadUserName, appMode, platformModels, useOtherProviders, isHybridMode]);
+  }, [onLoadUserName, appMode, platformModels, platformModelsLoadState, useOtherProviders, isHybridMode, isPlatformMode]);
 
   // Auto-select model if only one is available OR use lastUsedModel when no model is selected
   useEffect(() => {
@@ -333,13 +345,23 @@ export function useModelSelection(options: UseModelSelectionOptions): UseModelSe
     setModel(newModelId);
   }, [currentSession, availableModels, model, groupedModelsByProvider, isPlatformMode]);
 
+  // Effective loading / error: in platform mode, reflect catalog state
+  const effectiveModelsLoading = isPlatformMode
+    ? modelsLoading || platformModelsLoading
+    : modelsLoading;
+
+  const effectiveModelsError = isPlatformMode ? platformModelsError : null;
+  const effectiveRetryModels = isPlatformMode ? platformRetryModels : null;
+
   return {
     model,
     setModel,
     availableModels,
     filteredAvailableModels,
     groupedModelsByProvider,
-    modelsLoading,
+    modelsLoading: effectiveModelsLoading,
+    modelsError: effectiveModelsError,
+    retryModels: effectiveRetryModels,
     currentModelInfo,
     modelTaskType,
     handleModelChange,

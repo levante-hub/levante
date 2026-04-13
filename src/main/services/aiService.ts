@@ -43,6 +43,7 @@ export interface ChatRequest {
   model: string;
   webSearch: boolean;
   enableMCP?: boolean;
+  sessionId?: string;
   projectDescription?: string; // Descripción del proyecto (inyectada en system prompt)
   // Contexto de proyecto para carga de skills por scope
   projectContext?: {
@@ -1237,6 +1238,7 @@ export class AIService {
         } else {
           const codingTools = getCodingTools({
             cwd: validCwd,
+            sessionId: request.sessionId,
             enabled: request.codeMode.tools, // { bash: true, read: true, ... }
           });
 
@@ -1294,6 +1296,8 @@ export class AIService {
 
       const modelMessages = await convertToModelMessages(sanitizedMessages);
 
+      const todoToolsEnabled = 'todo_write' in tools;
+
       const result = streamText({
         model: modelProvider,
         messages: modelMessages,
@@ -1306,7 +1310,8 @@ export class AIService {
           builtInToolsConfig.mcpDiscovery,
           projectDescription,
           installedSkills,
-          codeModePrompt
+          codeModePrompt,
+          todoToolsEnabled
         ),
         // Use stopWhen as recommended in AI SDK v5 (not maxSteps)
         // This allows the model to continue generating after tool results
@@ -2087,22 +2092,26 @@ export class AIService {
         modelInfo?.capabilities
       );
 
+      const allSingleMsgTools = { ...singleMsgBuiltInTools, ...tools };
+      const singleMsgTodoToolsEnabled = 'todo_write' in allSingleMsgTools;
+
       const result = await generateText({
         model: modelProvider,
         messages: await convertToModelMessages(sanitizeMessagesForModel(messagesWithFileParts)),
-        tools: { ...singleMsgBuiltInTools, ...tools },
+        tools: allSingleMsgTools,
         system: await buildSystemPrompt(
           webSearch,
           enableMCP,
-          Object.keys({ ...singleMsgBuiltInTools, ...tools }).length,
+          Object.keys(allSingleMsgTools).length,
           builtInToolsConfig.mermaidValidation,
           builtInToolsConfig.mcpDiscovery,
           projectDescription,
           singleMsgInstalledSkills,
-          singleMsgCodeModePrompt
+          singleMsgCodeModePrompt,
+          singleMsgTodoToolsEnabled
         ),
-        stopWhen: stepCountIs(await calculateMaxSteps(Object.keys({ ...singleMsgBuiltInTools, ...tools }).length)),
-        providerOptions: await getReasoningProviderOptions(model, undefined, Object.keys({ ...singleMsgBuiltInTools, ...tools }).length > 0),
+        stopWhen: stepCountIs(await calculateMaxSteps(Object.keys(allSingleMsgTools).length)),
+        providerOptions: await getReasoningProviderOptions(model, undefined, Object.keys(allSingleMsgTools).length > 0),
       });
 
       return {
@@ -2157,9 +2166,16 @@ export class AIService {
         }
       }
 
-      throw new Error(
+      const wrapped = new Error(
         error instanceof Error ? error.message : "Unknown error occurred"
       );
+
+      (wrapped as any).statusCode = (error as any)?.statusCode;
+      (wrapped as any).responseBody = (error as any)?.responseBody;
+      (wrapped as any).data = (error as any)?.data;
+      (wrapped as any).url = (error as any)?.url;
+
+      throw wrapped;
     }
   }
 }

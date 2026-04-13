@@ -12,6 +12,18 @@ import { OAuthService } from "../oauth/OAuthService";
 const logger = getLogger();
 
 /**
+ * MCP Apps (SEP-1865) UI extension capabilities.
+ * Declares that this client can render interactive HTML widgets.
+ * Servers that support MCP Apps (e.g. FastMCP) check for this extension
+ * in client capabilities before sending structuredContent with UI.
+ */
+const MCP_APPS_EXTENSION = {
+  "io.modelcontextprotocol/ui": {
+    mimeTypes: ["text/html;profile=mcp-app"],
+  },
+} as Record<string, object>;
+
+/**
  * Create MCP transport with optional OAuth support
  */
 export async function createTransport(config: MCPServerConfig): Promise<{
@@ -51,7 +63,7 @@ async function createStandardTransport(
 ) {
   const client = new Client(
     { name: "Levante-MCP-Client", version: "1.0.0" },
-    { capabilities: { sampling: {}, roots: { listChanged: true } } }
+    { capabilities: { sampling: {}, roots: { listChanged: true }, extensions: MCP_APPS_EXTENSION } as any }
   );
 
   let transport;
@@ -164,7 +176,7 @@ async function createOAuthTransport(
     // 3. Create client
     const client = new Client(
       { name: "Levante-MCP-Client", version: "1.0.0" },
-      { capabilities: { sampling: {}, roots: { listChanged: true } } }
+      { capabilities: { sampling: {}, roots: { listChanged: true }, extensions: MCP_APPS_EXTENSION } as any }
     );
 
     // 4. Create transport with OAuth headers

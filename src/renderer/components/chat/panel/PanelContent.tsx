@@ -4,16 +4,21 @@
  * Content router by active tab type.
  */
 
+import type { UIMessage } from '@ai-sdk/react';
 import { Server } from 'lucide-react';
 import type { PanelTab, ServerTab } from '@/stores/sidePanelStore';
 import { FileContentRenderer } from '@/components/file-browser/FileContentRenderer';
 import { PdfViewer } from '@/components/file-browser/PdfViewer';
 import { HtmlViewer } from '@/components/file-browser/HtmlViewer';
+import { WidgetContent } from './WidgetContent';
 
 interface PanelContentProps {
   tab: PanelTab | undefined;
   isDragging: boolean;
   iframeKey?: number;
+  onPrompt?: (prompt: string) => void;
+  onSendMessage?: (text: string) => void;
+  chatMessages?: UIMessage[];
 }
 
 function ServerContent({ server, iframeKey }: { server: ServerTab; iframeKey: number }) {
@@ -41,7 +46,7 @@ function ServerContent({ server, iframeKey }: { server: ServerTab; iframeKey: nu
   );
 }
 
-export function PanelContent({ tab, isDragging, iframeKey = 0 }: PanelContentProps) {
+export function PanelContent({ tab, isDragging, iframeKey = 0, onPrompt, onSendMessage, chatMessages }: PanelContentProps) {
   return (
     <div className="flex-1 min-h-0 min-w-0 relative overflow-hidden">
       {isDragging && <div className="absolute inset-0 z-50 cursor-col-resize" />}
@@ -58,6 +63,13 @@ export function PanelContent({ tab, isDragging, iframeKey = 0 }: PanelContentPro
         <PdfViewer tab={tab} />
       ) : tab.type === 'doc' ? (
         <HtmlViewer tab={tab} />
+      ) : tab.type === 'widget' ? (
+        <WidgetContent
+          tab={tab}
+          onPrompt={onPrompt}
+          onSendMessage={onSendMessage}
+          chatMessages={chatMessages}
+        />
       ) : (
         <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
           Preview not available for this file type

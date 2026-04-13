@@ -17,6 +17,28 @@ import type { PlatformUser, PlatformStatus } from '../../types/userProfile';
 
 const logger = getLogger();
 
+// ── Platform model fetch error types ────────────────────────────────────
+export type PlatformModelErrorCode =
+  | 'AUTH_REQUIRED'
+  | 'TOKEN_REFRESH_FAILED'
+  | 'NETWORK_ERROR'
+  | 'API_ERROR'
+  | 'INVALID_RESPONSE';
+
+export class PlatformModelFetchError extends Error {
+  code: PlatformModelErrorCode;
+  statusCode?: number;
+
+  constructor(message: string, code: PlatformModelErrorCode, statusCode?: number) {
+    super(message);
+    this.name = 'PlatformModelFetchError';
+    this.code = code;
+    this.statusCode = statusCode;
+  }
+}
+
+export type FetchModelsReason = 'startup' | 'login' | 'manual' | 'foreground' | 'new-session';
+
 const LEVANTE_PLATFORM_SERVER_ID = 'levante-platform';
 const LEVANTE_PLATFORM_DEFAULT_URL = envConfig.platformUrl;
 
@@ -187,18 +209,33 @@ class PlatformService {
 
   /**
    * Fetch models with full metadata from /api/v1/models
-   * Filters by allowedModels from JWT
+   * Filters by allowedModels from JWT.
+   *
+   * Error contract:
+   * - Returns ModelMetadata[] ONLY on real success (even if the array is empty).
+   * - Throws PlatformModelFetchError with a typed code for any failure.
    */
-  async fetchModelsWithMetadata(baseUrl?: string): Promise<ModelMetadata[]> {
+  async fetchModelsWithMetadata(baseUrl?: string, reason?: FetchModelsReason): Promise<ModelMetadata[]> {
+    const startTime = Date.now();
     const effectiveBaseUrl = baseUrl || LEVANTE_PLATFORM_DEFAULT_URL;
     const url = `${effectiveBaseUrl}/api/v1/models`;
 
+    // ── Auth headers ────────────────────────────────────────────────────
     let authHeaders: Record<string, string>;
     try {
       authHeaders = await this.getAuthHeaders();
-    } catch {
-      logger.models.warn('No valid access token for Levante Platform model fetch');
-      return [];
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      logger.models.warn('Platform model fetch failed: no valid auth', {
+        reason,
+        duration,
+        result: 'error',
+        errorCode: 'AUTH_REQUIRED',
+      });
+      throw new PlatformModelFetchError(
+        'No valid access token for platform model fetch',
+        'AUTH_REQUIRED',
+      );
     }
 
     // Re-decode to get latest allowedModels
@@ -218,12 +255,28 @@ class PlatformService {
 
       // Handle 401: attempt token refresh and retry once
       if (response.status === 401) {
-        logger.oauth.info('Got 401 from platform API, attempting token refresh');
+        logger.oauth.info('Got 401 from platform API, attempting token refresh', { reason });
         const oauthService = getOAuthService();
         const retried = await oauthService.handleUnauthorized(LEVANTE_PLATFORM_SERVER_ID, response);
 
         if (retried) {
-          const freshHeaders = await this.getAuthHeaders();
+          let freshHeaders: Record<string, string>;
+          try {
+            freshHeaders = await this.getAuthHeaders();
+          } catch {
+            const duration = Date.now() - startTime;
+            logger.models.error('Platform model fetch: token refresh succeeded but getAuthHeaders failed', {
+              reason,
+              duration,
+              result: 'error',
+              errorCode: 'TOKEN_REFRESH_FAILED',
+            });
+            throw new PlatformModelFetchError(
+              'Token refresh succeeded but auth headers unavailable',
+              'TOKEN_REFRESH_FAILED',
+              401,
+            );
+          }
           response = await safeFetch(url, {
             headers: {
               ...freshHeaders,
@@ -231,28 +284,96 @@ class PlatformService {
             },
           });
         }
+
+        // If still 401 after retry
+        if (response.status === 401) {
+          const duration = Date.now() - startTime;
+          logger.models.error('Platform model fetch: 401 after token refresh', {
+            reason,
+            duration,
+            result: 'error',
+            errorCode: 'TOKEN_REFRESH_FAILED',
+          });
+          throw new PlatformModelFetchError(
+            'Authentication failed after token refresh',
+            'TOKEN_REFRESH_FAILED',
+            401,
+          );
+        }
       }
 
       if (!response.ok) {
-        throw new Error(`Levante Platform API error: ${response.statusText}`);
+        const duration = Date.now() - startTime;
+        logger.models.error('Platform API returned non-ok status', {
+          reason,
+          duration,
+          result: 'error',
+          errorCode: 'API_ERROR',
+          statusCode: response.status,
+        });
+        throw new PlatformModelFetchError(
+          `Platform API error: ${response.status} ${response.statusText}`,
+          'API_ERROR',
+          response.status,
+        );
       }
 
-      const data = await response.json();
+      let data: any;
+      try {
+        data = await response.json();
+      } catch {
+        const duration = Date.now() - startTime;
+        logger.models.error('Platform model fetch: invalid JSON response', {
+          reason,
+          duration,
+          result: 'error',
+          errorCode: 'INVALID_RESPONSE',
+        });
+        throw new PlatformModelFetchError(
+          'Invalid JSON in platform API response',
+          'INVALID_RESPONSE',
+        );
+      }
+
       const allModels: ModelMetadata[] = data.data || [];
 
       // Filter by allowedModels if present in JWT
+      let result: ModelMetadata[];
       if (allowedModels.length > 0) {
         const allowedSet = new Set(allowedModels);
-        return allModels.filter((model) => allowedSet.has(model.id));
+        result = allModels.filter((model) => allowedSet.has(model.id));
+      } else {
+        result = allModels;
       }
 
-      // If no allowedModels in JWT, return all from API (already filtered by user's plan)
-      return allModels;
+      const duration = Date.now() - startTime;
+      logger.models.info('Platform model fetch completed', {
+        reason,
+        duration,
+        result: result.length === 0 ? 'empty' : 'success',
+        count: result.length,
+      });
+
+      return result;
     } catch (error) {
+      // Re-throw PlatformModelFetchError as-is
+      if (error instanceof PlatformModelFetchError) {
+        throw error;
+      }
+
+      // Wrap unknown errors (network failures, etc.)
+      const duration = Date.now() - startTime;
       logger.models.error('Failed to fetch Levante Platform models', {
+        reason,
+        duration,
+        result: 'error',
+        errorCode: 'NETWORK_ERROR',
         error: error instanceof Error ? error.message : error,
       });
-      throw error;
+      throw new PlatformModelFetchError(
+        error instanceof Error ? error.message : 'Network error fetching platform models',
+        'NETWORK_ERROR',
+      );
     }
   }
 

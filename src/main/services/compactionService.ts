@@ -2,9 +2,11 @@ import type { UIMessage } from 'ai';
 import type { Message } from '../../types/database';
 import { chatService } from './chatService';
 import { getLogger } from './logging';
+import { classifyStreamingError } from './ai/streamingErrorClassifier';
 
 const COMPACTION_MARKER = '[COMPACTION_SUMMARY]';
 const CHARS_PER_TOKEN = 4;
+
 export interface CompactInput {
   sessionId: string;
   model: string;
@@ -13,8 +15,27 @@ export interface CompactInput {
 export interface CompactResult {
   success: boolean;
   summaryMessageId?: string;
+  stage?: number;
   error?: string;
+  errorCategory?: string;
+  exhaustedStages?: boolean;
 }
+
+export interface CompactionStage {
+  stage: number;
+  toolCallTokenLimit: number | null;
+  contentMaxChars: number | null;
+  reasoningMaxChars: number | null;
+  messagePercentage: number;
+}
+
+export const COMPACTION_STAGES: CompactionStage[] = [
+  { stage: 1, toolCallTokenLimit: 500,  contentMaxChars: null,  reasoningMaxChars: 1200, messagePercentage: 1.0  },
+  { stage: 2, toolCallTokenLimit: 100,  contentMaxChars: 2000,  reasoningMaxChars: 600,  messagePercentage: 1.0  },
+  { stage: 3, toolCallTokenLimit: null, contentMaxChars: 600,   reasoningMaxChars: 300,  messagePercentage: 1.0  },
+  { stage: 4, toolCallTokenLimit: null, contentMaxChars: 300,   reasoningMaxChars: null, messagePercentage: 0.5  },
+  { stage: 5, toolCallTokenLimit: null, contentMaxChars: 200,   reasoningMaxChars: null, messagePercentage: 0.25 },
+];
 
 export class CompactionService {
   private logger = getLogger();
@@ -23,24 +44,100 @@ export class CompactionService {
     return Math.max(0, Math.round((text || '').length / CHARS_PER_TOKEN));
   }
 
-  private estimateMessageTokens(message: Message): number {
-    const contentTokens = this.estimateTokens(message.content || '');
-    const toolTokens = message.tool_calls ? this.estimateTokens(message.tool_calls) : 0;
-    const reasoningTokens = message.reasoningText ? this.estimateTokens(message.reasoningText) : 0;
-    return contentTokens + toolTokens + reasoningTokens;
+  truncateContent(content: string, maxChars: number): string {
+    if (content.length <= maxChars) return content;
+
+    const headSize = Math.floor(maxChars * 0.66);
+    const tailSize = maxChars - headSize;
+    const truncated = content.length - maxChars;
+
+    const head = content.slice(0, headSize);
+    const tail = content.slice(content.length - tailSize);
+
+    return `${head}\n[... ${truncated} characters truncated ...]\n${tail}`;
   }
 
-  private prepareMessagesForSummary(messages: Message[]): Message[] {
-    return messages.map((m) => {
-      if (!m.tool_calls) return m;
-      const toolTokens = this.estimateTokens(m.tool_calls);
-      if (toolTokens <= 500) return m;
+  isCompactionSummaryMessage(message: Message): boolean {
+    return (
+      message.role === 'system' &&
+      typeof message.content === 'string' &&
+      message.content.startsWith(COMPACTION_MARKER)
+    );
+  }
 
-      return {
-        ...m,
-        tool_calls: JSON.stringify([{ summary: `[Tool output truncated: ~${toolTokens} tokens]` }]),
-      };
-    });
+  applyStage(messages: Message[], stage: CompactionStage): Message[] {
+    // 1. Detect anchor
+    let anchorMessage: Message | null = null;
+    let rest: Message[];
+
+    if (messages.length > 0 && this.isCompactionSummaryMessage(messages[0])) {
+      anchorMessage = messages[0];
+      rest = messages.slice(1);
+    } else {
+      rest = [...messages];
+    }
+
+    // 2. Apply messagePercentage to rest
+    if (stage.messagePercentage < 1.0) {
+      const targetCount = Math.max(
+        anchorMessage ? 1 : 2,
+        Math.ceil(rest.length * stage.messagePercentage),
+      );
+      // Keep the last N messages (most recent)
+      rest = rest.slice(rest.length - targetCount);
+    }
+
+    // 3. Guarantee minimums
+    if (anchorMessage && rest.length === 0 && messages.length > 1) {
+      rest = [messages[messages.length - 1]];
+    }
+    if (!anchorMessage && rest.length < 2 && messages.length >= 2) {
+      rest = messages.slice(messages.length - 2);
+    }
+
+    // 4. Apply reduction to each message
+    const reduced = rest.map((m) => this.reduceMessage(m, stage));
+
+    // 5. Rebuild with anchor
+    if (anchorMessage) {
+      return [anchorMessage, ...reduced];
+    }
+    return reduced;
+  }
+
+  private reduceMessage(message: Message, stage: CompactionStage): Message {
+    const result = { ...message };
+
+    // tool_calls reduction
+    if (result.tool_calls) {
+      if (stage.toolCallTokenLimit === null) {
+        result.tool_calls = undefined;
+      } else {
+        const toolTokens = this.estimateTokens(result.tool_calls);
+        if (toolTokens > stage.toolCallTokenLimit) {
+          result.tool_calls = JSON.stringify([{ summary: `[Tool output truncated: ~${toolTokens} tokens]` }]);
+        }
+      }
+    }
+
+    // content reduction
+    if (result.content && stage.contentMaxChars !== null) {
+      result.content = this.truncateContent(result.content, stage.contentMaxChars);
+    }
+
+    // reasoningText reduction
+    if (stage.reasoningMaxChars === null) {
+      result.reasoningText = undefined;
+    } else if (result.reasoningText && result.reasoningText.length > stage.reasoningMaxChars) {
+      result.reasoningText = this.truncateContent(result.reasoningText, stage.reasoningMaxChars);
+    }
+
+    return result;
+  }
+
+  private isContextTooLongError(error: unknown): boolean {
+    const { category } = classifyStreamingError(error);
+    return category === 'context_too_long';
   }
 
   private serializeMessage(message: Message): string {
@@ -133,39 +230,87 @@ Rules:
       }
 
       const contextMessages = contextResult.data;
-      if (contextMessages.length === 0) {
+      if (!contextMessages || contextMessages.length === 0) {
         return { success: false, error: 'No messages to compact' };
       }
 
-      const prepared = this.prepareMessagesForSummary(contextMessages);
-      const summary = await this.generateSummary({
-        messages: prepared,
-        model: input.model,
-      });
+      for (const stageConfig of COMPACTION_STAGES) {
+        this.logger.aiSdk.info('Attempting compaction stage', {
+          sessionId: input.sessionId,
+          stage: stageConfig.stage,
+        });
 
-      const saved = await chatService.createMessage({
-        session_id: input.sessionId,
-        role: 'system',
-        content: `${COMPACTION_MARKER}\n\n${summary}`,
-      });
+        const prepared = this.applyStage(contextMessages, stageConfig);
 
-      if (!saved.success) {
-        return {
-          success: false,
-          error: saved.error || 'Failed to persist compaction summary',
-        };
+        try {
+          const summary = await this.generateSummary({
+            messages: prepared,
+            model: input.model,
+          });
+
+          const saved = await chatService.createMessage({
+            session_id: input.sessionId,
+            role: 'system',
+            content: `${COMPACTION_MARKER}\n\n${summary}`,
+          });
+
+          if (!saved.success) {
+            return {
+              success: false,
+              error: saved.error || 'Failed to persist compaction summary',
+            };
+          }
+
+          this.logger.aiSdk.info('Manual compaction completed', {
+            sessionId: input.sessionId,
+            stage: stageConfig.stage,
+            sourceMessages: contextMessages.length,
+            sentToSummarizer: prepared.length,
+            summaryLength: summary.length,
+          });
+
+          return {
+            success: true,
+            summaryMessageId: saved.data?.id,
+            stage: stageConfig.stage,
+          };
+        } catch (error) {
+          if (this.isContextTooLongError(error)) {
+            this.logger.aiSdk.warn('Compaction stage failed with context_too_long, trying next stage', {
+              sessionId: input.sessionId,
+              stage: stageConfig.stage,
+            });
+            continue;
+          }
+
+          // Non-retryable error — abort immediately
+          const classified = classifyStreamingError(error);
+          this.logger.aiSdk.error('Compaction failed with non-retryable error', {
+            sessionId: input.sessionId,
+            stage: stageConfig.stage,
+            errorCategory: classified.category,
+            error: classified.originalMessage,
+          });
+
+          return {
+            success: false,
+            error: classified.originalMessage,
+            errorCategory: classified.category,
+            exhaustedStages: false,
+          };
+        }
       }
 
-      this.logger.aiSdk.info('Manual compaction completed', {
+      // All stages exhausted
+      this.logger.aiSdk.error('Compaction failed after all reduction stages', {
         sessionId: input.sessionId,
-        sourceMessages: contextMessages.length,
-        sentToSummarizer: prepared.length,
-        summaryLength: summary.length,
       });
 
       return {
-        success: true,
-        summaryMessageId: saved.data?.id,
+        success: false,
+        error: 'Compaction failed after all reduction stages',
+        errorCategory: 'context_too_long',
+        exhaustedStages: true,
       };
     } catch (error) {
       this.logger.aiSdk.error('Manual compaction failed', {

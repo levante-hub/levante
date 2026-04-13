@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FolderOpen, ArrowUp, MoreVertical, Trash2 } from 'lucide-react';
+import { FolderOpen, ArrowUp, MoreVertical, Trash2, AlertTriangle } from 'lucide-react';
 import { ChatSession, Project } from '../../types/database';
 import { ModelSearchableSelect } from '@/components/ai-elements/model-searchable-select';
 import { Button } from '@/components/ui/button';
@@ -49,6 +49,11 @@ export function ProjectPage({ project, onSessionSelect, onNewSessionInProject, o
 
   const appMode = usePlatformStore((s) => s.appMode);
   const platformModels = usePlatformStore((s) => s.models);
+  const platformModelsLoadState = usePlatformStore((s) => s.modelsLoadState);
+  const platformModelsLoading = usePlatformStore((s) => s.modelsLoading);
+  const platformModelsError = usePlatformStore((s) => s.modelsError);
+  const platformRetryModels = usePlatformStore((s) => s.retryModels);
+  const isPlatformMode = appMode === 'platform';
 
   useEffect(() => {
     const loadSessions = async () => {
@@ -63,6 +68,12 @@ export function ProjectPage({ project, onSessionSelect, onNewSessionInProject, o
   }, [project.id]);
 
   useEffect(() => {
+    // In platform mode, wait until catalog finishes its first attempt
+    if (isPlatformMode && (platformModelsLoadState === 'idle' || platformModelsLoadState === 'loading')) {
+      setModelsLoading(true);
+      return;
+    }
+
     const loadModels = async () => {
       setModelsLoading(true);
       const result = await loadSelectableModels({
@@ -86,7 +97,7 @@ export function ProjectPage({ project, onSessionSelect, onNewSessionInProject, o
       setModelsLoading(false);
     };
     loadModels();
-  }, [lastUsedModel, appMode, platformModels, useOtherProviders]);
+  }, [lastUsedModel, appMode, platformModels, platformModelsLoadState, useOtherProviders, isPlatformMode]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -132,14 +143,28 @@ export function ProjectPage({ project, onSessionSelect, onNewSessionInProject, o
               />
               {/* Barra inferior */}
               <div className="flex items-center justify-between px-3 pb-3">
-                <ModelSearchableSelect
-                  value={selectedModel}
-                  onValueChange={setSelectedModel}
-                  models={availableModels}
-                  loading={modelsLoading}
-                  placeholder={t('project_page.select_model')}
-                  className="h-7 text-xs"
-                />
+                {isPlatformMode && platformModelsError && availableModels.length === 0 ? (
+                  <div className="flex items-center gap-2 text-xs text-destructive">
+                    <AlertTriangle size={14} />
+                    <span>{t('project_page.models_error')}</span>
+                    <button
+                      type="button"
+                      onClick={() => platformRetryModels()}
+                      className="underline underline-offset-2 hover:opacity-80"
+                    >
+                      {t('project_page.retry')}
+                    </button>
+                  </div>
+                ) : (
+                  <ModelSearchableSelect
+                    value={selectedModel}
+                    onValueChange={setSelectedModel}
+                    models={availableModels}
+                    loading={modelsLoading || (isPlatformMode && platformModelsLoading)}
+                    placeholder={t('project_page.select_model')}
+                    className="h-7 text-xs"
+                  />
+                )}
                 <button
                   type="submit"
                   disabled={!input.trim() || !selectedModel}

@@ -8,6 +8,7 @@
  */
 
 import { create } from 'zustand';
+import type { UIResource } from '@/types/ui-resource';
 
 export interface ServerTab {
   type: 'server';
@@ -52,7 +53,21 @@ export interface DocTab {
   loadError: string | null;
 }
 
-export type PanelTab = ServerTab | FileTab | PdfTab | DocTab;
+export interface WidgetTab {
+  type: 'widget';
+  id: string;
+  title: string;
+  resource: UIResource;
+  serverId?: string;
+  messageId?: string;
+  toolCallId?: string;
+  createdAt: number;
+  reloadNonce: number;
+}
+
+export type WidgetTabInput = Omit<WidgetTab, 'type' | 'createdAt' | 'reloadNonce'>;
+
+export type PanelTab = ServerTab | FileTab | PdfTab | DocTab | WidgetTab;
 
 const MAX_FILE_TABS = 10;
 
@@ -81,6 +96,12 @@ interface SidePanelState {
   openPdfTab: (filePath: string) => void;
   setPdfPage: (tabId: string, page: number) => void;
   setPdfTotalPages: (tabId: string, totalPages: number) => void;
+
+  openWidgetTab: (widget: WidgetTabInput) => void;
+  closeWidgetTab: (tabId: string) => void;
+  clearWidgetTabs: () => void;
+  reloadWidgetTab: (tabId: string) => void;
+  getWidgetTabs: () => WidgetTab[];
 
   getServerTabs: () => ServerTab[];
   getFileTabs: () => FileTab[];
@@ -479,6 +500,81 @@ export const useSidePanelStore = create<SidePanelState>((set, get) => ({
       ),
     }));
   },
+
+  openWidgetTab: (widget) => {
+    set((state) => {
+      const existingIndex = state.tabs.findIndex(
+        (tab) => tab.type === 'widget' && tab.id === widget.id
+      );
+
+      if (existingIndex >= 0) {
+        return {
+          tabs: state.tabs.map((tab) =>
+            tab.type === 'widget' && tab.id === widget.id
+              ? { ...tab, ...widget }
+              : tab
+          ),
+          activeTabId: widget.id,
+          isPanelOpen: true,
+        };
+      }
+
+      const newTab: WidgetTab = {
+        ...widget,
+        type: 'widget',
+        createdAt: Date.now(),
+        reloadNonce: 0,
+      };
+
+      return {
+        tabs: [...state.tabs, newTab],
+        activeTabId: newTab.id,
+        isPanelOpen: true,
+      };
+    });
+  },
+
+  closeWidgetTab: (tabId) => {
+    set((state) => {
+      const nextTabs = state.tabs.filter((t) => t.id !== tabId);
+      const shouldChangeActive = state.activeTabId === tabId;
+
+      return {
+        tabs: nextTabs,
+        activeTabId: shouldChangeActive
+          ? (nextTabs[nextTabs.length - 1]?.id ?? null)
+          : state.activeTabId,
+        isPanelOpen: nextTabs.length === 0 ? false : state.isPanelOpen,
+      };
+    });
+  },
+
+  clearWidgetTabs: () => {
+    set((state) => {
+      const nextTabs = state.tabs.filter((tab) => tab.type !== 'widget');
+      const activeWasWidget = state.tabs.find((tab) => tab.id === state.activeTabId)?.type === 'widget';
+
+      return {
+        tabs: nextTabs,
+        activeTabId: activeWasWidget
+          ? (nextTabs[nextTabs.length - 1]?.id ?? null)
+          : state.activeTabId,
+        isPanelOpen: nextTabs.length === 0 ? false : state.isPanelOpen,
+      };
+    });
+  },
+
+  reloadWidgetTab: (tabId) => {
+    set((state) => ({
+      tabs: state.tabs.map((tab) =>
+        tab.type === 'widget' && tab.id === tabId
+          ? { ...tab, reloadNonce: tab.reloadNonce + 1 }
+          : tab
+      ),
+    }));
+  },
+
+  getWidgetTabs: () => get().tabs.filter((tab): tab is WidgetTab => tab.type === 'widget'),
 
   getServerTabs: () => get().tabs.filter((tab): tab is ServerTab => tab.type === 'server'),
   getFileTabs: () => get().tabs.filter((tab): tab is FileTab => tab.type === 'file'),

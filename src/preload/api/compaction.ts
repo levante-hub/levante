@@ -8,7 +8,10 @@ export interface CompactRequest {
 export interface CompactResponse {
   success: boolean;
   summaryMessageId?: string;
+  stage?: number;
   error?: string;
+  errorCategory?: string;
+  exhaustedStages?: boolean;
 }
 
 export const compactionApi = {

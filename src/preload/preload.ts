@@ -897,10 +897,11 @@ export interface LevanteAPI {
       data?: import('./types').PlatformStatus;
       error?: string;
     }>;
-    getModels: (baseUrl?: string) => Promise<{
+    getModels: (payload?: { baseUrl?: string; reason?: string } | string) => Promise<{
       success: boolean;
       data?: any[];
       error?: string;
+      code?: string;
     }>;
     getOrgId: () => Promise<{ success: boolean; data?: string }>;
   };
@@ -1005,7 +1006,10 @@ export interface LevanteAPI {
     }) => Promise<{
       success: boolean;
       summaryMessageId?: string;
+      stage?: number;
       error?: string;
+      errorCategory?: string;
+      exhaustedStages?: boolean;
     }>;
   };
 

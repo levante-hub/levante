@@ -271,6 +271,28 @@ function App() {
     checkAnnouncements();
   }, [wizardCompleted]);
 
+  // ── Foreground recovery: retry platform catalog on visibilitychange ─────
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') return;
+
+      const state = usePlatformStore.getState();
+      if (
+        state.appMode === 'platform' &&
+        state.isAuthenticated &&
+        (state.modelsLoadState === 'idle' || state.modelsLoadState === 'error' ||
+          (state.models.length === 0 && !state.hasLoadedModelsOnce)) &&
+        !state.modelsLoading
+      ) {
+        logger.core.info('App returned to foreground — retrying platform catalog');
+        state.ensureModelsLoaded({ reason: 'foreground' });
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
   // React to appMode changes (e.g. logout/login)
   const appMode = usePlatformStore((s) => s.appMode)
   const [showPlatformWelcome, setShowPlatformWelcome] = useState(false)
@@ -339,14 +361,27 @@ function App() {
       return preferredModelId;
     }
 
-    const { appMode: currentAppMode, models: currentPlatformModels } = usePlatformStore.getState();
+    const platformState = usePlatformStore.getState();
+    const { appMode: currentAppMode, modelsLoadState } = platformState;
+
+    // In platform mode, ensure the catalog is initialized before resolving
+    if (currentAppMode === 'platform' && modelsLoadState !== 'ready' && modelsLoadState !== 'error') {
+      try {
+        await platformState.ensureModelsLoaded({ reason: 'new-session' });
+      } catch {
+        // Best effort — will work with whatever models are available
+      }
+    }
+
+    const freshPlatformModels = usePlatformStore.getState().models;
+
     const useOtherProvidersResult = await window.levante.preferences.get('useOtherProviders');
     const useOtherProvidersValue = (useOtherProvidersResult.data as boolean) ?? false;
 
     const catalog = await loadSelectableModels({
       appMode: currentAppMode,
       useOtherProviders: useOtherProvidersValue,
-      platformModels: currentPlatformModels,
+      platformModels: freshPlatformModels,
     });
 
     const lastUsedResult = await window.levante.preferences.get('lastUsedModel');
@@ -647,9 +682,9 @@ function App() {
   };
 
   // Handle new chat with navigation
-  const handleNewChat = () => {
+  const handleNewChat = async () => {
     if (selectedProject) {
-      handleNewSessionInProject(selectedProject.id);
+      await handleNewSessionInProject(selectedProject.id);
       return;
     }
     startNewChat();

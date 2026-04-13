@@ -8,7 +8,6 @@ import {
 } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip'
 import { Download, Trash2 } from 'lucide-react'
@@ -91,8 +90,8 @@ export function SkillDetailsModal({ skill, open, onOpenChange }: SkillDetailsMod
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
-          <DialogHeader>
+        <DialogContent className="grid max-h-[85vh] max-w-2xl grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden p-0">
+          <DialogHeader className="shrink-0 px-6 pt-6 pr-14">
             <DialogTitle className="flex items-center gap-2">
               {skill.name}
               {skill.version && (
@@ -101,54 +100,54 @@ export function SkillDetailsModal({ skill, open, onOpenChange }: SkillDetailsMod
             </DialogTitle>
           </DialogHeader>
 
-          <div className="flex flex-col gap-3 flex-1 overflow-hidden">
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div>
-                <span className="text-muted-foreground">Category: </span>
-                <span>{skill.category}</span>
+          <div className="min-h-0 overflow-y-auto px-6">
+            <div className="flex flex-col gap-3 pb-6 pr-2">
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Category: </span>
+                  <span>{skill.category}</span>
+                </div>
+                {skill.author && (
+                  <div>
+                    <span className="text-muted-foreground">Author: </span>
+                    <span>{skill.author}</span>
+                  </div>
+                )}
+                {skill.model && (
+                  <div>
+                    <span className="text-muted-foreground">Model: </span>
+                    <span>{skill.model}</span>
+                  </div>
+                )}
+                {skill.allowedTools && (
+                  <div>
+                    <span className="text-muted-foreground">Tools: </span>
+                    <span className="text-xs">{skill.allowedTools}</span>
+                  </div>
+                )}
               </div>
-              {skill.author && (
-                <div>
-                  <span className="text-muted-foreground">Author: </span>
-                  <span>{skill.author}</span>
+
+              <p className="text-sm text-muted-foreground">{skill.description}</p>
+
+              {skill.tags && skill.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {skill.tags.map((tag) => (
+                    <Badge key={tag} variant="secondary" className="text-xs">
+                      {tag}
+                    </Badge>
+                  ))}
                 </div>
               )}
-              {skill.model && (
-                <div>
-                  <span className="text-muted-foreground">Model: </span>
-                  <span>{skill.model}</span>
-                </div>
-              )}
-              {skill.allowedTools && (
-                <div>
-                  <span className="text-muted-foreground">Tools: </span>
-                  <span className="text-xs">{skill.allowedTools}</span>
-                </div>
-              )}
-            </div>
 
-            <p className="text-sm text-muted-foreground">{skill.description}</p>
+              <Separator />
 
-            {skill.tags && skill.tags.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {skill.tags.map((tag) => (
-                  <Badge key={tag} variant="secondary" className="text-xs">
-                    {tag}
-                  </Badge>
-                ))}
-              </div>
-            )}
-
-            <Separator />
-
-            <ScrollArea className="flex-1 min-h-0">
               <pre className="text-xs font-mono whitespace-pre-wrap bg-muted p-3 rounded-md">
                 {skill.content}
               </pre>
-            </ScrollArea>
+            </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="shrink-0 px-6 pb-6">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Close
             </Button>
