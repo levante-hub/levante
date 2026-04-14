@@ -143,6 +143,39 @@ module.exports = {
 
       // NOTE: mcp-use bundled by Vite, only winston kept external for Logger
 
+      // Copiar sharp y sus bindings @img/* (external — binario nativo)
+      console.log('  ✓ Finding sharp dependencies...');
+      const sharpDeps = await getAllDependencies('sharp');
+
+      for (const dep of sharpDeps) {
+        if (
+          allDeps.has(dep) ||
+          updateAppDeps.has(dep) ||
+          winstonDeps.has(dep) ||
+          winstonRotateDeps.has(dep)
+        ) continue;
+
+        const srcPath = path.join(projectNodeModules, dep);
+        const destPath = path.join(packageNodeModules, dep);
+
+        if (await fs.pathExists(srcPath)) {
+          console.log(`    - ${dep}`);
+          await fs.copy(srcPath, destPath, { overwrite: true, dereference: true });
+        }
+      }
+
+      // Copiar todos los paquetes @img/* (bindings nativos de sharp)
+      const imgDir = path.join(projectNodeModules, '@img');
+      const destImgDir = path.join(packageNodeModules, '@img');
+
+      if (await fs.pathExists(imgDir)) {
+        console.log('  ✓ Copying all @img/* packages...');
+        await fs.copy(imgDir, destImgDir, { overwrite: true, dereference: true });
+
+        const imgPackages = await fs.readdir(imgDir);
+        imgPackages.forEach(pkg => console.log(`    - @img/${pkg}`));
+      }
+
       console.log(`✅ Copied external dependencies successfully`);
     }
   },
@@ -152,7 +185,7 @@ module.exports = {
       './resources/default-skills'
     ],
     asar: {
-      unpack: '**/@libsql/**/*.node'
+      unpack: '{**/@libsql/**/*.node,**/node_modules/sharp/**/*,**/node_modules/@img/**/*}'
     },
     name: 'Levante',
     executableName: 'Levante',

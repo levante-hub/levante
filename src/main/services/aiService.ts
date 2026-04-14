@@ -26,6 +26,7 @@ import { isToolUseNotSupportedError } from "./ai/toolErrorDetector";
 import { classifyStreamingError } from "./ai/streamingErrorClassifier";
 import { calculateMaxSteps } from "./ai/stepsCalculator";
 import { sanitizeMessagesForModel } from "./ai/toolMessageSanitizer";
+import { validateImagesForAPI } from "./image/imageValidation";
 import { InferenceDispatcher } from "./inference/InferenceDispatcher";
 import { attachmentStorage } from "./attachmentStorage";
 import { pdfExtractionService } from "./pdfExtractionService";
@@ -1151,7 +1152,8 @@ export class AIService {
 
         const mcpTools = await getMCPTools({
           skipApproval: shouldSkipApproval,
-          disabledTools
+          disabledTools,
+          supportsVision: modelInfo?.capabilities?.supportsVision === true,
         });
         tools = { ...builtInTools, ...mcpTools };
         this.logger.aiSdk.debug("Passing tools to streamText", {
@@ -1293,6 +1295,12 @@ export class AIService {
       }
 
       const sanitizedMessages = sanitizeMessagesForModel(updatedMessages);
+
+      // Safety-net: detect oversized image payloads that escaped the MCP pipeline
+      // (e.g. legacy history, user attachments as base64 data URLs) before we
+      // hand them off to the provider. Runs on sanitized messages so we see the
+      // exact shape convertToModelMessages will consume.
+      validateImagesForAPI(sanitizedMessages as unknown[]);
 
       const modelMessages = await convertToModelMessages(sanitizedMessages);
 
@@ -2053,7 +2061,10 @@ export class AIService {
         const prefs = await preferencesService.getAll();
         const disabledTools = prefs.mcp?.disabledTools;
 
-        tools = await getMCPTools(disabledTools);
+        tools = await getMCPTools({
+          disabledTools,
+          supportsVision: modelInfo?.capabilities?.supportsVision === true,
+        });
       }
 
       // Get built-in tools config for system prompt
@@ -2095,9 +2106,12 @@ export class AIService {
       const allSingleMsgTools = { ...singleMsgBuiltInTools, ...tools };
       const singleMsgTodoToolsEnabled = 'todo_write' in allSingleMsgTools;
 
+      const singleMsgSanitized = sanitizeMessagesForModel(messagesWithFileParts);
+      validateImagesForAPI(singleMsgSanitized as unknown[]);
+
       const result = await generateText({
         model: modelProvider,
-        messages: await convertToModelMessages(sanitizeMessagesForModel(messagesWithFileParts)),
+        messages: await convertToModelMessages(singleMsgSanitized),
         tools: allSingleMsgTools,
         system: await buildSystemPrompt(
           webSearch,

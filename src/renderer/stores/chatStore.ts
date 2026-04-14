@@ -18,6 +18,7 @@ import type { ChatSession, Message, CreateMessageInput, SessionType } from '../.
 import type { UIMessage } from 'ai';
 import type { TokenUsage } from '../../preload/types';
 import { getRendererLogger } from '@/services/logger';
+import { sanitizeToolOutput } from '../../shared/toolOutputSanitizer';
 
 const logger = getRendererLogger();
 
@@ -501,7 +502,12 @@ export const useChatStore = create<ChatStore>()(
               id: part.toolCallId || `tool-${Date.now()}`,
               name: part.type.replace('tool-', ''),
               arguments: part.input || {},
-              result: part.output,
+              // Sanear: nunca persistir base64 raw de imágenes en content[] cuando
+              // ya existe una versión comprimida en `images`. Ver Paso 5/11 del plan.
+              result:
+                part.output && typeof part.output === 'object'
+                  ? sanitizeToolOutput(part.output)
+                  : part.output,
               status: part.state === 'output-available' ? 'success' : part.state,
             }));
           }

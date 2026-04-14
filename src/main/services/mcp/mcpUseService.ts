@@ -21,6 +21,7 @@ import { RuntimeResolver } from "../runtime/RuntimeResolver.js";
 import { RuntimeManager } from "../runtime/runtimeManager.js";
 import { PreferencesService } from "../preferencesService.js";
 import { OAuthService } from "../oauth/OAuthService.js";
+import { normalizeToolResult } from "./shared/normalizeToolResult.js";
 
 /**
  * Modern MCP service implementation using mcp-use framework.
@@ -439,51 +440,23 @@ export class MCPUseService implements IMCPService {
         isError: result.isError,
       });
 
-      // Handle different content formats from mcp-use
-      // MCP spec 2025-06-18: structuredContent is preferred over content
-      let content: any[];
-
-      if (result.structuredContent) {
-        // Prefer structuredContent (modern MCP spec field)
-        // Convert to text for backward compatibility and LLM consumption
-        this.logger.mcp.debug("Using structuredContent as primary content source", {
-          serverId,
-          toolName: toolCall.name,
-          hasLegacyContent: !!result.content,
-        });
-        content = [{
-          type: "text",
-          text: JSON.stringify(result.structuredContent, null, 2)
-        }];
-      } else if (Array.isArray(result.content)) {
-        // Fallback to legacy content field
-        content = result.content;
-      } else if (result.content !== undefined && result.content !== null) {
-        // If content is not an array, wrap it in an array
-        // MCP protocol expects content to be an array of content items
-        content = [{
-          type: "text",
-          text: typeof result.content === "string"
-            ? result.content
-            : JSON.stringify(result.content)
-        }];
-      } else {
-        content = [];
-      }
+      // Preserve content[] as-is (including image blocks) and only synthesize
+      // text from structuredContent when content is missing. Shared helper so
+      // the same normalization is applied by both MCP service implementations.
+      const normalized = normalizeToolResult(result);
+      const content = normalized.content;
 
       const finalResult: ToolResult = {
         content,
-        isError: Boolean(result.isError),
+        isError: Boolean(normalized.isError),
       };
 
-      // Preserve _meta for UI widgets (mcp-use/widget)
-      if (result._meta) {
-        finalResult._meta = result._meta;
+      if (normalized._meta) {
+        finalResult._meta = normalized._meta;
       }
 
-      // Preserve structuredContent for widget data
-      if (result.structuredContent) {
-        finalResult.structuredContent = result.structuredContent;
+      if (normalized.structuredContent) {
+        finalResult.structuredContent = normalized.structuredContent;
       }
 
       this.logger.mcp.debug("Tool result AFTER processing (mcp-use)", {

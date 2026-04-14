@@ -20,6 +20,7 @@ import { RuntimeResolver } from "../runtime/RuntimeResolver.js";
 import { RuntimeManager } from "../runtime/runtimeManager.js";
 import { PreferencesService } from "../preferencesService.js";
 import { OAuthService } from "../oauth/OAuthService.js";
+import { normalizeToolResult } from "./shared/normalizeToolResult.js";
 
 /**
  * Legacy MCP service implementation using @modelcontextprotocol/sdk.
@@ -204,39 +205,26 @@ export class MCPLegacyService implements IMCPService {
         arguments: toolCall.arguments,
       });
 
-      // Handle content field - MCP spec 2025-06-18
-      // Prefer structuredContent over legacy content field
-      let content: any[];
-
-      if ((response as any).structuredContent) {
-        // Prefer structuredContent (modern MCP spec field)
-        this.logger.mcp.debug("Using structuredContent as primary content source", {
-          serverId,
-          toolName: toolCall.name,
-          hasLegacyContent: !!response.content,
-        });
-        content = [{
-          type: "text",
-          text: JSON.stringify((response as any).structuredContent, null, 2)
-        }];
-      } else if (Array.isArray(response.content)) {
-        // Fallback to legacy content field
-        content = response.content;
-      } else {
-        content = [];
-      }
+      // Preserve content[] as-is (including image blocks) and only synthesize
+      // text from structuredContent when content is missing. Shared helper so
+      // the same normalization is applied by both MCP service implementations.
+      const normalized = normalizeToolResult(response as {
+        content?: unknown;
+        structuredContent?: Record<string, unknown>;
+        _meta?: Record<string, unknown>;
+        isError?: boolean;
+      });
 
       const result: ToolResult = {
-        content,
-        isError: Boolean(response.isError),
+        content: normalized.content,
+        isError: Boolean(normalized.isError),
       };
 
-      // Preserve structuredContent and _meta if present
-      if ((response as any).structuredContent) {
-        result.structuredContent = (response as any).structuredContent;
+      if (normalized.structuredContent) {
+        result.structuredContent = normalized.structuredContent;
       }
-      if ((response as any)._meta) {
-        result._meta = (response as any)._meta;
+      if (normalized._meta) {
+        result._meta = normalized._meta;
       }
 
       return result;

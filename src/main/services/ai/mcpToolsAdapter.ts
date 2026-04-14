@@ -19,6 +19,12 @@ import {
   detectWidgetProtocol,
   type WidgetProtocol,
 } from "./widgets";
+import { resizeMCPImageBlock } from "../image/imageResizer.js";
+import {
+  DEFAULT_MAX_MCP_OUTPUT_TOKENS,
+  IMAGE_TOKEN_ESTIMATE,
+} from "../image/providerImageLimits.js";
+import { sanitizeToolOutput } from "../../../shared/toolOutputSanitizer.js";
 
 const logger = getLogger();
 
@@ -45,6 +51,11 @@ export interface GetMCPToolsOptions {
    * Tools in this list will be filtered out.
    */
   disabledTools?: DisabledTools;
+  /**
+   * Si el modelo activo soporta visión. Determina si las imágenes de los tools
+   * MCP se entregan al modelo como `image-data` o como texto placeholder.
+   */
+  supportsVision?: boolean;
 }
 
 /**
@@ -55,6 +66,10 @@ interface CreateAISDKToolOptions {
    * Si true, la herramienta NO requerirá aprobación del usuario.
    */
   skipApproval?: boolean;
+  /**
+   * Si el modelo activo soporta visión.
+   */
+  supportsVision?: boolean;
 }
 
 /**
@@ -66,7 +81,7 @@ interface CreateAISDKToolOptions {
  * @param options.disabledTools - Optional object mapping serverId to array of disabled tool names
  */
 export async function getMCPTools(options: GetMCPToolsOptions = {}): Promise<Record<string, any>> {
-  const { skipApproval = false, disabledTools } = options;
+  const { skipApproval = false, disabledTools, supportsVision = false } = options;
   const startTime = Date.now();
 
   try {
@@ -187,7 +202,7 @@ export async function getMCPTools(options: GetMCPToolsOptions = {}): Promise<Rec
           continue;
         }
 
-        const aiTool = createAISDKTool(serverId, mcpTool, { skipApproval });
+        const aiTool = createAISDKTool(serverId, mcpTool, { skipApproval, supportsVision });
         if (!aiTool) {
           logger.aiSdk.error("Failed to create AI SDK tool", { toolId });
           continue;
@@ -245,12 +260,12 @@ export async function getMCPTools(options: GetMCPToolsOptions = {}): Promise<Rec
  * @param mcpTool - MCP tool definition
  * @param options - Tool creation options
  */
-function createAISDKTool(
+export function createAISDKTool(
   serverId: string,
   mcpTool: Tool,
   options: CreateAISDKToolOptions = {}
 ) {
-  const { skipApproval = false } = options;
+  const { skipApproval = false, supportsVision = false } = options;
 
   logger.aiSdk.debug("Creating AI SDK tool", {
     serverId,
@@ -461,6 +476,90 @@ function createAISDKTool(
         // For tool execution errors, throw to let the AI SDK handle it
         throw new Error(errorMessage);
       }
+    },
+
+    // Convert the structured output we return from `execute` into the shape
+    // the AI SDK will forward to the LLM provider.
+    // Contract (ai@6): ({ toolCallId, input, output }) => ModelOutput
+    //   - "content" with parts (image-data + text) for multimodal results
+    //   - "json" for structured content only
+    //   - "text" for plain text results
+    toModelOutput: ({ output }) => {
+      if (
+        output &&
+        typeof output === "object" &&
+        "images" in output &&
+        Array.isArray((output as any).images)
+      ) {
+        const o = output as {
+          text?: string;
+          images: Array<{ data: string; mediaType: string }>;
+        };
+
+        if (!supportsVision) {
+          return {
+            type: "text",
+            value:
+              o.text ||
+              "[Tool returned an image, but the active model does not support vision.]",
+          };
+        }
+
+        const parts: Array<
+          | { type: "text"; text: string }
+          | { type: "image-data"; data: string; mediaType: string }
+        > = [];
+
+        if (o.text) {
+          parts.push({ type: "text", text: o.text });
+        }
+
+        for (const image of o.images) {
+          parts.push({
+            type: "image-data",
+            data: image.data,
+            mediaType: image.mediaType,
+          });
+        }
+
+        return {
+          type: "content",
+          value: parts,
+        };
+      }
+
+      if (typeof output === "string") {
+        return { type: "text", value: output };
+      }
+
+      if (output && typeof output === "object") {
+        const o = output as {
+          text?: string;
+          structuredContent?: Record<string, unknown>;
+          uiResources?: unknown[];
+        };
+
+        // IMPORTANT: uiResources is UI payload, it must NOT reach the model.
+        // If there are no images, only forward what's useful for the LLM.
+        if (o.structuredContent) {
+          return {
+            type: "json",
+            value: o.structuredContent as any,
+          };
+        }
+
+        if (o.text) {
+          return {
+            type: "text",
+            value: o.text,
+          };
+        }
+      }
+
+      return {
+        type: "json",
+        value: output as any,
+      };
     },
   });
 
@@ -960,7 +1059,7 @@ function createCodeModeTools(): Record<string, any> {
  * @param result - Tool execution result
  * @param protocol - Detected widget protocol
  */
-async function processToolResult(
+export async function processToolResult(
   serverId: string,
   mcpTool: Tool,
   args: Record<string, unknown>,
@@ -970,10 +1069,31 @@ async function processToolResult(
   if (result.content && Array.isArray(result.content)) {
     const textParts: string[] = [];
     const uiResources: any[] = [];
+    const imageParts: Array<{ data: string; mediaType: string }> = [];
 
     for (const item of result.content) {
       if (item.type === "text") {
         textParts.push(item.text || "");
+      } else if (item.type === "image" && typeof item.data === "string") {
+        try {
+          const { data, mediaType } = await resizeMCPImageBlock({
+            data: item.data,
+            mimeType: item.mimeType,
+          });
+
+          imageParts.push({ data, mediaType });
+          textParts.push(`[Image received from ${mcpTool.name}]`);
+        } catch (error) {
+          logger.mcp.error("Failed to resize MCP tool image", {
+            serverId,
+            toolName: mcpTool.name,
+            error: error instanceof Error ? error.message : String(error),
+          });
+
+          textParts.push(
+            `[Image from ${mcpTool.name} could not be included because it exceeded API limits.]`,
+          );
+        }
       } else if (item.type === "resource") {
         // Check if this is a UI resource (uri starts with ui:// or has Apps SDK mimeType)
         let resourceData = item.resource || item.data || item;
@@ -1101,17 +1221,44 @@ async function processToolResult(
     // Record successful tool call
     mcpHealthService.recordSuccess(serverId, mcpTool.name);
 
-    // Return structured result with both text and UI resources
-    if (uiResources.length > 0) {
-      return {
-        text: textParts.join("\n"),
-        content: result.content,
-        uiResources: uiResources,
-      };
+    const text = textParts.join("\n");
+
+    // Basic output budget: log when the estimated token count exceeds the limit.
+    // TODO(mcp-image-budget): this only logs today. A tool returning N images
+    // passes the per-image filter but can blow the aggregate without truncation.
+    // Open an issue to implement multi-image truncation (trim imageParts and/or
+    // text when the estimate exceeds the budget). Does not block this fix.
+    const maxTokens =
+      Number(process.env.MAX_MCP_OUTPUT_TOKENS) || DEFAULT_MAX_MCP_OUTPUT_TOKENS;
+    const estTokens =
+      imageParts.length * IMAGE_TOKEN_ESTIMATE + Math.ceil(text.length / 4);
+
+    if (estTokens > maxTokens) {
+      logger.mcp.warn("MCP output exceeded token budget", {
+        serverId,
+        toolName: mcpTool.name,
+        estTokens,
+        maxTokens,
+      });
     }
 
-    // No UI resources - return text only
-    return textParts.join("\n");
+    // Return structured result when we have UI resources or images. Always pass
+    // through sanitizeToolOutput so `content[]` image blocks are turned into
+    // lightweight placeholders before the output is stored/rehydrated.
+    if (uiResources.length > 0 || imageParts.length > 0) {
+      return sanitizeToolOutput({
+        text,
+        content: result.content,
+        ...(result.structuredContent
+          ? { structuredContent: result.structuredContent }
+          : {}),
+        ...(uiResources.length > 0 ? { uiResources } : {}),
+        ...(imageParts.length > 0 ? { images: imageParts } : {}),
+      });
+    }
+
+    // No UI resources and no images - return text only
+    return text;
   }
 
   // For non-content results, return as-is

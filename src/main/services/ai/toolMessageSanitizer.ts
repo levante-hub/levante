@@ -1,4 +1,5 @@
 import { type UIMessage } from 'ai';
+import { stripInlineImagesFromContent } from '../../../shared/toolOutputSanitizer';
 
 /**
  * Sanitize messages for model consumption.
@@ -132,37 +133,64 @@ export function sanitizeMessagesForModel(messages: UIMessage[]): UIMessage[] {
       );
       if (isToolWithOutput && part.output) {
         const output = part.output;
-        if (output && typeof output === 'object' && 'uiResources' in output) {
-          // Build clean output for LLM - include structuredContent and content text
-          // but strip _meta (client metadata) and uiResources (widget rendering)
+        if (
+          output &&
+          typeof output === 'object' &&
+          ('uiResources' in output || 'images' in output)
+        ) {
           const cleanOutput: Record<string, unknown> = {};
 
-          // 1. Include structuredContent if present (MCP spec: structured JSON for LLM)
-          if (output.structuredContent) {
-            cleanOutput.structuredContent = output.structuredContent;
+          if ((output as any).structuredContent) {
+            cleanOutput.structuredContent = (output as any).structuredContent;
           }
 
-          // 2. Extract text from content array (MCP spec: for backwards compatibility)
-          if (Array.isArray(output.content)) {
-            const contentTexts = output.content
-              .filter((item: any) => item?.type === 'text' && item?.text)
-              .map((item: any) => item.text);
+          if (Array.isArray((output as any).content)) {
+            // Aligerar cualquier bloque image legacy reutilizando el helper
+            // unificado (evita duplicar la lógica de lápida aquí).
+            const neutralizedContent = stripInlineImagesFromContent(
+              (output as any).content as unknown[],
+            );
+
+            const contentTexts = neutralizedContent
+              .filter(
+                (item: any) => item?.type === 'text' && item?.text,
+              )
+              .map((item: any) => item.text as string);
+
+            const hadLegacyImages = ((output as any).content as any[]).some(
+              (item: any) => item?.type === 'image',
+            );
+
+            if (hadLegacyImages && !Array.isArray((output as any).images)) {
+              contentTexts.push(
+                '[Legacy MCP image omitted from historical tool output]',
+              );
+            }
 
             if (contentTexts.length > 0) {
               cleanOutput.text = contentTexts.join('\n');
             }
           }
 
-          // Fallback to output.text if content array didn't provide text
-          if (!cleanOutput.text && output.text) {
-            cleanOutput.text = output.text;
+          if (!cleanOutput.text && (output as any).text) {
+            cleanOutput.text = (output as any).text;
           }
 
-          // If we have structuredContent, return it (preferred by LLM)
-          // Otherwise fall back to text, or a placeholder
+          if (
+            Array.isArray((output as any).images) &&
+            (output as any).images.length > 0
+          ) {
+            cleanOutput.images = (output as any).images;
+          }
+
           let outputForModel: unknown;
-          if (cleanOutput.structuredContent) {
-            // LLM can work with structured data directly
+
+          if (cleanOutput.images) {
+            outputForModel = {
+              text: cleanOutput.text ?? '',
+              images: cleanOutput.images,
+            };
+          } else if (cleanOutput.structuredContent) {
             outputForModel = cleanOutput.structuredContent;
           } else if (cleanOutput.text) {
             outputForModel = cleanOutput.text;

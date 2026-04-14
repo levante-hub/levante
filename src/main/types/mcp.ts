@@ -103,19 +103,45 @@ export interface ToolCall {
   arguments: Record<string, any>;
 }
 
-export interface ToolResult {
-  content: Array<{
-    type: string;
-    text?: string;
-    data?: any;
-    // For embedded resources (EmbeddedResource format)
-    resource?: {
-      uri: string;
-      mimeType?: string;
+/**
+ * A single MCP tool content item. Covers `text`, `image`, `resource`
+ * and any future unknown block (kept as a loose shape via the string branch).
+ */
+export type MCPContentItem =
+  | {
+      type: "text";
       text?: string;
-      blob?: string;
+    }
+  | {
+      type: "image";
+      data?: string;
+      mimeType?: string;
+    }
+  | {
+      type: "resource";
+      data?: any;
+      resource?: {
+        uri: string;
+        mimeType?: string;
+        text?: string;
+        blob?: string;
+      };
+    }
+  | {
+      type: string;
+      text?: string;
+      data?: any;
+      mimeType?: string;
+      resource?: {
+        uri: string;
+        mimeType?: string;
+        text?: string;
+        blob?: string;
+      };
     };
-  }>;
+
+export interface ToolResult {
+  content: MCPContentItem[];
   isError?: boolean;
   /** Metadata from mcp-use including widget information */
   _meta?: {

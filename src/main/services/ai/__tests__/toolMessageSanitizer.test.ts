@@ -200,4 +200,88 @@ describe('sanitizeMessagesForModel', () => {
 
     expect(part.providerMetadata).toBeUndefined();
   });
+
+  it('preserves images[] on tool output with uiResources', () => {
+    const output = {
+      text: 'txt',
+      content: [{ type: 'text', text: 'txt' }],
+      uiResources: [{ type: 'resource' }],
+      images: [{ data: 'AAAA', mediaType: 'image/png' }],
+    };
+
+    const messages: UIMessage[] = [
+      makeAssistantMessage([
+        makeToolPart({ state: 'output-available', output }),
+      ]),
+    ];
+
+    const result = sanitizeMessagesForModel(messages);
+    const part = result[0].parts[0] as any;
+
+    expect(part.output).toEqual({
+      text: 'txt',
+      images: [{ data: 'AAAA', mediaType: 'image/png' }],
+    });
+  });
+
+  it('converts legacy content[].image to placeholder text when no images[] exists', () => {
+    const output = {
+      uiResources: [],
+      content: [
+        { type: 'text', text: 'header' },
+        { type: 'image', data: 'BIGBASE64', mimeType: 'image/png' },
+      ],
+    };
+
+    const messages: UIMessage[] = [
+      makeAssistantMessage([
+        makeToolPart({ state: 'output-available', output }),
+      ]),
+    ];
+
+    const result = sanitizeMessagesForModel(messages);
+    const part = result[0].parts[0] as any;
+
+    expect(part.output).toBe(
+      'header\n[Legacy MCP image omitted from historical tool output]',
+    );
+    expect(JSON.stringify(part.output)).not.toContain('BIGBASE64');
+  });
+
+  it('does not mutate the original input', () => {
+    const output = {
+      uiResources: [{ type: 'resource' }],
+      content: [{ type: 'image', data: 'XXX', mimeType: 'image/png' }],
+      images: [{ data: 'AAAA', mediaType: 'image/png' }],
+    };
+    const messages: UIMessage[] = [
+      makeAssistantMessage([
+        makeToolPart({ state: 'output-available', output }),
+      ]),
+    ];
+    const snapshot = JSON.parse(JSON.stringify(messages));
+
+    sanitizeMessagesForModel(messages);
+
+    expect(messages).toEqual(snapshot);
+  });
+
+  it('keeps structuredContent preferred when no images[] is present', () => {
+    const output = {
+      uiResources: [],
+      structuredContent: { payload: 123 },
+      content: [{ type: 'text', text: 'hi' }],
+    };
+
+    const messages: UIMessage[] = [
+      makeAssistantMessage([
+        makeToolPart({ state: 'output-available', output }),
+      ]),
+    ];
+
+    const result = sanitizeMessagesForModel(messages);
+    const part = result[0].parts[0] as any;
+
+    expect(part.output).toEqual({ payload: 123 });
+  });
 });
