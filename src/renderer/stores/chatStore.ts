@@ -18,6 +18,7 @@ import type { ChatSession, Message, CreateMessageInput, SessionType } from '../.
 import type { UIMessage } from 'ai';
 import type { TokenUsage } from '../../preload/types';
 import { getRendererLogger } from '@/services/logger';
+import { isCanonicalToolResult } from '../../shared/canonicalToolResult';
 import { sanitizeToolOutput } from '../../shared/toolOutputSanitizer';
 
 const logger = getRendererLogger();
@@ -502,10 +503,12 @@ export const useChatStore = create<ChatStore>()(
               id: part.toolCallId || `tool-${Date.now()}`,
               name: part.type.replace('tool-', ''),
               arguments: part.input || {},
-              // Sanear: nunca persistir base64 raw de imágenes en content[] cuando
-              // ya existe una versión comprimida en `images`. Ver Paso 5/11 del plan.
+              // New rich tool results are canonicalized in main before hitting the DB.
+              // Renderer must not re-shape canonical outputs or reintroduce inline base64.
               result:
-                part.output && typeof part.output === 'object'
+                isCanonicalToolResult(part.output)
+                  ? part.output
+                  : part.output && typeof part.output === 'object'
                   ? sanitizeToolOutput(part.output)
                   : part.output,
               status: part.state === 'output-available' ? 'success' : part.state,

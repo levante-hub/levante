@@ -201,7 +201,40 @@ describe('sanitizeMessagesForModel', () => {
     expect(part.providerMetadata).toBeUndefined();
   });
 
-  it('preserves images[] on tool output with uiResources', () => {
+  it('preserves canonical tool outputs intact', () => {
+    const output = {
+      __levanteToolResult: 1,
+      text: 'canonical',
+      modelOutput: {
+        type: 'content',
+        value: [
+          { type: 'text', text: 'canonical' },
+          {
+            kind: 'image-ref',
+            assetId: 'asset-1',
+            mediaType: 'image/png',
+            byteSize: 4,
+            base64Length: 4,
+            sha256: 'asset-1',
+          },
+        ],
+      },
+    };
+
+    const messages: UIMessage[] = [
+      makeAssistantMessage([
+        makeToolPart({ state: 'output-available', output }),
+      ]),
+    ];
+
+    const result = sanitizeMessagesForModel(messages);
+    const part = result[0].parts[0] as any;
+
+    expect(part.output).toEqual(output);
+    expect(part.output.modelOutput.value[1].kind).toBe('image-ref');
+  });
+
+  it('keeps legacy outputs as sanitized objects without semantic conversion', () => {
     const output = {
       text: 'txt',
       content: [{ type: 'text', text: 'txt' }],
@@ -220,11 +253,13 @@ describe('sanitizeMessagesForModel', () => {
 
     expect(part.output).toEqual({
       text: 'txt',
+      content: [{ type: 'text', text: 'txt' }],
+      uiResources: [{ type: 'resource' }],
       images: [{ data: 'AAAA', mediaType: 'image/png' }],
     });
   });
 
-  it('converts legacy content[].image to placeholder text when no images[] exists', () => {
+  it('sanitizes legacy content[].image without inventing image-data', () => {
     const output = {
       uiResources: [],
       content: [
@@ -242,9 +277,13 @@ describe('sanitizeMessagesForModel', () => {
     const result = sanitizeMessagesForModel(messages);
     const part = result[0].parts[0] as any;
 
-    expect(part.output).toBe(
-      'header\n[Legacy MCP image omitted from historical tool output]',
-    );
+    expect(part.output).toEqual({
+      uiResources: [],
+      content: [
+        { type: 'text', text: 'header' },
+        { type: 'image', mimeType: 'image/png', omitted: true },
+      ],
+    });
     expect(JSON.stringify(part.output)).not.toContain('BIGBASE64');
   });
 
@@ -266,7 +305,7 @@ describe('sanitizeMessagesForModel', () => {
     expect(messages).toEqual(snapshot);
   });
 
-  it('keeps structuredContent preferred when no images[] is present', () => {
+  it('keeps structuredContent available on legacy outputs', () => {
     const output = {
       uiResources: [],
       structuredContent: { payload: 123 },
@@ -282,6 +321,10 @@ describe('sanitizeMessagesForModel', () => {
     const result = sanitizeMessagesForModel(messages);
     const part = result[0].parts[0] as any;
 
-    expect(part.output).toEqual({ payload: 123 });
+    expect(part.output).toEqual({
+      structuredContent: { payload: 123 },
+      uiResources: [],
+      content: [{ type: 'text', text: 'hi' }],
+    });
   });
 });

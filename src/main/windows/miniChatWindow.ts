@@ -295,7 +295,7 @@ export function registerMiniChatIPC(): void {
 
         // Persist all messages (legacy mode)
         for (const msg of messages) {
-          let toolCalls: object[] | null = null;
+          let toolCalls: any[] | null = null;
           if (msg.parts && Array.isArray(msg.parts)) {
             const toolParts = msg.parts.filter(
               (p: any) => p.type === 'tool-call' || p.type === 'tool-result'

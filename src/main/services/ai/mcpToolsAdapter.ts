@@ -24,7 +24,10 @@ import {
   DEFAULT_MAX_MCP_OUTPUT_TOKENS,
   IMAGE_TOKEN_ESTIMATE,
 } from "../image/providerImageLimits.js";
-import { sanitizeToolOutput } from "../../../shared/toolOutputSanitizer.js";
+import {
+  canonicalizeRichToolOutput,
+  materializeToolResultForModel,
+} from "../toolResults/canonicalToolResultService";
 
 const logger = getLogger();
 
@@ -484,82 +487,11 @@ export function createAISDKTool(
     //   - "content" with parts (image-data + text) for multimodal results
     //   - "json" for structured content only
     //   - "text" for plain text results
-    toModelOutput: ({ output }) => {
-      if (
-        output &&
-        typeof output === "object" &&
-        "images" in output &&
-        Array.isArray((output as any).images)
-      ) {
-        const o = output as {
-          text?: string;
-          images: Array<{ data: string; mediaType: string }>;
-        };
-
-        if (!supportsVision) {
-          return {
-            type: "text",
-            value:
-              o.text ||
-              "[Tool returned an image, but the active model does not support vision.]",
-          };
-        }
-
-        const parts: Array<
-          | { type: "text"; text: string }
-          | { type: "image-data"; data: string; mediaType: string }
-        > = [];
-
-        if (o.text) {
-          parts.push({ type: "text", text: o.text });
-        }
-
-        for (const image of o.images) {
-          parts.push({
-            type: "image-data",
-            data: image.data,
-            mediaType: image.mediaType,
-          });
-        }
-
-        return {
-          type: "content",
-          value: parts,
-        };
-      }
-
-      if (typeof output === "string") {
-        return { type: "text", value: output };
-      }
-
-      if (output && typeof output === "object") {
-        const o = output as {
-          text?: string;
-          structuredContent?: Record<string, unknown>;
-          uiResources?: unknown[];
-        };
-
-        // IMPORTANT: uiResources is UI payload, it must NOT reach the model.
-        // If there are no images, only forward what's useful for the LLM.
-        if (o.structuredContent) {
-          return {
-            type: "json",
-            value: o.structuredContent as any,
-          };
-        }
-
-        if (o.text) {
-          return {
-            type: "text",
-            value: o.text,
-          };
-        }
-      }
-
-      return {
-        type: "json",
-        value: output as any,
-      };
+    toModelOutput: async ({ output }) => {
+      return materializeToolResultForModel({
+        output,
+        supportsVision,
+      });
     },
   });
 
@@ -1242,23 +1174,15 @@ export async function processToolResult(
       });
     }
 
-    // Return structured result when we have UI resources or images. Always pass
-    // through sanitizeToolOutput so `content[]` image blocks are turned into
-    // lightweight placeholders before the output is stored/rehydrated.
-    if (uiResources.length > 0 || imageParts.length > 0) {
-      return sanitizeToolOutput({
-        text,
-        content: result.content,
-        ...(result.structuredContent
-          ? { structuredContent: result.structuredContent }
-          : {}),
-        ...(uiResources.length > 0 ? { uiResources } : {}),
-        ...(imageParts.length > 0 ? { images: imageParts } : {}),
-      });
-    }
-
-    // No UI resources and no images - return text only
-    return text;
+    return canonicalizeRichToolOutput({
+      text,
+      content: result.content,
+      ...(result.structuredContent
+        ? { structuredContent: result.structuredContent }
+        : {}),
+      ...(uiResources.length > 0 ? { uiResources } : {}),
+      ...(imageParts.length > 0 ? { legacyImages: imageParts } : {}),
+    });
   }
 
   // For non-content results, return as-is
