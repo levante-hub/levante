@@ -9,6 +9,10 @@ import { delimiter } from "path";
 import { homedir } from "os";
 import { join } from "path";
 
+const ANSI_OSC_PATTERN = /\u001B\][^\u0007]*(?:\u0007|\u001B\\)/g;
+const ANSI_CSI_PATTERN = /[\u001B\u009B][[()\]#;?]*(?:(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-PR-TZcf-nq-uy=><~])/g;
+const ANSI_SINGLE_PATTERN = /\u001B[@-_]/g;
+
 /**
  * Obtener configuración de shell según plataforma
  */
@@ -69,9 +73,17 @@ export function getShellEnv(): NodeJS.ProcessEnv {
 /**
  * Sanitizar output binario (remover caracteres no imprimibles)
  */
+export function stripAnsiSequences(str: string): string {
+  return str
+    .replace(ANSI_OSC_PATTERN, "")
+    .replace(ANSI_CSI_PATTERN, "")
+    .replace(ANSI_SINGLE_PATTERN, "");
+}
+
 export function sanitizeBinaryOutput(str: string): string {
+  const withoutAnsi = stripAnsiSequences(str);
   // Remover caracteres de control excepto newlines y tabs
-  return str.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "");
+  return withoutAnsi.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "");
 }
 
 /**
