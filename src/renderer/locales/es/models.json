@@ -20,7 +20,10 @@
   "api_key": {
     "label": "Clave de API",
     "optional": "La clave de API es opcional para listar modelos pero necesaria para inferencia",
-    "get_key": "Obtener tu clave"
+    "get_key": "Obtener tu clave",
+    "label_local": "API Key (opcional)",
+    "placeholder_local": "Déjalo vacío si tu servidor no requiere autenticación",
+    "help_local": "Solo es necesaria para endpoints privados detrás de VPN o gateways que requieran un Bearer token. No hace falta para Ollama/LM Studio local."
   },
   "oauth": {
     "sign_in": "Inicia sesión con OpenRouter",

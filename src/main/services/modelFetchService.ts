@@ -103,7 +103,7 @@ export class ModelFetchService {
   }
 
   // Fetch local models (Ollama or OpenAI-compatible)
-  static async fetchLocalModels(endpoint: string): Promise<any[]> {
+  static async fetchLocalModels(endpoint: string, apiKey?: string): Promise<any[]> {
     try {
       // Normalize endpoint (add http:// if missing)
       const normalizedEndpoint = normalizeEndpoint(endpoint);
@@ -119,16 +119,27 @@ export class ModelFetchService {
         throw new Error(validation.error || "Invalid endpoint URL");
       }
 
+      // Strip trailing /v1 (and any trailing slash) so discovery paths don't double it.
+      // Users may save the OpenAI-style base URL (e.g. http://host/v1) used for inference.
+      const rootEndpoint = normalizedEndpoint
+        .replace(/\/+$/, '')
+        .replace(/\/v1$/, '');
+
+      const authHeaders: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (apiKey) {
+        authHeaders.Authorization = `Bearer ${apiKey}`;
+      }
+
       // 1. Try Ollama endpoint (/api/tags)
       try {
-        const ollamaUrl = `${normalizedEndpoint}/api/tags`;
+        const ollamaUrl = `${rootEndpoint}/api/tags`;
         logger.models.debug(`Trying Ollama endpoint: ${ollamaUrl}`);
         // Use shorter timeout for first attempt
         const response = await safeFetch(
           ollamaUrl,
-          {
-            headers: { "Content-Type": "application/json" },
-          },
+          { headers: authHeaders },
           2000
         );
 
@@ -161,13 +172,11 @@ export class ModelFetchService {
 
       // 2. Try OpenAI-compatible endpoint (/v1/models)
       // This is used by LM Studio, LocalAI, etc.
-      const url = `${normalizedEndpoint}/v1/models`;
+      const url = `${rootEndpoint}/v1/models`;
       logger.models.debug(`Trying OpenAI endpoint: ${url}`);
 
       const response = await safeFetch(url, {
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: authHeaders,
       });
 
       logger.models.debug(

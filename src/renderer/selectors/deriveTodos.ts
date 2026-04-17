@@ -20,6 +20,55 @@ const EMPTY: DerivedTodoState = {
   hasTodoWrite: false,
 };
 
+interface TodoPayloadLike {
+  id: string;
+  subject: string;
+  activeForm?: string;
+  status: DerivedTodo['status'];
+}
+
+function isTodoPayloadLike(value: unknown): value is TodoPayloadLike {
+  if (typeof value !== 'object' || value === null) return false;
+
+  const todo = value as Record<string, unknown>;
+  return (
+    typeof todo.id === 'string' &&
+    typeof todo.subject === 'string' &&
+    (todo.activeForm === undefined || typeof todo.activeForm === 'string') &&
+    (todo.status === 'pending' ||
+      todo.status === 'in_progress' ||
+      todo.status === 'completed')
+  );
+}
+
+function extractCompletedTodoOutput(part: any): TodoPayloadLike[] | null {
+  const normalize = (candidate: unknown): TodoPayloadLike[] | null =>
+    Array.isArray(candidate) && candidate.every(isTodoPayloadLike) ? candidate : null;
+
+  if (Array.isArray(part.output?.todos)) {
+    return part.state === undefined || part.state === 'output-available'
+      ? normalize(part.output.todos)
+      : null;
+  }
+
+  if (Array.isArray(part.result?.todos)) {
+    return part.state === undefined || part.state === 'output-available'
+      ? normalize(part.result.todos)
+      : null;
+  }
+
+  if (Array.isArray(part.toolInvocation?.result?.todos)) {
+    const invocationState = part.toolInvocation?.state;
+    return invocationState === undefined ||
+      invocationState === 'result' ||
+      invocationState === 'output-available'
+      ? normalize(part.toolInvocation.result.todos)
+      : null;
+  }
+
+  return null;
+}
+
 /**
  * Walks messages in reverse and returns the todo list from the most recent
  * `todo_write` tool call. Returns empty state if none found.
@@ -49,12 +98,7 @@ export function deriveTodosFromMessages(messages: UIMessage[]): DerivedTodoState
 
       if (toolName !== 'todo_write') continue;
 
-      const output =
-        part.output?.todos ??
-        part.result?.todos ??
-        part.toolInvocation?.result?.todos ??
-        part.input?.todos ??
-        part.args?.todos;
+      const output = extractCompletedTodoOutput(part);
 
       if (!Array.isArray(output)) continue;
 

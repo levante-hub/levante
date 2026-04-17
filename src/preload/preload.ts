@@ -250,7 +250,8 @@ export interface LevanteAPI {
       baseUrl?: string
     ) => Promise<{ success: boolean; data?: any[]; error?: string }>;
     fetchLocal: (
-      endpoint: string
+      endpoint: string,
+      apiKey?: string
     ) => Promise<{ success: boolean; data?: any[]; error?: string }>;
     fetchOpenAI: (
       params:

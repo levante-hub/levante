@@ -5,8 +5,8 @@ export const modelsApi = {
     ipcRenderer.invoke('levante/models/openrouter', apiKey),
   fetchGateway: (apiKey: string, baseUrl?: string) =>
     ipcRenderer.invoke('levante/models/gateway', apiKey, baseUrl),
-  fetchLocal: (endpoint: string) =>
-    ipcRenderer.invoke('levante/models/local', endpoint),
+  fetchLocal: (endpoint: string, apiKey?: string) =>
+    ipcRenderer.invoke('levante/models/local', endpoint, apiKey),
   fetchOpenAI: (
     params:
       | string

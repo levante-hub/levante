@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import { CheckCircle2, Circle } from 'lucide-react';
 import { useTodoStore } from '@/stores/todoStore';
 import { cn } from '@/lib/utils';
@@ -11,24 +11,9 @@ import logoBlanco from '@/assets/icons/logo_blanco.svg';
 export function InlineTodoList() {
   const theme = useThemeDetector();
   const logoSvg = theme === 'dark' ? logoBlanco : logoNegro;
-  const [fadingIds, setFadingIds] = useState<Set<string>>(new Set());
   const todos = useTodoStore((s) => s.todos);
-  const previousTodos = useTodoStore((s) => s.previousTodos);
 
-  useEffect(() => {
-    const currentIds = new Set(todos.map((t) => t.id));
-    const removed = previousTodos.filter(
-      (t) => t.status === 'completed' && !currentIds.has(t.id)
-    );
-    if (removed.length === 0) return;
-
-    setFadingIds(new Set(removed.map((t) => t.id)));
-    const timer = setTimeout(() => setFadingIds(new Set()), 500);
-    return () => clearTimeout(timer);
-  }, [todos, previousTodos]);
-
-  const fadingTodos = previousTodos.filter((t) => fadingIds.has(t.id));
-  const visibleTodos = [...todos, ...fadingTodos];
+  const visibleTodos = useMemo(() => todos, [todos]);
 
   if (visibleTodos.length === 0) return null;
 
@@ -39,8 +24,7 @@ export function InlineTodoList() {
           key={todo.id}
           className={cn(
             'flex items-center gap-2 text-sm transition-all duration-300',
-            todo.status === 'completed' && 'text-muted-foreground line-through',
-            fadingIds.has(todo.id) && 'opacity-0 -translate-y-1 duration-500'
+            todo.status === 'completed' && 'text-muted-foreground line-through'
           )}
         >
           {todo.status === 'completed' && (

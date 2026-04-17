@@ -205,7 +205,6 @@ const ChatPage = () => {
   const updateLearnedOverhead = useChatStore((state) => state.updateLearnedOverhead);
   const recalculateContextBudget = useChatStore((state) => state.recalculateContextBudget);
   const currentSession = useChatStore((state) => state.currentSession);
-  const todosInProgress = useTodoStore((s) => s.todos.some((t) => t.status === 'in_progress'));
   const persistMessage = useChatStore((state) => state.persistMessage);
   const editMessage = useChatStore((state) => state.editMessage); // ← NEW
   const createSession = useChatStore((state) => state.createSession);
@@ -1341,19 +1340,32 @@ const ChatPage = () => {
           {/* Show error if any */}
           {chatError && (() => {
             const category = transport.lastErrorCategory;
+            const isPlatform = currentModelInfo?.provider === 'levante-platform';
             const friendlyKeys: Record<string, string> = {
               insufficient_balance: 'api.insufficient_balance',
               rate_limit: 'api.rate_limit',
               quota_exceeded: 'api.quota_exceeded',
-              unauthorized: 'api.unauthorized',
+              unauthorized: isPlatform ? 'api.unauthorized' : 'api.invalid_key',
               model_not_available: 'api.model_not_available',
             };
             const i18nKey = category && friendlyKeys[category];
             const friendlyMessage = i18nKey ? tErrors(i18nKey) : chatError.message;
+            // For non-platform providers, surface the original server message too so
+            // users can see what the endpoint actually returned (e.g. "Invalid API key: sk-***").
+            const showServerDetail =
+              !isPlatform &&
+              category === 'unauthorized' &&
+              chatError.message &&
+              chatError.message !== friendlyMessage;
 
             return (
               <div className="p-4 bg-destructive/10 border border-destructive/30 text-destructive text-sm flex items-start justify-between gap-3">
-                <span>{friendlyMessage}</span>
+                <span className="flex flex-col gap-1">
+                  <span>{friendlyMessage}</span>
+                  {showServerDetail && (
+                    <span className="text-xs opacity-80">{chatError.message}</span>
+                  )}
+                </span>
                 {category === 'insufficient_balance' && (
                   <button
                     type="button"
@@ -1370,7 +1382,7 @@ const ChatPage = () => {
                     {t('manage_balance')}
                   </button>
                 )}
-                {category === 'unauthorized' && (
+                {category === 'unauthorized' && isPlatform && (
                   <button
                     type="button"
                     className="shrink-0 underline underline-offset-2 hover:opacity-80 transition-opacity whitespace-nowrap"
@@ -1458,8 +1470,8 @@ const ChatPage = () => {
                   {/* Inline todo list */}
                   <InlineTodoList />
 
-                  {/* Streaming indicator (hidden when todos are in progress) */}
-                  {(status === 'streaming' || status === 'submitted') && !todosInProgress && (
+                  {/* Streaming indicator */}
+                  {(status === 'streaming' || status === 'submitted') && (
                     <Message from="assistant">
                       <MessageContent>
                         <BreathingLogo />

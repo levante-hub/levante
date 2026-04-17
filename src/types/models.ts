@@ -35,7 +35,7 @@ export interface ProviderConfig {
   id: string;
   name: string;
   type: ProviderType;
-  apiKey?: string;
+  apiKey?: string;  // Cloud providers + optional for private local endpoints behind VPN
   baseUrl?: string;
   models: Model[]; // In-memory: full list. In storage: only selected models for 'dynamic' providers
   selectedModelIds?: string[]; // IDs of selected models (for dynamic providers, saved to disk)

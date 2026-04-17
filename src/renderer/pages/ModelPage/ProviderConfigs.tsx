@@ -178,15 +178,19 @@ export const LocalConfig = ({ provider }: { provider: ProviderConfig }) => {
   const { t } = useTranslation('models');
   const { updateProvider, syncProviderModels, syncing } = useModelStore();
   const [baseUrl, setBaseUrl] = React.useState(provider.baseUrl || 'http://localhost:11434');
+  const [apiKey, setApiKey] = React.useState(provider.apiKey || '');
 
   // Sync local state when provider changes
   React.useEffect(() => {
     setBaseUrl(provider.baseUrl || 'http://localhost:11434');
-  }, [provider.baseUrl]);
+    setApiKey(provider.apiKey || '');
+  }, [provider.baseUrl, provider.apiKey]);
 
   const handleSave = async () => {
-    await updateProvider(provider.id, { baseUrl });
-    // Trigger sync after saving
+    await updateProvider(provider.id, {
+      baseUrl,
+      apiKey: apiKey.trim() || undefined,
+    });
     if (baseUrl) {
       syncProviderModels(provider.id);
     }
@@ -200,25 +204,38 @@ export const LocalConfig = ({ provider }: { provider: ProviderConfig }) => {
     <div className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="local-url">{t('base_url.label')}</Label>
-        <div className="flex gap-2">
-          <Input
-            id="local-url"
-            type="url"
-            placeholder="http://localhost:11434"
-            value={baseUrl}
-            onChange={(e) => setBaseUrl(e.target.value)}
-          />
-          <Button onClick={handleSave}>{t('stats.save')}</Button>
-        </div>
+        <Input
+          id="local-url"
+          type="url"
+          placeholder="http://localhost:11434"
+          value={baseUrl}
+          onChange={(e) => setBaseUrl(e.target.value)}
+        />
         <p className="text-xs text-muted-foreground">{t('base_url.help_local')}</p>
       </div>
 
-      {provider.baseUrl && (
-        <Button onClick={handleSync} disabled={syncing} variant="outline">
-          <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-          {t('models.discover')}
-        </Button>
-      )}
+      <div className="space-y-2">
+        <Label htmlFor="local-api-key">{t('api_key.label_local')}</Label>
+        <Input
+          id="local-api-key"
+          type="password"
+          placeholder={t('api_key.placeholder_local')}
+          value={apiKey}
+          onChange={(e) => setApiKey(e.target.value)}
+          autoComplete="off"
+        />
+        <p className="text-xs text-muted-foreground">{t('api_key.help_local')}</p>
+      </div>
+
+      <div className="flex gap-2">
+        <Button onClick={handleSave}>{t('stats.save')}</Button>
+        {provider.baseUrl && (
+          <Button onClick={handleSync} disabled={syncing} variant="outline">
+            <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+            {t('models.discover')}
+          </Button>
+        )}
+      </div>
     </div>
   );
 };

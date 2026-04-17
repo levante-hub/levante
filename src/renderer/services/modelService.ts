@@ -590,7 +590,7 @@ class ModelServiceImpl {
           break;
         case 'local':
           if (provider.baseUrl) {
-            models = await discoverLocalModels(provider.baseUrl);
+            models = await discoverLocalModels(provider.baseUrl, provider.apiKey);
           }
           break;
         case 'openai':
