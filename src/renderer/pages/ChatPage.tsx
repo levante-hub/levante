@@ -179,6 +179,7 @@ const ChatPage = () => {
   // Project store (read-only for effectiveCwd / projectDescription)
   const projects = useProjectStore((state) => state.projects);
   const loadProjects = useProjectStore((state) => state.loadProjects);
+  const updateProject = useProjectStore((state) => state.updateProject);
 
   // MCP Resources hook
   const {
@@ -382,6 +383,17 @@ const ChatPage = () => {
   );
 
   const handleCoworkModeCwdChange = useCallback(async (cwd: string | null) => {
+    if (currentSession?.project_id) {
+      await updateProject({ id: currentSession.project_id, cwd });
+      setSessionCwdOverrides((prev) => {
+        if (!(currentSession.id in prev)) return prev;
+        const next = { ...prev };
+        delete next[currentSession.id];
+        return next;
+      });
+      return;
+    }
+
     if (currentSession?.id) {
       setSessionCwdOverrides((prev) => {
         const next = { ...prev };
@@ -396,7 +408,7 @@ const ChatPage = () => {
     }
 
     await setCoworkModeCwd(cwd);
-  }, [currentSession?.id, setCoworkModeCwd]);
+  }, [currentSession?.id, currentSession?.project_id, setCoworkModeCwd, updateProject]);
 
   const handleResetCoworkModeCwdOverride = useCallback(async () => {
     if (!currentSession?.id) return;
