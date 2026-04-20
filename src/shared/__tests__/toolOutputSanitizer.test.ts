@@ -70,6 +70,18 @@ describe("sanitizeToolOutput", () => {
     expect(Object.keys(result)).toEqual([]);
   });
 
+  it("preserves arbitrary tool output fields like files and todos", () => {
+    const output = {
+      success: true,
+      files: [{ path: "/tmp/test.excalidraw", exists: true }],
+      todos: [{ id: "a", subject: "finish", status: "completed" }],
+    };
+
+    const result = sanitizeToolOutput(output);
+
+    expect(result).toEqual(output);
+  });
+
   it("replaces image blocks inside content[] with tombstones", () => {
     const result = sanitizeToolOutput({
       content: [

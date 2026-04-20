@@ -12,6 +12,7 @@ export interface ToolOutputShape {
   uiResources?: unknown[];
   structuredContent?: Record<string, unknown>;
   images?: Array<{ data: string; mediaType: string }>;
+  [key: string]: unknown;
 }
 
 /**
@@ -42,15 +43,11 @@ export function stripInlineImagesFromContent(content: unknown[]): unknown[] {
  * cuando el adapter devuelve el resultado como cuando el renderer va a persistirlo.
  */
 export function sanitizeToolOutput(output: ToolOutputShape): ToolOutputShape {
-  const cleanContent = Array.isArray(output.content)
-    ? stripInlineImagesFromContent(output.content)
-    : undefined;
+  const sanitized: ToolOutputShape = { ...output };
 
-  return {
-    ...(output.text ? { text: output.text } : {}),
-    ...(cleanContent ? { content: cleanContent } : {}),
-    ...(output.uiResources ? { uiResources: output.uiResources } : {}),
-    ...(output.structuredContent ? { structuredContent: output.structuredContent } : {}),
-    ...(output.images ? { images: output.images } : {}),
-  };
+  if (Array.isArray(output.content)) {
+    sanitized.content = stripInlineImagesFromContent(output.content);
+  }
+
+  return sanitized;
 }

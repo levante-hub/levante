@@ -13,6 +13,7 @@ const mkAssistant = (parts: any[]): UIMessage => ({
 const mkToolPart = (todos: unknown[]) => ({
   type: 'tool-todo_write',
   toolName: 'todo_write',
+  state: 'output-available',
   output: { todos },
 });
 
@@ -67,6 +68,47 @@ describe('deriveTodosFromMessages', () => {
     ];
     const state = deriveTodosFromMessages(msgs);
     expect(state.todos).toEqual([]);
+  });
+
+  it('ignores an incomplete latest todo_write and falls back to the previous completed one', () => {
+    const msgs = [
+      mkAssistant([mkToolPart([{ id: 'x', subject: 'done', status: 'completed' }])]),
+      mkAssistant([
+        {
+          type: 'tool-todo_write',
+          toolName: 'todo_write',
+          state: 'input-available',
+          input: {
+            todos: [{ id: 'y', subject: 'stuck', status: 'in_progress' }],
+          },
+        },
+      ]),
+    ];
+
+    const state = deriveTodosFromMessages(msgs);
+    expect(state.todos).toHaveLength(1);
+    expect(state.todos[0].id).toBe('x');
+  });
+
+  it('supports tool-invocation parts with completed results', () => {
+    const msgs = [
+      mkAssistant([
+        {
+          type: 'tool-invocation',
+          toolName: 'todo_write',
+          toolInvocation: {
+            state: 'result',
+            result: {
+              todos: [{ id: 'z', subject: 'legacy', status: 'pending' }],
+            },
+          },
+        },
+      ]),
+    ];
+
+    const state = deriveTodosFromMessages(msgs);
+    expect(state.todos).toHaveLength(1);
+    expect(state.todos[0].id).toBe('z');
   });
 
   it('falls back to previous todo_write when latest message removed', () => {

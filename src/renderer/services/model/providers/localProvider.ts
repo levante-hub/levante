@@ -6,9 +6,12 @@ const logger = getRendererLogger();
 /**
  * Discover models from local endpoint (Ollama, LM Studio, etc.)
  */
-export async function discoverLocalModels(endpoint: string): Promise<Model[]> {
+export async function discoverLocalModels(
+  endpoint: string,
+  apiKey?: string
+): Promise<Model[]> {
   try {
-    const result = await window.levante.models.fetchLocal(endpoint);
+    const result = await window.levante.models.fetchLocal(endpoint, apiKey);
 
     if (!result.success) {
       logger.models.warn('Failed to discover local models', {

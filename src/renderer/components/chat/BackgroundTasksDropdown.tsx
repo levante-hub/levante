@@ -265,10 +265,13 @@ export function BackgroundTasksDropdown({ className }: BackgroundTasksDropdownPr
                       : 'hover:bg-accent/50'
                   )}
                 >
-                  <div className="flex items-start justify-between gap-2 mb-1">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2 mb-1">
+                    <div className="flex min-w-0 items-center gap-2 overflow-hidden">
                       {getStatusIcon(task.status)}
-                      <code className="text-xs font-mono truncate flex-1">
+                      <code
+                        className="block w-full min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-xs font-mono"
+                        title={task.command}
+                      >
                         {getCommandPreview(task.command)}
                       </code>
                     </div>

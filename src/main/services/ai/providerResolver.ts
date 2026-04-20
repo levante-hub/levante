@@ -160,12 +160,16 @@ function configureLocalProvider(provider: ProviderConfig, modelId: string) {
 
   logger.aiSdk.debug("Creating Local provider", {
     modelId,
-    baseURL: localBaseUrl
+    baseURL: localBaseUrl,
+    hasApiKey: Boolean(provider.apiKey),
   });
 
   const localProvider = createOpenAICompatible({
     name: "local",
     baseURL: localBaseUrl,
+    headers: provider.apiKey
+      ? { Authorization: `Bearer ${provider.apiKey}` }
+      : undefined,
   });
 
   return localProvider(modelId);

@@ -26,7 +26,7 @@ export class ApiValidationService {
         case 'gateway':
           return await validateGateway(config.apiKey!, config.endpoint);
         case 'local':
-          return await validateLocal(config.endpoint!);
+          return await validateLocal(config.endpoint!, config.apiKey);
         case 'openai':
           return await validateOpenAI(config.apiKey!);
         case 'anthropic':

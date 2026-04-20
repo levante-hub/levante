@@ -1,13 +1,15 @@
 import { getLogger } from '../../logging';
-import type { ValidationResult } from '../types';
-import type { ModelsResponse } from '../types';
+import type { ValidationResult, ModelsResponse } from '../types';
 
 const logger = getLogger();
 
 /**
- * Validate local endpoint (Ollama, LM Studio)
+ * Validate local endpoint (Ollama, LM Studio, private OpenAI-compatible).
  */
-export async function validateLocal(endpoint: string): Promise<ValidationResult> {
+export async function validateLocal(
+  endpoint: string,
+  apiKey?: string
+): Promise<ValidationResult> {
   try {
     if (!endpoint) {
       return {
@@ -16,14 +18,25 @@ export async function validateLocal(endpoint: string): Promise<ValidationResult>
       };
     }
 
+    const headers: Record<string, string> = {};
+    if (apiKey) {
+      headers.Authorization = `Bearer ${apiKey}`;
+    }
+
+    // Strip trailing /v1 so discovery paths don't double it when the user
+    // saved the OpenAI-style base URL (http://host/v1).
+    const rootEndpoint = endpoint.replace(/\/+$/, '').replace(/\/v1$/, '');
+
     // Try Ollama endpoint first
-    const response = await fetch(`${endpoint}/api/tags`, {
-      signal: AbortSignal.timeout(5000), // 5s timeout for local
+    const response = await fetch(`${rootEndpoint}/api/tags`, {
+      headers,
+      signal: AbortSignal.timeout(5000),
     });
 
     if (!response.ok) {
       // Try OpenAI-compatible endpoint as fallback
-      const fallbackResponse = await fetch(`${endpoint}/v1/models`, {
+      const fallbackResponse = await fetch(`${rootEndpoint}/v1/models`, {
+        headers,
         signal: AbortSignal.timeout(5000),
       });
 
@@ -40,12 +53,10 @@ export async function validateLocal(endpoint: string): Promise<ValidationResult>
       logger.core.info('Local validation successful (OpenAI-compatible)', {
         endpoint,
         modelsCount,
+        hasApiKey: Boolean(apiKey),
       });
 
-      return {
-        isValid: true,
-        modelsCount,
-      };
+      return { isValid: true, modelsCount };
     }
 
     const data = await response.json() as ModelsResponse;
@@ -54,12 +65,10 @@ export async function validateLocal(endpoint: string): Promise<ValidationResult>
     logger.core.info('Local validation successful (Ollama)', {
       endpoint,
       modelsCount,
+      hasApiKey: Boolean(apiKey),
     });
 
-    return {
-      isValid: true,
-      modelsCount,
-    };
+    return { isValid: true, modelsCount };
   } catch (error) {
     logger.core.error('Local validation error', {
       error: error instanceof Error ? error.message : error,
