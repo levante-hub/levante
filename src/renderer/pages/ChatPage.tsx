@@ -205,6 +205,7 @@ const ChatPage = () => {
   const updateLearnedOverhead = useChatStore((state) => state.updateLearnedOverhead);
   const recalculateContextBudget = useChatStore((state) => state.recalculateContextBudget);
   const currentSession = useChatStore((state) => state.currentSession);
+  const todosInProgress = useTodoStore((s) => s.todos.some((t) => t.status === 'in_progress'));
   const persistMessage = useChatStore((state) => state.persistMessage);
   const editMessage = useChatStore((state) => state.editMessage); // ← NEW
   const createSession = useChatStore((state) => state.createSession);
@@ -1470,8 +1471,8 @@ const ChatPage = () => {
                   {/* Inline todo list */}
                   <InlineTodoList />
 
-                  {/* Streaming indicator */}
-                  {(status === 'streaming' || status === 'submitted') && (
+                  {/* Streaming indicator (hidden when todos are in progress) */}
+                  {(status === 'streaming' || status === 'submitted') && !todosInProgress && (
                     <Message from="assistant">
                       <MessageContent>
                         <BreathingLogo />
