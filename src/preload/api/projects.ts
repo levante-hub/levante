@@ -1,4 +1,4 @@
-import { ipcRenderer } from 'electron';
+import { ipcRenderer, webUtils } from 'electron';
 import type {
   CreateProjectInput,
   UpdateProjectInput,
@@ -22,4 +22,7 @@ export const projectsApi = {
     ipcRenderer.invoke('levante/projects/sessions', projectId),
   addFiles: (projectId: string): Promise<DatabaseResult<string[]>> =>
     ipcRenderer.invoke('levante/projects/addFiles', projectId),
+  addFilesWithPaths: (projectId: string, filePaths: string[]): Promise<DatabaseResult<string[]>> =>
+    ipcRenderer.invoke('levante/projects/addFilesWithPaths', projectId, filePaths),
+  getPathForFile: (file: File): string => webUtils.getPathForFile(file),
 };

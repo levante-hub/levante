@@ -80,14 +80,12 @@ interface FileBrowserState {
 
   isLoadingDir: string | null;
   error: string | null;
-  showHiddenFiles: boolean;
 
   initialize: (cwd: string) => Promise<void>;
   loadDirectory: (dirPath: string) => Promise<void>;
   toggleDirectory: (dirPath: string) => void;
   refreshDirectory: (dirPath: string) => void;
   applyExternalChanges: (changes: FileSystemChange[]) => void;
-  setShowHidden: (show: boolean) => void;
   setError: (error: string | null) => void;
   clearError: () => void;
   reset: () => void;
@@ -100,7 +98,6 @@ export const useFileBrowserStore = create<FileBrowserState>((set, get) => ({
 
   isLoadingDir: null,
   error: null,
-  showHiddenFiles: false,
 
   initialize: async (cwd: string) => {
     if (!cwd?.trim()) {
@@ -138,7 +135,7 @@ export const useFileBrowserStore = create<FileBrowserState>((set, get) => ({
 
     try {
       const result = await window.levante.fs.readDir(dirPath, {
-        showHidden: get().showHiddenFiles,
+        showHidden: true,
         sortBy: 'type',
       });
 
@@ -226,17 +223,6 @@ export const useFileBrowserStore = create<FileBrowserState>((set, get) => ({
     }
   },
 
-  setShowHidden: (show: boolean) => {
-    set({ showHiddenFiles: show });
-
-    const dirs = Array.from(get().entries.keys());
-    set({ entries: new Map() });
-
-    for (const dir of dirs) {
-      void get().loadDirectory(dir);
-    }
-  },
-
   setError: (error: string | null) => {
     set({ error });
   },
@@ -252,7 +238,6 @@ export const useFileBrowserStore = create<FileBrowserState>((set, get) => ({
       expandedDirs: new Set(),
       isLoadingDir: null,
       error: null,
-      showHiddenFiles: false,
     });
   },
 }));
