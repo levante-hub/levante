@@ -148,26 +148,19 @@ export function sanitizeMessagesForModel(messages: UIMessage[]): UIMessage[] {
             cleanOutput.text = (output as any).text;
           }
 
-          if (Array.isArray((output as any).uiResources)) {
-            cleanOutput.uiResources = (output as any).uiResources;
-          }
-
           if (Array.isArray((output as any).content)) {
             cleanOutput.content = stripInlineImagesFromContent(
               (output as any).content as unknown[],
             );
           }
 
-          if (
-            Array.isArray((output as any).images) &&
-            (output as any).images.length > 0
-          ) {
-            cleanOutput.images = (output as any).images;
+          if (Object.keys(cleanOutput).length === 0) {
+            return { ...part, output: '[Widget rendered]' };
           }
 
           return {
             ...part,
-            output: Object.keys(cleanOutput).length > 0 ? cleanOutput : output,
+            output: cleanOutput,
           };
         }
       }

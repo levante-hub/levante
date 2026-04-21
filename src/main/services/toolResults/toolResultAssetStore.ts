@@ -2,8 +2,8 @@ import { createHash } from "node:crypto";
 import { mkdir, readdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { app } from "electron";
-import sharp from "sharp";
 import { databaseService } from "../databaseService";
+import { getImageDimensions } from "../image/imageResizer";
 
 export interface PersistedImageAsset {
   assetId: string;
@@ -40,22 +40,6 @@ function buildAssetPath(assetId: string, mediaType: string): string {
   );
 }
 
-async function getImageDimensions(
-  buffer: Buffer,
-): Promise<{ width?: number; height?: number }> {
-  try {
-    const metadata = await sharp(buffer).metadata();
-    return {
-      ...(typeof metadata.width === "number" ? { width: metadata.width } : {}),
-      ...(typeof metadata.height === "number"
-        ? { height: metadata.height }
-        : {}),
-    };
-  } catch {
-    return {};
-  }
-}
-
 async function findAssetPaths(assetId: string): Promise<string[]> {
   try {
     const entries = await readdir(getImageAssetsDirectory());
@@ -71,6 +55,14 @@ async function findAssetPaths(assetId: string): Promise<string[]> {
   }
 }
 
+/**
+ * Reference check using full-table LIKE scan. assetIds are SHA-256 hex
+ * (64 chars, [0-9a-f]) so they contain no SQL LIKE metacharacters.
+ *
+ * Acceptable for current message volumes; consider a dedicated join
+ * table (message_tool_assets: message_id, asset_id) if this becomes
+ * a hotspot.
+ */
 async function isAssetReferenced(assetId: string): Promise<boolean> {
   const result = await databaseService.execute(
     "SELECT 1 FROM messages WHERE tool_calls LIKE ? LIMIT 1",

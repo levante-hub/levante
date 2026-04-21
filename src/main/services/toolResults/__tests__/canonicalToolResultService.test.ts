@@ -25,6 +25,7 @@ import {
   canonicalizeRichToolOutput,
   materializeToolResultForModel,
   normalizeToolCallResultForStorage,
+  MAX_TOOL_TEXT_CHARS,
 } from "../canonicalToolResultService";
 
 describe("canonicalToolResultService", () => {
@@ -135,6 +136,74 @@ describe("canonicalToolResultService", () => {
         { type: "image-data", data: "BBBB", mediaType: "image/png" },
       ],
     });
+  });
+
+  it("truncates long text in canonical text-type output at model injection", async () => {
+    const longText = "x".repeat(MAX_TOOL_TEXT_CHARS + 5000);
+    const result = await materializeToolResultForModel({
+      supportsVision: false,
+      output: {
+        __levanteToolResult: 1,
+        text: longText,
+        modelOutput: { type: "text", value: longText },
+      },
+    });
+
+    expect(result.type).toBe("text");
+    expect((result as any).value.length).toBeLessThan(longText.length);
+    expect((result as any).value).toContain("[truncated 5000 chars]");
+  });
+
+  it("truncates long text parts inside canonical content-type output", async () => {
+    const longText = "y".repeat(MAX_TOOL_TEXT_CHARS + 1000);
+    const result = await materializeToolResultForModel({
+      supportsVision: true,
+      output: {
+        __levanteToolResult: 1,
+        text: longText,
+        modelOutput: {
+          type: "content",
+          value: [
+            { type: "text", text: longText },
+            {
+              kind: "image-ref",
+              assetId: "asset-1",
+              mediaType: "image/png",
+              byteSize: 4,
+              base64Length: 4,
+              sha256: "asset-1",
+            },
+          ],
+        },
+      },
+    });
+
+    expect(result.type).toBe("content");
+    const textPart = (result as any).value.find((p: any) => p.type === "text");
+    expect(textPart.text).toContain("[truncated 1000 chars]");
+  });
+
+  it("truncates long text in legacy text-only output", async () => {
+    const longText = "z".repeat(MAX_TOOL_TEXT_CHARS + 2000);
+    const result = await materializeToolResultForModel({
+      supportsVision: false,
+      output: { text: longText },
+    });
+
+    expect(result.type).toBe("text");
+    expect((result as any).value).toContain("[truncated 2000 chars]");
+    expect((result as any).value.length).toBeLessThan(longText.length);
+  });
+
+  it("does not truncate text stored in the DB (canonicalize is storage-only)", async () => {
+    // canonicalizeRichToolOutput writes to storage — must NOT truncate.
+    const longText = "w".repeat(MAX_TOOL_TEXT_CHARS + 1000);
+    const result = await canonicalizeRichToolOutput({ text: longText });
+
+    expect(result.text).toHaveLength(longText.length);
+    if (result.modelOutput.type === "text") {
+      expect(result.modelOutput.value).toHaveLength(longText.length);
+    }
   });
 
   it("keeps canonical outputs unchanged when normalizing for storage", async () => {

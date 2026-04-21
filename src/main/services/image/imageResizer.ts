@@ -64,6 +64,22 @@ async function encode(
   }
 }
 
+export async function getImageDimensions(
+  buffer: Buffer,
+): Promise<{ width?: number; height?: number }> {
+  try {
+    const metadata = await sharp(buffer).metadata();
+    return {
+      ...(typeof metadata.width === "number" ? { width: metadata.width } : {}),
+      ...(typeof metadata.height === "number"
+        ? { height: metadata.height }
+        : {}),
+    };
+  } catch {
+    return {};
+  }
+}
+
 /**
  * Resize an image buffer to fit within API limits using a cascade strategy.
  *

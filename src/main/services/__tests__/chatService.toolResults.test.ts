@@ -93,7 +93,7 @@ describe("ChatService tool result persistence", () => {
     );
   });
 
-  it("rewrites legacy rows lazily when getMessages loads them", async () => {
+  it("normalizes legacy rows in memory without UPDATE when getMessages loads them", async () => {
     normalizeToolCallResultForStorage.mockResolvedValue({
       normalized: { __levanteToolResult: 1, modelOutput: { type: "text", value: "ok" } },
       changed: true,
@@ -124,8 +124,7 @@ describe("ChatService tool result persistence", () => {
           null,
           null,
         ]],
-      })
-      .mockResolvedValueOnce({ rows: [], rowsAffected: 1 });
+      });
 
     const result = await service.getMessages({
       session_id: "session-1",
@@ -143,21 +142,11 @@ describe("ChatService tool result persistence", () => {
         },
       ]),
     );
-    expect(executeMock).toHaveBeenCalledWith(
-      "UPDATE messages SET tool_calls = ? WHERE id = ?",
-      [
-        JSON.stringify([
-          {
-            id: "call-1",
-            name: "screenshot",
-            arguments: {},
-            result: { __levanteToolResult: 1, modelOutput: { type: "text", value: "ok" } },
-            status: "success",
-          },
-        ]),
-        "msg-1",
-      ],
+    // Must NOT have issued an UPDATE — normalization is in-memory only on reads.
+    const updateCalls = executeMock.mock.calls.filter(
+      (args: any[]) => typeof args[0] === "string" && args[0].startsWith("UPDATE messages SET tool_calls"),
     );
+    expect(updateCalls).toHaveLength(0);
   });
 
   it("deletes orphaned image assets when updateMessage replaces tool calls", async () => {

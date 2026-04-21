@@ -234,7 +234,7 @@ describe('sanitizeMessagesForModel', () => {
     expect(part.output.modelOutput.value[1].kind).toBe('image-ref');
   });
 
-  it('keeps legacy outputs as sanitized objects without semantic conversion', () => {
+  it('strips uiResources and images from legacy outputs', () => {
     const output = {
       text: 'txt',
       content: [{ type: 'text', text: 'txt' }],
@@ -251,12 +251,67 @@ describe('sanitizeMessagesForModel', () => {
     const result = sanitizeMessagesForModel(messages);
     const part = result[0].parts[0] as any;
 
-    expect(part.output).toEqual({
-      text: 'txt',
-      content: [{ type: 'text', text: 'txt' }],
+    expect(part.output.uiResources).toBeUndefined();
+    expect(part.output.images).toBeUndefined();
+    expect(part.output.text).toBe('txt');
+    expect(part.output.content).toEqual([{ type: 'text', text: 'txt' }]);
+  });
+
+  it('strips uiResources from non-canonical outputs', () => {
+    const output = {
+      uiResources: [{ type: 'resource' }],
+      text: 'some text',
+    };
+
+    const messages: UIMessage[] = [
+      makeAssistantMessage([
+        makeToolPart({ state: 'output-available', output }),
+      ]),
+    ];
+
+    const result = sanitizeMessagesForModel(messages);
+    const part = result[0].parts[0] as any;
+
+    expect(part.output.uiResources).toBeUndefined();
+    expect(part.output.text).toBe('some text');
+  });
+
+  it('preserves uiResources when output is canonical', () => {
+    const output = {
+      __levanteToolResult: 1,
+      text: 'canonical',
+      modelOutput: { type: 'text', value: 'canonical' },
+      uiResources: [{ type: 'resource' }],
+    };
+
+    const messages: UIMessage[] = [
+      makeAssistantMessage([
+        makeToolPart({ state: 'output-available', output }),
+      ]),
+    ];
+
+    const result = sanitizeMessagesForModel(messages);
+    const part = result[0].parts[0] as any;
+
+    expect(part.output.uiResources).toEqual([{ type: 'resource' }]);
+  });
+
+  it('falls back to "[Widget rendered]" when legacy output has no recognized fields', () => {
+    const output = {
       uiResources: [{ type: 'resource' }],
       images: [{ data: 'AAAA', mediaType: 'image/png' }],
-    });
+    };
+
+    const messages: UIMessage[] = [
+      makeAssistantMessage([
+        makeToolPart({ state: 'output-available', output }),
+      ]),
+    ];
+
+    const result = sanitizeMessagesForModel(messages);
+    const part = result[0].parts[0] as any;
+
+    expect(part.output).toBe('[Widget rendered]');
   });
 
   it('sanitizes legacy content[].image without inventing image-data', () => {
@@ -277,13 +332,11 @@ describe('sanitizeMessagesForModel', () => {
     const result = sanitizeMessagesForModel(messages);
     const part = result[0].parts[0] as any;
 
-    expect(part.output).toEqual({
-      uiResources: [],
-      content: [
-        { type: 'text', text: 'header' },
-        { type: 'image', mimeType: 'image/png', omitted: true },
-      ],
-    });
+    expect(part.output.uiResources).toBeUndefined();
+    expect(part.output.content).toEqual([
+      { type: 'text', text: 'header' },
+      { type: 'image', mimeType: 'image/png', omitted: true },
+    ]);
     expect(JSON.stringify(part.output)).not.toContain('BIGBASE64');
   });
 
@@ -321,10 +374,8 @@ describe('sanitizeMessagesForModel', () => {
     const result = sanitizeMessagesForModel(messages);
     const part = result[0].parts[0] as any;
 
-    expect(part.output).toEqual({
-      structuredContent: { payload: 123 },
-      uiResources: [],
-      content: [{ type: 'text', text: 'hi' }],
-    });
+    expect(part.output.structuredContent).toEqual({ payload: 123 });
+    expect(part.output.content).toEqual([{ type: 'text', text: 'hi' }]);
+    expect(part.output.uiResources).toBeUndefined();
   });
 });

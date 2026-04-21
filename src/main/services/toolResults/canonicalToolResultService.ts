@@ -12,6 +12,17 @@ import {
   readImageAsset,
 } from "./toolResultAssetStore";
 
+/** Maximum characters injected as text into the model per tool result. */
+export const MAX_TOOL_TEXT_CHARS = 30_000;
+
+function truncateText(text: string): string {
+  if (text.length <= MAX_TOOL_TEXT_CHARS) return text;
+  return (
+    text.slice(0, MAX_TOOL_TEXT_CHARS) +
+    `\n...[truncated ${text.length - MAX_TOOL_TEXT_CHARS} chars]`
+  );
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
@@ -204,7 +215,7 @@ async function materializeCanonicalToolResult(params: {
   if (output.modelOutput.type === "text") {
     return {
       type: "text",
-      value: output.modelOutput.value,
+      value: truncateText(output.modelOutput.value),
     };
   }
 
@@ -218,9 +229,10 @@ async function materializeCanonicalToolResult(params: {
   if (!supportsVision) {
     return {
       type: "text",
-      value:
+      value: truncateText(
         output.text ||
         "[Tool returned images, but the active model does not support vision.]",
+      ),
     };
   }
 
@@ -231,7 +243,7 @@ async function materializeCanonicalToolResult(params: {
 
   for (const part of output.modelOutput.value) {
     if ("type" in part && part.type === "text") {
-      value.push({ type: "text", text: part.text });
+      value.push({ type: "text", text: truncateText(part.text) });
       continue;
     }
 
@@ -268,16 +280,17 @@ async function materializeLegacyToolResult(params: {
     if (!params.supportsVision) {
       return {
         type: "text",
-        value:
+        value: truncateText(
           text ||
           "[Tool returned images, but the active model does not support vision.]",
+        ),
       };
     }
 
     return {
       type: "content",
       value: [
-        ...(text ? [{ type: "text" as const, text }] : []),
+        ...(text ? [{ type: "text" as const, text: truncateText(text) }] : []),
         ...images.map((image) => ({
           type: "image-data" as const,
           data: image.data,
@@ -297,7 +310,7 @@ async function materializeLegacyToolResult(params: {
 
   return {
     type: "text",
-    value: text ?? "",
+    value: truncateText(text ?? ""),
   };
 }
 

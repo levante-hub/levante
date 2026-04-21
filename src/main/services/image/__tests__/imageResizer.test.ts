@@ -10,7 +10,7 @@ vi.mock("../../logging", () => {
 });
 
 import sharp from "sharp";
-import { resizeMCPImage, ImageResizeError } from "../imageResizer";
+import { resizeMCPImage, getImageDimensions, ImageResizeError } from "../imageResizer";
 import { API_IMAGE_MAX_BASE64_SIZE } from "../providerImageLimits";
 
 async function makePng(width: number, height: number): Promise<Buffer> {
@@ -35,6 +35,20 @@ async function makeNoisyPng(width: number, height: number): Promise<Buffer> {
   }
   return sharp(raw, { raw: { width, height, channels } }).png().toBuffer();
 }
+
+describe("getImageDimensions", () => {
+  it("returns width and height for a valid PNG buffer", async () => {
+    const buffer = await makePng(32, 16);
+    const dims = await getImageDimensions(buffer);
+    expect(dims.width).toBe(32);
+    expect(dims.height).toBe(16);
+  });
+
+  it("returns {} for an invalid buffer", async () => {
+    const dims = await getImageDimensions(Buffer.from("not-an-image"));
+    expect(dims).toEqual({});
+  });
+});
 
 describe("resizeMCPImage", () => {
   it("passes small images through unchanged", async () => {

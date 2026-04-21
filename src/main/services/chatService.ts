@@ -123,21 +123,9 @@ export class ChatService {
     };
   }
 
-  private async rewriteNormalizedToolCalls(messageId: string, toolCalls: string): Promise<string> {
-    const normalized = await this.normalizeToolCallsJsonForStorage(toolCalls);
-    if (normalized.changed) {
-      await databaseService.execute(
-        'UPDATE messages SET tool_calls = ? WHERE id = ?',
-        [normalized.serialized as InValue, messageId as InValue],
-      );
-    }
-
-    return normalized.serialized ?? toolCalls;
-  }
-
   private async mapMessageRow(row: any[]): Promise<Message> {
     const toolCalls = typeof row[4] === 'string' && row[4].length > 0
-      ? await this.rewriteNormalizedToolCalls(row[0] as string, row[4] as string)
+      ? (await this.normalizeToolCallsJsonForStorage(row[4] as string)).serialized
       : ((row[4] as string) || null);
 
     return {

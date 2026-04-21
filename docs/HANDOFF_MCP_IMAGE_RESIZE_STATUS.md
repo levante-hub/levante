@@ -26,7 +26,7 @@ Sin embargo, siguen quedando **dos problemas funcionales importantes** y **un pr
 
 El runbook que se intentó implementar es:
 
-- [docs/PLAN_MCP_IMAGE_RESIZE.md](/Users/saulgomezjimenez/proyectos/clai/proyectos/levante/levante/docs/PLAN_MCP_IMAGE_RESIZE.md)
+- [docs/PLAN_MCP_IMAGE_RESIZE.md](docs/PLAN_MCP_IMAGE_RESIZE.md)
 
 ## Archivos ya modificados
 
@@ -56,27 +56,27 @@ Estado visible por `git status` / `git diff --stat` durante esta revisión:
 
 Se añadió `sharp` a dependencias:
 
-- [package.json](/Users/saulgomezjimenez/proyectos/clai/proyectos/levante/levante/package.json)
+- [package.json](package.json)
 
 Vite lo deja como `external`:
 
-- [vite.main.config.ts](/Users/saulgomezjimenez/proyectos/clai/proyectos/levante/levante/vite.main.config.ts:39)
+- [vite.main.config.ts](vite.main.config.ts:39)
 
 Forge copia `sharp` y `@img/*`, y amplía `asar.unpack`:
 
-- [forge.config.js](/Users/saulgomezjimenez/proyectos/clai/proyectos/levante/levante/forge.config.js:146)
-- [forge.config.js](/Users/saulgomezjimenez/proyectos/clai/proyectos/levante/levante/forge.config.js:188)
+- [forge.config.js](forge.config.js:146)
+- [forge.config.js](forge.config.js:188)
 
 ### 2. Normalización MCP compartida
 
 Existe el helper:
 
-- [src/main/services/mcp/shared/normalizeToolResult.ts](/Users/saulgomezjimenez/proyectos/clai/proyectos/levante/levante/src/main/services/mcp/shared/normalizeToolResult.ts:1)
+- [src/main/services/mcp/shared/normalizeToolResult.ts](src/main/services/mcp/shared/normalizeToolResult.ts:1)
 
 Y ambos servicios MCP lo usan:
 
-- [src/main/services/mcp/mcpUseService.ts](/Users/saulgomezjimenez/proyectos/clai/proyectos/levante/levante/src/main/services/mcp/mcpUseService.ts:446)
-- [src/main/services/mcp/mcpLegacyService.ts](/Users/saulgomezjimenez/proyectos/clai/proyectos/levante/levante/src/main/services/mcp/mcpLegacyService.ts:211)
+- [src/main/services/mcp/mcpUseService.ts](src/main/services/mcp/mcpUseService.ts:446)
+- [src/main/services/mcp/mcpLegacyService.ts](src/main/services/mcp/mcpLegacyService.ts:211)
 
 Esto corrige el bug original donde `structuredContent` pisaba `content[]`.
 
@@ -84,7 +84,7 @@ Esto corrige el bug original donde `structuredContent` pisaba `content[]`.
 
 Existe el helper compartido:
 
-- [src/shared/toolOutputSanitizer.ts](/Users/saulgomezjimenez/proyectos/clai/proyectos/levante/levante/src/shared/toolOutputSanitizer.ts:1)
+- [src/shared/toolOutputSanitizer.ts](src/shared/toolOutputSanitizer.ts:1)
 
 Contiene:
 
@@ -93,15 +93,15 @@ Contiene:
 
 El renderer ya lo usa al persistir `tool_calls.result`:
 
-- [src/renderer/stores/chatStore.ts](/Users/saulgomezjimenez/proyectos/clai/proyectos/levante/levante/src/renderer/stores/chatStore.ts:507)
+- [src/renderer/stores/chatStore.ts](src/renderer/stores/chatStore.ts:507)
 
 ### 4. Resizer y límites
 
 Se añadieron:
 
-- [src/main/services/image/providerImageLimits.ts](/Users/saulgomezjimenez/proyectos/clai/proyectos/levante/levante/src/main/services/image/providerImageLimits.ts)
-- [src/main/services/image/imageResizer.ts](/Users/saulgomezjimenez/proyectos/clai/proyectos/levante/levante/src/main/services/image/imageResizer.ts:1)
-- [src/main/services/image/imageValidation.ts](/Users/saulgomezjimenez/proyectos/clai/proyectos/levante/levante/src/main/services/image/imageValidation.ts:1)
+- [src/main/services/image/providerImageLimits.ts](src/main/services/image/providerImageLimits.ts)
+- [src/main/services/image/imageResizer.ts](src/main/services/image/imageResizer.ts:1)
+- [src/main/services/image/imageValidation.ts](src/main/services/image/imageValidation.ts:1)
 
 ### 5. Integración en `mcpToolsAdapter`
 
@@ -114,9 +114,9 @@ Se añadieron:
 
 Referencias:
 
-- [src/main/services/ai/mcpToolsAdapter.ts](/Users/saulgomezjimenez/proyectos/clai/proyectos/levante/levante/src/main/services/ai/mcpToolsAdapter.ts:487)
-- [src/main/services/ai/mcpToolsAdapter.ts](/Users/saulgomezjimenez/proyectos/clai/proyectos/levante/levante/src/main/services/ai/mcpToolsAdapter.ts:499)
-- [src/main/services/ai/mcpToolsAdapter.ts](/Users/saulgomezjimenez/proyectos/clai/proyectos/levante/levante/src/main/services/ai/mcpToolsAdapter.ts:519)
+- [src/main/services/ai/mcpToolsAdapter.ts](src/main/services/ai/mcpToolsAdapter.ts:487)
+- [src/main/services/ai/mcpToolsAdapter.ts](src/main/services/ai/mcpToolsAdapter.ts:499)
+- [src/main/services/ai/mcpToolsAdapter.ts](src/main/services/ai/mcpToolsAdapter.ts:519)
 
 ### 6. Integración en `aiService`
 
@@ -128,10 +128,10 @@ Referencias:
 
 Referencias:
 
-- [src/main/services/aiService.ts](/Users/saulgomezjimenez/proyectos/clai/proyectos/levante/levante/src/main/services/aiService.ts:1156)
-- [src/main/services/aiService.ts](/Users/saulgomezjimenez/proyectos/clai/proyectos/levante/levante/src/main/services/aiService.ts:1297)
-- [src/main/services/aiService.ts](/Users/saulgomezjimenez/proyectos/clai/proyectos/levante/levante/src/main/services/aiService.ts:2066)
-- [src/main/services/aiService.ts](/Users/saulgomezjimenez/proyectos/clai/proyectos/levante/levante/src/main/services/aiService.ts:2109)
+- [src/main/services/aiService.ts](src/main/services/aiService.ts:1156)
+- [src/main/services/aiService.ts](src/main/services/aiService.ts:1297)
+- [src/main/services/aiService.ts](src/main/services/aiService.ts:2066)
+- [src/main/services/aiService.ts](src/main/services/aiService.ts:2109)
 
 ## Problemas pendientes
 
@@ -139,7 +139,7 @@ Referencias:
 
 **Impacto:** alto
 
-En [src/main/services/ai/mcpToolsAdapter.ts](/Users/saulgomezjimenez/proyectos/clai/proyectos/levante/levante/src/main/services/ai/mcpToolsAdapter.ts:1248), cuando hay `uiResources` o `imageParts`, se hace:
+En [src/main/services/ai/mcpToolsAdapter.ts](src/main/services/ai/mcpToolsAdapter.ts:1248), cuando hay `uiResources` o `imageParts`, se hace:
 
 ```ts
 return sanitizeToolOutput({
@@ -170,9 +170,9 @@ En ese bloque, añadir:
 
 **Impacto:** alto
 
-En [src/main/services/image/imageValidation.ts](/Users/saulgomezjimenez/proyectos/clai/proyectos/levante/levante/src/main/services/image/imageValidation.ts:89) el comentario dice explícitamente que el safety-net “does not throw”.
+En [src/main/services/image/imageValidation.ts](src/main/services/image/imageValidation.ts:89) el comentario dice explícitamente que el safety-net “does not throw”.
 
-La implementación actual en [imageValidation.ts](/Users/saulgomezjimenez/proyectos/clai/proyectos/levante/levante/src/main/services/image/imageValidation.ts:107) solo hace `logger.aiSdk.warn(...)`.
+La implementación actual en [imageValidation.ts](src/main/services/image/imageValidation.ts:107) solo hace `logger.aiSdk.warn(...)`.
 
 Eso significa que si una imagen oversized se escapa del pipeline:
 
@@ -202,7 +202,7 @@ Si se cambia a `throw`, revisar también:
 
 - `EPERM: operation not permitted, open '/Users/saulgomezjimenez/levante/levante-2026-04-14.log'`
 
-El origen es que [imageResizer.ts](/Users/saulgomezjimenez/proyectos/clai/proyectos/levante/levante/src/main/services/image/imageResizer.ts:2) importa el logger real, y durante el test intenta escribir fuera del workspace permitido.
+El origen es que [imageResizer.ts](src/main/services/image/imageResizer.ts:2) importa el logger real, y durante el test intenta escribir fuera del workspace permitido.
 
 **Opciones razonables de corrección:**
 
@@ -254,7 +254,7 @@ Resultado:
 
 ### `validateImagesForAPI.test.ts` está alineado con el comportamiento actual, no con el objetivo final
 
-Los tests actuales de [imageValidation.test.ts](/Users/saulgomezjimenez/proyectos/clai/proyectos/levante/levante/src/main/services/image/__tests__/imageValidation.test.ts:1) verifican que se haga `warn`, no que se lance error.
+Los tests actuales de [imageValidation.test.ts](src/main/services/image/__tests__/imageValidation.test.ts:1) verifican que se haga `warn`, no que se lance error.
 
 Si se cambia `validateImagesForAPI()` para cerrar el fix de verdad, habrá que actualizar estos tests.
 
@@ -262,11 +262,11 @@ Si se cambia `validateImagesForAPI()` para cerrar el fix de verdad, habrá que a
 
 ### Paso 1
 
-Corregir [mcpToolsAdapter.ts](/Users/saulgomezjimenez/proyectos/clai/proyectos/levante/levante/src/main/services/ai/mcpToolsAdapter.ts:1248) para preservar `structuredContent` en el objeto que pasa por `sanitizeToolOutput()`.
+Corregir [mcpToolsAdapter.ts](src/main/services/ai/mcpToolsAdapter.ts:1248) para preservar `structuredContent` en el objeto que pasa por `sanitizeToolOutput()`.
 
 ### Paso 2
 
-Cambiar [imageValidation.ts](/Users/saulgomezjimenez/proyectos/clai/proyectos/levante/levante/src/main/services/image/imageValidation.ts:96) para que deje de hacer solo logging y bloquee realmente el envío cuando haya payload oversized.
+Cambiar [imageValidation.ts](src/main/services/image/imageValidation.ts:96) para que deje de hacer solo logging y bloquee realmente el envío cuando haya payload oversized.
 
 ### Paso 3
 
@@ -313,7 +313,7 @@ Este bloque se añade después de la primera ronda de correcciones y después de
 
 Los logs se añadieron temporalmente en:
 
-- [src/main/services/aiService.ts](/Users/saulgomezjimenez/proyectos/clai/proyectos/levante/levante/src/main/services/aiService.ts)
+- [src/main/services/aiService.ts](src/main/services/aiService.ts)
 
 ### Qué se observó en producción
 
