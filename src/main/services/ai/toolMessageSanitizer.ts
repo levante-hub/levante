@@ -1,4 +1,5 @@
 import { type UIMessage } from 'ai';
+import { isCanonicalToolResult } from '../../../shared/canonicalToolResult';
 import { stripInlineImagesFromContent } from '../../../shared/toolOutputSanitizer';
 
 /**
@@ -119,13 +120,12 @@ export function sanitizeMessagesForModel(messages: UIMessage[]): UIMessage[] {
         }
       }
 
+      // IMPORTANT:
+      // Tool output semantic conversion happens in materializeToolResultForModel()
+      // via tool.toModelOutput(). This sanitizer must not duplicate image handling.
+      //
       // Sanitize tool invocation outputs that contain uiResources (MCP-UI)
-      // According to MCP spec 2025-11-25:
-      // - structuredContent → SEND to LLM (structured JSON for processing)
-      // - content → SEND to LLM (text for backwards compatibility)
-      // - _meta → NEVER send (client metadata, may contain secrets like game words)
-      // - uiResources → NEVER send (only for widget rendering)
-      // Note: Tool parts can have type 'tool-invocation' or 'tool-{toolName}' depending on source
+      // or legacy image payloads without altering canonical semantics.
       const isToolWithOutput = (
         // AI SDK format: tool-invocation with output-available state
         (// Stored format: tool-{name} with output-available state
@@ -133,74 +133,34 @@ export function sanitizeMessagesForModel(messages: UIMessage[]): UIMessage[] {
       );
       if (isToolWithOutput && part.output) {
         const output = part.output;
-        if (
-          output &&
-          typeof output === 'object' &&
-          ('uiResources' in output || 'images' in output)
-        ) {
+        if (isCanonicalToolResult(output)) {
+          return part;
+        }
+
+        if (output && typeof output === 'object') {
           const cleanOutput: Record<string, unknown> = {};
 
           if ((output as any).structuredContent) {
             cleanOutput.structuredContent = (output as any).structuredContent;
           }
 
-          if (Array.isArray((output as any).content)) {
-            // Aligerar cualquier bloque image legacy reutilizando el helper
-            // unificado (evita duplicar la lógica de lápida aquí).
-            const neutralizedContent = stripInlineImagesFromContent(
-              (output as any).content as unknown[],
-            );
-
-            const contentTexts = neutralizedContent
-              .filter(
-                (item: any) => item?.type === 'text' && item?.text,
-              )
-              .map((item: any) => item.text as string);
-
-            const hadLegacyImages = ((output as any).content as any[]).some(
-              (item: any) => item?.type === 'image',
-            );
-
-            if (hadLegacyImages && !Array.isArray((output as any).images)) {
-              contentTexts.push(
-                '[Legacy MCP image omitted from historical tool output]',
-              );
-            }
-
-            if (contentTexts.length > 0) {
-              cleanOutput.text = contentTexts.join('\n');
-            }
-          }
-
-          if (!cleanOutput.text && (output as any).text) {
+          if (typeof (output as any).text === 'string') {
             cleanOutput.text = (output as any).text;
           }
 
-          if (
-            Array.isArray((output as any).images) &&
-            (output as any).images.length > 0
-          ) {
-            cleanOutput.images = (output as any).images;
+          if (Array.isArray((output as any).content)) {
+            cleanOutput.content = stripInlineImagesFromContent(
+              (output as any).content as unknown[],
+            );
           }
 
-          let outputForModel: unknown;
-
-          if (cleanOutput.images) {
-            outputForModel = {
-              text: cleanOutput.text ?? '',
-              images: cleanOutput.images,
-            };
-          } else if (cleanOutput.structuredContent) {
-            outputForModel = cleanOutput.structuredContent;
-          } else if (cleanOutput.text) {
-            outputForModel = cleanOutput.text;
-          } else {
-            outputForModel = '[Widget rendered]';
+          if (Object.keys(cleanOutput).length === 0) {
+            return { ...part, output: '[Widget rendered]' };
           }
 
           return {
             ...part,
-            output: outputForModel,
+            output: cleanOutput,
           };
         }
       }

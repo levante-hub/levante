@@ -3,6 +3,10 @@ import type { Message } from '../../types/database';
 import { chatService } from './chatService';
 import { getLogger } from './logging';
 import { classifyStreamingError } from './ai/streamingErrorClassifier';
+import {
+  isCanonicalImageRef,
+  isCanonicalToolResult,
+} from '../../shared/canonicalToolResult';
 
 const COMPACTION_MARKER = '[COMPACTION_SUMMARY]';
 const CHARS_PER_TOKEN = 4;
@@ -36,6 +40,51 @@ export const COMPACTION_STAGES: CompactionStage[] = [
   { stage: 4, toolCallTokenLimit: null, contentMaxChars: 300,   reasoningMaxChars: null, messagePercentage: 0.5  },
   { stage: 5, toolCallTokenLimit: null, contentMaxChars: 200,   reasoningMaxChars: null, messagePercentage: 0.25 },
 ];
+
+export function summarizeToolCallsForCompaction(toolCallsJson: string): string {
+  try {
+    const parsed = JSON.parse(toolCallsJson);
+    if (!Array.isArray(parsed)) {
+      return toolCallsJson;
+    }
+
+    let changed = false;
+    const summarized = parsed.map((toolCall) => {
+      if (!toolCall || typeof toolCall !== 'object') {
+        return toolCall;
+      }
+
+      const result = (toolCall as { result?: unknown }).result;
+      if (!isCanonicalToolResult(result)) {
+        return toolCall;
+      }
+
+      const imageCount =
+        result.modelOutput.type === 'content'
+          ? result.modelOutput.value.filter(isCanonicalImageRef).length
+          : 0;
+
+      if (imageCount === 0) {
+        return toolCall;
+      }
+
+      changed = true;
+
+      return {
+        name: (toolCall as { name?: unknown }).name,
+        status: (toolCall as { status?: unknown }).status,
+        result: {
+          text: result.text,
+          imageCount,
+        },
+      };
+    });
+
+    return changed ? JSON.stringify(summarized) : toolCallsJson;
+  } catch {
+    return toolCallsJson;
+  }
+}
 
 export class CompactionService {
   private logger = getLogger();
@@ -150,7 +199,9 @@ export class CompactionService {
       ? `PREVIOUS_SUMMARY:\n${message.content.replace(COMPACTION_MARKER, '').trim()}`
       : message.content;
 
-    const toolPart = message.tool_calls ? `\n\n[TOOL_CALLS]\n${message.tool_calls}` : '';
+    const toolPart = message.tool_calls
+      ? `\n\n[TOOL_CALLS]\n${summarizeToolCallsForCompaction(message.tool_calls)}`
+      : '';
     const reasoningPart = message.reasoningText ? `\n\n[REASONING]\n${message.reasoningText}` : '';
 
     return `[${message.role.toUpperCase()}] ${baseContent}${toolPart}${reasoningPart}`;

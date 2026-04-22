@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Message } from '../../../types/database';
-import { CompactionService, COMPACTION_STAGES } from '../compactionService';
+import {
+  CompactionService,
+  COMPACTION_STAGES,
+  summarizeToolCallsForCompaction,
+} from '../compactionService';
 
 // Mock dependencies
 vi.mock('../chatService', () => ({
@@ -180,6 +184,36 @@ describe('CompactionService', () => {
 
       expect(result[0].reasoningText!.length).toBeLessThan(longReasoning.length);
       expect(result[0].reasoningText).toContain('characters truncated');
+    });
+
+    it('summarizes canonical image refs without reintroducing payloads', () => {
+      const summary = summarizeToolCallsForCompaction(JSON.stringify([
+        {
+          name: 'screenshot',
+          status: 'success',
+          result: {
+            __levanteToolResult: 1,
+            text: 'Captured page',
+            modelOutput: {
+              type: 'content',
+              value: [
+                { type: 'text', text: 'Captured page' },
+                {
+                  kind: 'image-ref',
+                  assetId: 'asset-1',
+                  mediaType: 'image/png',
+                  byteSize: 10,
+                  base64Length: 16,
+                  sha256: 'asset-1',
+                },
+              ],
+            },
+          },
+        },
+      ]));
+
+      expect(summary).toContain('"imageCount":1');
+      expect(summary).not.toContain('asset-1');
     });
   });
 

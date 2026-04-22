@@ -1,8 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { recordSuccess, recordError } = vi.hoisted(() => ({
+const { recordSuccess, recordError, persistImageAsset, readImageAsset } = vi.hoisted(() => ({
   recordSuccess: vi.fn(),
   recordError: vi.fn(),
+  persistImageAsset: vi.fn(async (params: { dataBase64: string; mediaType: string }) => ({
+    assetId: "asset-1",
+    sha256: "asset-1",
+    mediaType: params.mediaType,
+    byteSize: params.dataBase64.length,
+    base64Length: params.dataBase64.length,
+    width: 100,
+    height: 80,
+  })),
+  readImageAsset: vi.fn(async () => ({
+    dataBase64: "AAAA",
+    mediaType: "image/png",
+  })),
 }));
 
 vi.mock("../../../ipc/mcpHandlers", () => ({
@@ -36,12 +49,16 @@ vi.mock("../../logging", () => ({
   },
 }));
 
-// Stub the resizer to avoid native sharp in this unit test.
 vi.mock("../../image/imageResizer.js", () => ({
   resizeMCPImageBlock: vi.fn(async (input: { data: string; mimeType?: string }) => ({
     data: input.data.slice(0, 10),
     mediaType: input.mimeType || "image/png",
   })),
+}));
+
+vi.mock("../../toolResults/toolResultAssetStore", () => ({
+  persistImageAsset,
+  readImageAsset,
 }));
 
 import {
@@ -55,9 +72,11 @@ describe("processToolResult with image blocks", () => {
   beforeEach(() => {
     recordSuccess.mockClear();
     recordError.mockClear();
+    persistImageAsset.mockClear();
+    readImageAsset.mockClear();
   });
 
-  it("transforms image blocks into images[] with placeholder text and does not serialize base64", async () => {
+  it("returns CanonicalToolResultV1 and removes raw images[] output", async () => {
     const big = "A".repeat(2000);
     const output = (await processToolResult(
       "srv",
@@ -71,18 +90,24 @@ describe("processToolResult with image blocks", () => {
       },
     )) as any;
 
-    expect(output).toHaveProperty("images");
-    expect(output.images).toHaveLength(1);
-    expect(output.images[0].mediaType).toBe("image/png");
-    // The placeholder should be in text and the raw base64 must not leak.
+    expect(output.__levanteToolResult).toBe(1);
+    expect(output).not.toHaveProperty("images");
     expect(output.text).toContain("[Image received from screenshot]");
-    expect(output.text).not.toContain(big);
-    // content[] image block is tombstoned by sanitizeToolOutput
+    expect(output.modelOutput.type).toBe("content");
+    expect(output.modelOutput.value).toEqual([
+      { type: "text", text: "header\n[Image received from screenshot]" },
+      expect.objectContaining({
+        kind: "image-ref",
+        assetId: "asset-1",
+        mediaType: "image/png",
+      }),
+    ]);
+
     const imgBlock = output.content.find((c: any) => c.type === "image");
     expect(imgBlock).toMatchObject({ omitted: true });
   });
 
-  it("applies a textual fallback when resize throws", async () => {
+  it("falls back to canonical text when resize throws", async () => {
     const resizer = await import("../../image/imageResizer.js");
     (resizer.resizeMCPImageBlock as any).mockImplementationOnce(async () => {
       throw new Error("boom");
@@ -99,25 +124,41 @@ describe("processToolResult with image blocks", () => {
       },
     )) as any;
 
-    // No images were produced, so plain text is returned.
-    expect(typeof output).toBe("string");
-    expect(output).toContain("could not be included");
+    expect(output.__levanteToolResult).toBe(1);
+    expect(output.modelOutput).toEqual({
+      type: "text",
+      value: "[Image from screenshot could not be included because it exceeded API limits.]",
+    });
   });
 });
 
 describe("createAISDKTool.toModelOutput", () => {
-  it("returns image-data parts when supportsVision is true", () => {
+  it("returns image-data parts when supportsVision is true", async () => {
     const aiTool: any = createAISDKTool("srv", baseTool as any, {
       skipApproval: true,
       supportsVision: true,
     });
 
-    const res = aiTool.toModelOutput({
+    const res = await aiTool.toModelOutput({
       toolCallId: "call_1",
       input: {},
       output: {
+        __levanteToolResult: 1,
         text: "hello",
-        images: [{ data: "AAAA", mediaType: "image/png" }],
+        modelOutput: {
+          type: "content",
+          value: [
+            { type: "text", text: "hello" },
+            {
+              kind: "image-ref",
+              assetId: "asset-1",
+              mediaType: "image/png",
+              byteSize: 4,
+              base64Length: 4,
+              sha256: "asset-1",
+            },
+          ],
+        },
       },
     });
 
@@ -128,18 +169,31 @@ describe("createAISDKTool.toModelOutput", () => {
     ]);
   });
 
-  it("degrades to text when supportsVision is false", () => {
+  it("degrades to text when supportsVision is false", async () => {
     const aiTool: any = createAISDKTool("srv", baseTool as any, {
       skipApproval: true,
       supportsVision: false,
     });
 
-    const res = aiTool.toModelOutput({
+    const res = await aiTool.toModelOutput({
       toolCallId: "call_1",
       input: {},
       output: {
+        __levanteToolResult: 1,
         text: "fallback text",
-        images: [{ data: "AAAA", mediaType: "image/png" }],
+        modelOutput: {
+          type: "content",
+          value: [
+            {
+              kind: "image-ref",
+              assetId: "asset-1",
+              mediaType: "image/png",
+              byteSize: 4,
+              base64Length: 4,
+              sha256: "asset-1",
+            },
+          ],
+        },
       },
     });
 

@@ -3,6 +3,7 @@ import { databaseService } from './databaseService';
 import {
   ChatSession,
   Message,
+  PersistedToolCall,
   CreateChatSessionInput,
   CreateMessageInput,
   UpdateChatSessionInput,
@@ -14,9 +15,162 @@ import {
 } from '../../types/database';
 import { getLogger } from './logging';
 import { escapeLikePattern } from '../utils/sqlSanitizer';
+import {
+  collectToolResultAssetIds,
+  normalizeToolCallResultForStorage,
+} from './toolResults/canonicalToolResultService';
+import { deleteImageAssetsIfUnused } from './toolResults/toolResultAssetStore';
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function coercePersistedToolCall(value: unknown): PersistedToolCall | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  return {
+    id: typeof value.id === 'string' ? value.id : '',
+    name: typeof value.name === 'string' ? value.name : '',
+    arguments: isRecord(value.arguments) ? value.arguments : {},
+    ...(value.result !== undefined ? { result: value.result } : {}),
+    status: typeof value.status === 'string' ? value.status : 'success',
+  };
+}
+
+function parsePersistedToolCalls(toolCalls: string | null | undefined): PersistedToolCall[] | null {
+  if (!toolCalls) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(toolCalls);
+    if (!Array.isArray(parsed)) {
+      return null;
+    }
+
+    return parsed
+      .map(coercePersistedToolCall)
+      .filter((toolCall): toolCall is PersistedToolCall => toolCall !== null);
+  } catch {
+    return null;
+  }
+}
+
+function collectAssetIdsFromToolCalls(toolCalls: PersistedToolCall[] | null | undefined): string[] {
+  if (!toolCalls) {
+    return [];
+  }
+
+  return [...new Set(toolCalls.flatMap((toolCall) => collectToolResultAssetIds(toolCall.result)))];
+}
+
+async function normalizeToolCallsForStorage(toolCalls: PersistedToolCall[]): Promise<{
+  value: PersistedToolCall[];
+  changed: boolean;
+  assetIds: string[];
+}> {
+  const value: PersistedToolCall[] = [];
+  const assetIds: string[] = [];
+  let changed = false;
+
+  for (const toolCall of toolCalls) {
+    const normalizedResult = await normalizeToolCallResultForStorage(toolCall.result);
+    value.push({
+      ...toolCall,
+      ...(normalizedResult.normalized !== undefined
+        ? { result: normalizedResult.normalized }
+        : {}),
+    });
+    assetIds.push(...normalizedResult.assetIds);
+    if (normalizedResult.changed) {
+      changed = true;
+    }
+  }
+
+  return {
+    value,
+    changed,
+    assetIds: [...new Set(assetIds)],
+  };
+}
 
 export class ChatService {
   private logger = getLogger();
+
+  private async normalizeToolCallsJsonForStorage(toolCalls: string | null | undefined): Promise<{
+    serialized: string | null;
+    changed: boolean;
+    assetIds: string[];
+  }> {
+    const parsed = parsePersistedToolCalls(toolCalls);
+    if (!parsed) {
+      return {
+        serialized: toolCalls ?? null,
+        changed: false,
+        assetIds: [],
+      };
+    }
+
+    const normalized = await normalizeToolCallsForStorage(parsed);
+    const serialized = JSON.stringify(normalized.value);
+
+    return {
+      serialized,
+      changed: normalized.changed || serialized !== toolCalls,
+      assetIds: normalized.assetIds,
+    };
+  }
+
+  private async mapMessageRow(row: any[]): Promise<Message> {
+    const toolCalls = typeof row[4] === 'string' && row[4].length > 0
+      ? (await this.normalizeToolCallsJsonForStorage(row[4] as string)).serialized
+      : ((row[4] as string) || null);
+
+    return {
+      id: row[0] as string,
+      session_id: row[1] as string,
+      role: row[2] as 'user' | 'assistant' | 'system',
+      content: row[3] as string,
+      tool_calls: toolCalls,
+      created_at: row[5] as number,
+      attachments: (row[6] as string) || null,
+      reasoningText: (row[7] as string) || null,
+      input_tokens: (row[8] as number) ?? null,
+      output_tokens: (row[9] as number) ?? null,
+      total_tokens: (row[10] as number) ?? null,
+    };
+  }
+
+  private async getAssetIdsForSessionMessages(sessionId: string): Promise<string[]> {
+    const result = await databaseService.execute(
+      'SELECT tool_calls FROM messages WHERE session_id = ?',
+      [sessionId as InValue],
+    );
+
+    return [...new Set(
+      result.rows.flatMap((row) =>
+        collectAssetIdsFromToolCalls(parsePersistedToolCalls((row[0] as string) || null)),
+      ),
+    )];
+  }
+
+  private async getAssetIdsForMessagesAfter(
+    sessionId: string,
+    afterTimestamp: number,
+  ): Promise<string[]> {
+    const result = await databaseService.execute(
+      'SELECT tool_calls FROM messages WHERE session_id = ? AND created_at > ?',
+      [sessionId as InValue, afterTimestamp as InValue],
+    );
+
+    return [...new Set(
+      result.rows.flatMap((row) =>
+        collectAssetIdsFromToolCalls(parsePersistedToolCalls((row[0] as string) || null)),
+      ),
+    )];
+  }
 
   // Chat Sessions
   async createSession(input: CreateChatSessionInput): Promise<DatabaseResult<ChatSession>> {
@@ -221,10 +375,14 @@ export class ChatService {
 
   async deleteSession(id: string): Promise<DatabaseResult<boolean>> {
     try {
+      const assetIds = await this.getAssetIdsForSessionMessages(id);
+
       await databaseService.execute(
         'DELETE FROM chat_sessions WHERE id = ?',
         [id as InValue]
       );
+
+      await deleteImageAssetsIfUnused(assetIds);
 
       return { data: true, success: true };
     } catch (error) {
@@ -255,6 +413,9 @@ export class ChatService {
       // Use frontend-provided ID when present, otherwise generate a new one
       const id = input.id || this.generateId();
       const now = Date.now();
+      const normalizedToolCalls = input.tool_calls
+        ? await normalizeToolCallsForStorage(input.tool_calls)
+        : null;
 
       const attachmentsString = input.attachments ? JSON.stringify(input.attachments) : null;
       const reasoningString = input.reasoningText ? JSON.stringify(input.reasoningText) : null;
@@ -271,7 +432,7 @@ export class ChatService {
         session_id: input.session_id,
         role: input.role,
         content: input.content,
-        tool_calls: input.tool_calls ? JSON.stringify(input.tool_calls) : null,
+        tool_calls: normalizedToolCalls ? JSON.stringify(normalizedToolCalls.value) : null,
         attachments: attachmentsString,
         reasoningText: reasoningString,
         input_tokens: input.input_tokens ?? null,
@@ -386,19 +547,9 @@ export class ChatService {
         [session_id as InValue, limit as InValue, offset as InValue]
       );
 
-      const messages: Message[] = result.rows.map(row => ({
-        id: row[0] as string,
-        session_id: row[1] as string,
-        role: row[2] as 'user' | 'assistant' | 'system',
-        content: row[3] as string,
-        tool_calls: row[4] as string,
-        created_at: row[5] as number,
-        attachments: (row[6] as string) || null,
-        reasoningText: (row[7] as string) || null,
-        input_tokens: (row[8] as number) ?? null,
-        output_tokens: (row[9] as number) ?? null,
-        total_tokens: (row[10] as number) ?? null,
-      }));
+      const messages = await Promise.all(
+        result.rows.map((row) => this.mapMessageRow(row as unknown as any[])),
+      );
 
       const paginatedResult: PaginatedResult<Message> = {
         items: messages,
@@ -443,19 +594,9 @@ export class ChatService {
       // Column order from PRAGMA table_info(messages):
       // 0: id, 1: session_id, 2: role, 3: content, 4: tool_calls,
       // 5: created_at, 6: attachments, 7: reasoning, 8: input_tokens, 9: output_tokens, 10: total_tokens
-      const messages: Message[] = result.rows.map(row => ({
-        id: row[0] as string,
-        session_id: row[1] as string,
-        role: row[2] as 'user' | 'assistant' | 'system',
-        content: row[3] as string,
-        tool_calls: row[4] as string,
-        created_at: row[5] as number,
-        attachments: (row[6] as string) || null,
-        reasoningText: (row[7] as string) || null,
-        input_tokens: (row[8] as number) ?? null,
-        output_tokens: (row[9] as number) ?? null,
-        total_tokens: (row[10] as number) ?? null,
-      }));
+      const messages = await Promise.all(
+        result.rows.map((row) => this.mapMessageRow(row as unknown as any[])),
+      );
 
       this.logger.database.debug('Search completed', { found: messages.length, query: searchQuery });
       return { data: messages, success: true };
@@ -486,8 +627,14 @@ export class ChatService {
     });
 
     try {
+      const existingMessage = await this.getMessage(input.id);
+      const previousToolCalls = existingMessage.success && existingMessage.data?.tool_calls
+        ? parsePersistedToolCalls(existingMessage.data.tool_calls)
+        : null;
+      const previousAssetIds = collectAssetIdsFromToolCalls(previousToolCalls);
       const updateFields: string[] = [];
       const params: InValue[] = [];
+      let nextAssetIds = previousAssetIds;
 
       if (input.content !== undefined) {
         updateFields.push('content = ?');
@@ -495,8 +642,10 @@ export class ChatService {
       }
 
       if (input.tool_calls !== undefined) {
+        const normalizedToolCalls = await normalizeToolCallsForStorage(input.tool_calls);
         updateFields.push('tool_calls = ?');
-        params.push(JSON.stringify(input.tool_calls) as InValue);
+        params.push(JSON.stringify(normalizedToolCalls.value) as InValue);
+        nextAssetIds = normalizedToolCalls.assetIds;
       }
 
       if (updateFields.length === 0) {
@@ -510,6 +659,13 @@ export class ChatService {
         `UPDATE messages SET ${updateFields.join(', ')} WHERE id = ?`,
         params
       );
+
+      const orphanedAssetIds = previousAssetIds.filter(
+        (assetId) => !nextAssetIds.includes(assetId),
+      );
+      if (orphanedAssetIds.length > 0) {
+        await deleteImageAssetsIfUnused(orphanedAssetIds);
+      }
 
       this.logger.database.info('Message updated successfully', { messageId: input.id });
       return this.getMessage(input.id);
@@ -537,12 +693,17 @@ export class ChatService {
     });
 
     try {
+      const assetIds = await this.getAssetIdsForMessagesAfter(sessionId, afterTimestamp);
       const result = await databaseService.execute(
         'DELETE FROM messages WHERE session_id = ? AND created_at > ?',
         [sessionId as InValue, afterTimestamp as InValue]
       );
 
       const deletedCount = result.rowsAffected || 0;
+
+      if (deletedCount > 0) {
+        await deleteImageAssetsIfUnused(assetIds);
+      }
 
       this.logger.database.info('Messages deleted successfully', {
         sessionId,
@@ -581,20 +742,7 @@ export class ChatService {
         return { data: null, success: true };
       }
 
-      const row = result.rows[0];
-      const message: Message = {
-        id: row[0] as string,
-        session_id: row[1] as string,
-        role: row[2] as 'user' | 'assistant' | 'system',
-        content: row[3] as string,
-        tool_calls: row[4] as string,
-        created_at: row[5] as number,
-        attachments: (row[6] as string) || null,
-        reasoningText: (row[7] as string) || null,
-        input_tokens: (row[8] as number) ?? null,
-        output_tokens: (row[9] as number) ?? null,
-        total_tokens: (row[10] as number) ?? null,
-      };
+      const message = await this.mapMessageRow(result.rows[0] as unknown as any[]);
 
       return { data: message, success: true };
     } catch (error) {

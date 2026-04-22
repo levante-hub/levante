@@ -9,6 +9,7 @@ import { BrowserWindow, screen, shell, ipcMain } from 'electron';
 import { join } from 'path';
 import { getLogger } from '../services/logging';
 import { chatService } from '../services/chatService';
+import type { PersistedToolCall } from '../../types/database';
 
 const logger = getLogger();
 
@@ -295,15 +296,9 @@ export function registerMiniChatIPC(): void {
 
         // Persist all messages (legacy mode)
         for (const msg of messages) {
-          let toolCalls: object[] | null = null;
-          if (msg.parts && Array.isArray(msg.parts)) {
-            const toolParts = msg.parts.filter(
-              (p: any) => p.type === 'tool-call' || p.type === 'tool-result'
-            );
-            if (toolParts.length > 0) {
-              toolCalls = toolParts;
-            }
-          }
+          const toolCalls = msg.parts && Array.isArray(msg.parts)
+            ? mapPartsToPersistedToolCalls(msg.parts)
+            : null;
 
           await chatService.createMessage({
             id: msg.id,
@@ -347,6 +342,41 @@ export function registerMiniChatIPC(): void {
   });
 
   logger.core.debug('Mini chat IPC handlers registered');
+}
+
+/**
+ * Maps AI SDK message parts to PersistedToolCall shape, pairing tool-call and
+ * tool-result parts by toolCallId. Returns null when no tool parts are present.
+ */
+export function mapPartsToPersistedToolCalls(parts: unknown[]): PersistedToolCall[] | null {
+  const byId = new Map<string, PersistedToolCall>();
+
+  for (const p of parts as any[]) {
+    if (p?.type === 'tool-call' && typeof p.toolCallId === 'string') {
+      byId.set(p.toolCallId, {
+        id: p.toolCallId,
+        name: p.toolName ?? '',
+        arguments: (p.input ?? {}) as Record<string, unknown>,
+        status: 'pending',
+      });
+    } else if (p?.type === 'tool-result' && typeof p.toolCallId === 'string') {
+      const existing = byId.get(p.toolCallId);
+      if (existing) {
+        existing.result = p.output;
+        existing.status = 'success';
+      } else {
+        byId.set(p.toolCallId, {
+          id: p.toolCallId,
+          name: p.toolName ?? '',
+          arguments: {},
+          result: p.output,
+          status: 'success',
+        });
+      }
+    }
+  }
+
+  return byId.size > 0 ? Array.from(byId.values()) : null;
 }
 
 /**

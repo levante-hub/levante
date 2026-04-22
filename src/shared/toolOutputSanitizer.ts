@@ -16,6 +16,10 @@ export interface ToolOutputShape {
 }
 
 /**
+ * Legacy helper:
+ * kept only to neutralize old raw MCP content[] image blocks.
+ * New rich tool outputs must use CanonicalToolResultV1 instead.
+ *
  * Deja una "lápida" (`omitted: true`) en vez del base64 para cada bloque `image`
  * dentro de `content[]`. No muta el input. Única fuente de verdad sobre cómo
  * se aligera el output de tool antes de persistir o rehidratar.
@@ -38,9 +42,9 @@ export function stripInlineImagesFromContent(content: unknown[]): unknown[] {
 }
 
 /**
- * Sanea un output de tool completo: preserva text/uiResources/structuredContent/images
- * y aligera `content[]` via `stripInlineImagesFromContent`. Usar este helper tanto
- * cuando el adapter devuelve el resultado como cuando el renderer va a persistirlo.
+ * Legacy/transitional helper:
+ * preserva text/uiResources/structuredContent/images y aligera `content[]`.
+ * No debe usarse como formato persistido nuevo.
  */
 export function sanitizeToolOutput(output: ToolOutputShape): ToolOutputShape {
   const sanitized: ToolOutputShape = { ...output };

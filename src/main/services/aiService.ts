@@ -44,6 +44,7 @@ import type {
 } from "../../types/modelCategories";
 import type { InstalledSkill } from "../../types/skills";
 import { skillsService } from "./skillsService";
+import { buildHistoricalReplayTools } from "./toolResults/historicalToolReplayTools";
 
 export interface ChatRequest {
   messages: UIMessage[];
@@ -139,6 +140,13 @@ type PreExecutedTool = {
   result?: unknown;
   errorText?: string;
 };
+
+export {
+  collectLargestStrings,
+  collectImagePayloads,
+  logContextDiagnostics,
+} from "./ai/contextDiagnostics";
+import { logContextDiagnostics } from "./ai/contextDiagnostics";
 
 function isToolLikePart(part: any): boolean {
   if (!part || typeof part !== "object") return false;
@@ -1342,7 +1350,17 @@ export class AIService {
       // exact shape convertToModelMessages will consume.
       validateImagesForAPI(sanitizedMessages as unknown[]);
 
-      const modelMessages = await convertToModelMessages(sanitizedMessages);
+      const replayTools = await buildHistoricalReplayTools({
+        messages: sanitizedMessages,
+        liveTools: tools,
+        supportsVision: modelInfo?.capabilities?.supportsVision === true,
+      });
+
+      const modelMessages = await convertToModelMessages(sanitizedMessages, {
+        tools: replayTools,
+      });
+      logContextDiagnostics(this.logger, "sanitizedMessages", sanitizedMessages);
+      logContextDiagnostics(this.logger, "modelMessages", modelMessages);
 
       const todoToolsEnabled = 'todo_write' in tools;
 
@@ -2148,10 +2166,21 @@ export class AIService {
 
       const singleMsgSanitized = sanitizeMessagesForModel(messagesWithFileParts);
       validateImagesForAPI(singleMsgSanitized as unknown[]);
+      const singleMsgReplayTools = await buildHistoricalReplayTools({
+        messages: singleMsgSanitized,
+        liveTools: allSingleMsgTools,
+        supportsVision: modelInfo?.capabilities?.supportsVision === true,
+      });
+
+      const singleMsgModelMessages = await convertToModelMessages(singleMsgSanitized, {
+        tools: singleMsgReplayTools,
+      });
+      logContextDiagnostics(this.logger, "singleMsgSanitized", singleMsgSanitized);
+      logContextDiagnostics(this.logger, "singleMsgModelMessages", singleMsgModelMessages);
 
       const result = await generateText({
         model: modelProvider,
-        messages: await convertToModelMessages(singleMsgSanitized),
+        messages: singleMsgModelMessages,
         tools: allSingleMsgTools,
         system: await buildSystemPrompt(
           webSearch,

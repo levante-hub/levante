@@ -68,6 +68,14 @@ export interface Message {
   created_at: number;
 }
 
+export interface PersistedToolCall {
+  id: string;
+  name: string;
+  arguments: Record<string, unknown>;
+  result?: unknown;
+  status: string;
+}
+
 export interface Provider {
   id: string;
   name: string;
@@ -129,7 +137,7 @@ export interface CreateMessageInput {
   session_id: string;
   role: "user" | "assistant" | "system";
   content: string;
-  tool_calls?: object[] | null; // Will be JSON stringified or null
+  tool_calls?: PersistedToolCall[] | null; // Will be JSON stringified or null
   attachments?: MessageAttachment[] | null; // File attachments (images, audio)
   reasoningText?: { text: string; duration?: number } | null; // Reasoning content from AI models
   input_tokens?: number | null;
@@ -184,7 +192,7 @@ export interface UpdateChatSessionInput {
 export interface UpdateMessageInput {
   id: string;
   content?: string;
-  tool_calls?: object[];
+  tool_calls?: PersistedToolCall[];
 }
 
 // Query types
