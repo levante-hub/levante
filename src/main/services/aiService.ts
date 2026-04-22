@@ -922,28 +922,12 @@ export class AIService {
     try {
       const target = await resolveModelTarget(modelId);
       return target.providerType;
-    } catch {
-      // Fallback: try raw lookup in providers for backwards compat
-      try {
-        const rawId = getRawModelId(modelId);
-        const { preferencesService } = await import("./preferencesService");
-        const providers = (preferencesService.get("providers") as any[]) || [];
-
-        const providerWithModel = providers.find((provider) => {
-          if (provider.modelSource === "dynamic") {
-            return provider.selectedModelIds?.includes(rawId);
-          } else {
-            return provider.models.some(
-              (model: any) => model.id === rawId && model.isSelected !== false
-            );
-          }
-        });
-
-        return providerWithModel?.type;
-      } catch (error) {
-        this.logger.aiSdk.error("Failed to get provider type", { error, modelId });
-        return undefined;
-      }
+    } catch (error) {
+      this.logger.aiSdk.warn("Failed to resolve provider type", {
+        error: error instanceof Error ? error.message : String(error),
+        modelId,
+      });
+      return undefined;
     }
   }
 

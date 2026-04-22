@@ -14,6 +14,11 @@ import type { AppMode, PlatformUser, PlatformStatus } from '../../types/userProf
 import type { Model } from '../../types/models';
 import { getRendererLogger } from '@/services/logger';
 import { useOAuthStore } from './oauthStore';
+import { useCatalogStore } from './catalogStore';
+
+function invalidateCatalog(): void {
+  useCatalogStore.getState().invalidate('platform-models');
+}
 
 const logger = getRendererLogger();
 
@@ -144,9 +149,11 @@ export const usePlatformStore = create<PlatformState>((set, get) => ({
             models: [],
             modelsLoadState: 'idle',
           });
+          invalidateCatalog();
         }
       } else if (appMode === 'standalone') {
         set({ appMode: 'standalone', isAuthenticated: false });
+        invalidateCatalog();
       }
     } catch (error) {
       logger.core.error('Failed to initialize platform store', {
@@ -216,6 +223,7 @@ export const usePlatformStore = create<PlatformState>((set, get) => ({
         lastModelsLoadedAt: null,
         hasLoadedModelsOnce: false,
       });
+      invalidateCatalog();
     } catch (error) {
       logger.core.error('Platform logout failed', {
         error: error instanceof Error ? error.message : error,
@@ -243,6 +251,7 @@ export const usePlatformStore = create<PlatformState>((set, get) => ({
         lastModelsLoadedAt: null,
         hasLoadedModelsOnce: false,
       });
+      invalidateCatalog();
     } catch (error) {
       logger.core.error('Failed to set standalone mode', {
         error: error instanceof Error ? error.message : error,
@@ -276,6 +285,7 @@ export const usePlatformStore = create<PlatformState>((set, get) => ({
             lastModelsLoadedAt: null,
             hasLoadedModelsOnce: false,
           });
+          invalidateCatalog();
         }
       }
     } catch (error) {
@@ -353,6 +363,7 @@ export const usePlatformStore = create<PlatformState>((set, get) => ({
               lastModelsLoadedAt: Date.now(),
               hasLoadedModelsOnce: true,
             });
+            invalidateCatalog();
 
             logger.core.info('Platform catalog loaded', {
               reason,

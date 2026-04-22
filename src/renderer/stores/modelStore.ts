@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 import { modelService } from '@/services/modelService';
+import { useCatalogStore } from '@/stores/catalogStore';
 import type { ProviderConfig, Model } from '../../types/models';
+
+function invalidateCatalog(): void {
+  useCatalogStore.getState().invalidate('provider-sync');
+}
 
 interface ModelState {
   // State
@@ -42,6 +47,7 @@ export const useModelStore = create<ModelState>((set, get) => ({
       const providers = modelService.getProviders();
       const activeProvider = await modelService.getActiveProvider();
       set({ providers, activeProvider });
+      invalidateCatalog();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to initialize model service';
       set({ error: errorMessage });
@@ -61,6 +67,7 @@ export const useModelStore = create<ModelState>((set, get) => ({
         providers,
         activeProvider
       });
+      invalidateCatalog();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to switch provider';
       set({ error: errorMessage });
@@ -74,12 +81,13 @@ export const useModelStore = create<ModelState>((set, get) => ({
       await modelService.updateProvider(providerId, updates);
       const providers = modelService.getProviders();
       const activeProvider = await modelService.getActiveProvider();
-      set({ 
-        providers, 
+      set({
+        providers,
         activeProvider,
         success: 'Provider updated successfully'
       });
-      
+      invalidateCatalog();
+
       // Clear success message after 3 seconds
       setTimeout(() => set({ success: null }), 3000);
     } catch (error) {
@@ -95,12 +103,13 @@ export const useModelStore = create<ModelState>((set, get) => ({
       await modelService.syncProviderModels(providerId);
       const providers = modelService.getProviders();
       const activeProvider = await modelService.getActiveProvider();
-      set({ 
-        providers, 
+      set({
+        providers,
         activeProvider,
         success: 'Models synced successfully'
       });
-      
+      invalidateCatalog();
+
       // Clear success message after 3 seconds
       setTimeout(() => set({ success: null }), 3000);
     } catch (error) {
@@ -119,6 +128,7 @@ export const useModelStore = create<ModelState>((set, get) => ({
       const providers = modelService.getProviders();
       const activeProvider = await modelService.getActiveProvider();
       set({ providers, activeProvider });
+      invalidateCatalog();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to update model selection';
       set({ error: errorMessage });
@@ -134,17 +144,18 @@ export const useModelStore = create<ModelState>((set, get) => ({
       const activeProvider = await modelService.getActiveProvider();
       const isSelectAll = Object.values(selections).every(selected => selected);
       const isDeselectAll = Object.values(selections).every(selected => !selected);
-      
+
       let successMessage = 'Model selections updated';
       if (isSelectAll) successMessage = 'All models selected';
       else if (isDeselectAll) successMessage = 'All models deselected';
-      
-      set({ 
-        providers, 
+
+      set({
+        providers,
         activeProvider,
         success: successMessage
       });
-      
+      invalidateCatalog();
+
       // Clear success message after 2 seconds
       setTimeout(() => set({ success: null }), 2000);
     } catch (error) {
@@ -165,6 +176,7 @@ export const useModelStore = create<ModelState>((set, get) => ({
         activeProvider,
         success: `Model "${model.name}" added successfully`
       });
+      invalidateCatalog();
 
       // Clear success message after 3 seconds
       setTimeout(() => set({ success: null }), 3000);
@@ -187,6 +199,7 @@ export const useModelStore = create<ModelState>((set, get) => ({
         activeProvider,
         success: 'Model removed successfully'
       });
+      invalidateCatalog();
 
       // Clear success message after 3 seconds
       setTimeout(() => set({ success: null }), 3000);

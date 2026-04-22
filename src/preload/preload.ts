@@ -891,6 +891,8 @@ export interface LevanteAPI {
     delete: (id: string) => Promise<DatabaseResult<boolean>>;
     getSessions: (projectId: string) => Promise<DatabaseResult<ChatSession[]>>;
     addFiles: (projectId: string) => Promise<DatabaseResult<string[]>>;
+    addFilesWithPaths: (projectId: string, filePaths: string[]) => Promise<DatabaseResult<string[]>>;
+    getPathForFile: (file: File) => string;
   };
 
   // Platform API

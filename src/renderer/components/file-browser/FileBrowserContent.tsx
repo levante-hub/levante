@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
-import { RefreshCw, Eye, EyeOff, FolderOpen, Loader2, FilePlus } from 'lucide-react';
+import { FolderOpen, Loader2, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFileBrowserStore, type DirectoryEntry } from '@/stores/fileBrowserStore';
 import { useSidePanelStore } from '@/stores/sidePanelStore';
 import { FileTreeNode, getFileIcon } from './FileTreeNode';
+import { AddFilesModal } from './AddFilesModal';
 import { useTranslation } from 'react-i18next';
 
 interface FileBrowserContentProps {
@@ -112,15 +113,15 @@ export function FileBrowserContent({ searchQuery, cwd, projectId }: FileBrowserC
     entries,
     expandedDirs,
     isLoadingDir,
-    showHiddenFiles,
     error,
     initialize,
     toggleDirectory,
     refreshDirectory,
     applyExternalChanges,
-    setShowHidden,
     setError,
   } = useFileBrowserStore();
+
+  const [addFilesModalOpen, setAddFilesModalOpen] = useState(false);
 
   // Backend search state
   const [searchResults, setSearchResults] = useState<FileSearchResult[]>([]);
@@ -225,63 +226,29 @@ export function FileBrowserContent({ searchQuery, cwd, projectId }: FileBrowserC
     void openFileTab(entry.path);
   };
 
-  const handleAddFiles = async () => {
-    if (!projectId) return;
-    const result = await window.levante.projects.addFiles(projectId);
-    if (result.success && result.data && result.data.length > 0) {
-      refreshDirectory(cwd);
-    }
-  };
-
   const rootBasename = getBasename(cwd);
   const rootEntries = entries.get(cwd) ?? [];
   const isSearchMode = searchQuery.trim().length >= 2;
 
   return (
     <div className="flex flex-col">
-      <div className="flex items-center justify-between px-3 py-1.5 text-xs text-muted-foreground border-b">
-        <div className="flex items-center gap-1.5 truncate">
+      <div className="flex items-center gap-2 px-3 py-2 border-b">
+        <div className="flex items-center gap-1.5 truncate text-xs text-muted-foreground min-w-0 flex-1">
           <FolderOpen size={12} className="shrink-0" />
           <span className="truncate font-mono">/{rootBasename}</span>
         </div>
 
-        <div className="flex gap-0.5 shrink-0">
-          {projectId && (
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-5 w-5"
-              onClick={handleAddFiles}
-              title={t('chat_list.file_browser.add_files')}
-            >
-              <FilePlus size={12} />
-            </Button>
-          )}
-
+        {projectId && (
           <Button
-            size="icon"
-            variant="ghost"
-            className="h-5 w-5"
-            onClick={() => setShowHidden(!showHiddenFiles)}
-            title={
-              showHiddenFiles
-                ? t('chat_list.file_browser.hide_hidden')
-                : t('chat_list.file_browser.show_hidden')
-            }
+            variant="outline"
+            size="sm"
+            className="shrink-0 gap-2"
+            onClick={() => setAddFilesModalOpen(true)}
           >
-            {showHiddenFiles ? <EyeOff size={12} /> : <Eye size={12} />}
+            <Upload size={14} />
+            {t('chat_list.file_browser.add_files')}
           </Button>
-
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-5 w-5"
-            onClick={() => refreshDirectory(cwd)}
-            title={t('chat_list.file_browser.refresh')}
-          >
-            <RefreshCw size={12} />
-          </Button>
-        </div>
+        )}
       </div>
 
       {error && (
@@ -349,9 +316,9 @@ export function FileBrowserContent({ searchQuery, cwd, projectId }: FileBrowserC
                   variant="outline"
                   size="sm"
                   className="text-xs"
-                  onClick={handleAddFiles}
+                  onClick={() => setAddFilesModalOpen(true)}
                 >
-                  <FilePlus size={14} className="mr-1.5" />
+                  <Upload size={14} className="mr-1.5" />
                   {t('chat_list.file_browser.add_files')}
                 </Button>
               )}
@@ -370,6 +337,15 @@ export function FileBrowserContent({ searchQuery, cwd, projectId }: FileBrowserC
             </div>
           )}
         </>
+      )}
+
+      {projectId && (
+        <AddFilesModal
+          open={addFilesModalOpen}
+          onClose={() => setAddFilesModalOpen(false)}
+          projectId={projectId}
+          onFilesAdded={() => refreshDirectory(cwd)}
+        />
       )}
     </div>
   );

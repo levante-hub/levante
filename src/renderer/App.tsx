@@ -11,7 +11,7 @@ import { OnboardingWizard } from '@/pages/OnboardingWizard'
 import { MCPDeepLinkModal } from '@/components/mcp/deep-link/MCPDeepLinkModal'
 import { AnnouncementModal } from '@/components/announcements/AnnouncementModal'
 import { SkillInstallDeepLinkModal } from '@/components/skills/SkillInstallDeepLinkModal'
-import { useChatStore, initializeChatStore } from '@/stores/chatStore'
+import { useChatStore } from '@/stores/chatStore'
 import { useProjectStore } from '@/stores/projectStore'
 import { usePlatformStore } from '@/stores/platformStore'
 import { ProjectModal } from '@/components/projects/ProjectModal'
@@ -234,7 +234,6 @@ function App() {
       }
 
       await Promise.all([
-        initializeChatStore(),
         modelService.initialize(),
         usePlatformStore.getState().initialize()
       ]);
@@ -319,6 +318,8 @@ function App() {
   const setPendingPrompt = useChatStore((state) => state.setPendingPrompt)
   const setSkipNextHistoricalLoad = useChatStore((state) => state.setSkipNextHistoricalLoad)
   const createSession = useChatStore((state) => state.createSession)
+  const refreshSessions = useChatStore((state) => state.refreshSessions)
+  const refreshProjectSessions = useChatStore((state) => state.refreshProjectSessions)
 
   // Project management
   const projects = useProjectStore((state) => state.projects)
@@ -342,6 +343,16 @@ function App() {
   useEffect(() => {
     loadProjects()
   }, [loadProjects])
+
+  // Load sessions scoped to the current sidebar scope (project or global).
+  // Runs on mount with selectedProject=null (global) and re-runs when scope changes.
+  useEffect(() => {
+    if (selectedProject?.id) {
+      refreshProjectSessions(selectedProject.id)
+    } else {
+      refreshSessions()
+    }
+  }, [selectedProject?.id, refreshSessions, refreshProjectSessions])
 
   const handleProjectSave = async (input: CreateProjectInput | UpdateProjectInput) => {
     if ('id' in input) {

@@ -101,14 +101,20 @@
       "tab_chats": "Chats",
       "tab_files": "Files",
       "search_files_placeholder": "Search files...",
-      "show_hidden": "Show hidden files",
-      "hide_hidden": "Hide hidden files",
-      "refresh": "Refresh",
       "add_files": "Add files",
       "empty_directory": "Empty directory",
       "read_dir_error": "Failed to read directory",
       "searching": "Searching...",
-      "no_search_results": "No files found"
+      "no_search_results": "No files found",
+      "add_modal": {
+        "title": "Add files",
+        "description": "Drag and drop files into the project, or browse your computer.",
+        "drop_zone": "Drop files here",
+        "browse": "Browse",
+        "success": "{{count}} file(s) added",
+        "error_generic": "Could not add files",
+        "no_valid_paths": "No valid file paths detected"
+      }
     }
   },
   "project_page": {

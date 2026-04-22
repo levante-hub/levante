@@ -6,6 +6,7 @@
 
 import path from 'path-browserify';
 import { create } from 'zustand';
+import { toPosixPath } from '../lib/utils';
 
 export interface DirectoryEntry {
   name: string;
@@ -35,11 +36,11 @@ export function pruneEntriesSubtree(
   subtreeRoot: string
 ): Map<string, DirectoryEntry[]> {
   const next = new Map(entries);
-  const normalizedRoot = subtreeRoot.replace(/\\/g, '/').replace(/\/+$/, '');
+  const normalizedRoot = toPosixPath(subtreeRoot).replace(/\/+$/, '');
   const prefix = `${normalizedRoot}/`;
 
   for (const key of next.keys()) {
-    const normalizedKey = key.replace(/\\/g, '/').replace(/\/+$/, '');
+    const normalizedKey = toPosixPath(key).replace(/\/+$/, '');
     if (normalizedKey === normalizedRoot || normalizedKey.startsWith(prefix)) {
       next.delete(key);
     }
@@ -53,14 +54,22 @@ export function findNearestLoadedAncestor(
   loadedDirs: Set<string>,
   workingDirectory: string
 ): string {
-  let current = candidatePath;
+  const wdPosix = toPosixPath(workingDirectory);
+  const loadedPosix = new Set<string>();
+  const posixToOriginal = new Map<string, string>();
+  for (const dir of loadedDirs) {
+    const p = toPosixPath(dir);
+    loadedPosix.add(p);
+    posixToOriginal.set(p, dir);
+  }
+  let current = toPosixPath(candidatePath);
 
   while (true) {
-    if (loadedDirs.has(current)) {
-      return current;
+    if (loadedPosix.has(current)) {
+      return posixToOriginal.get(current) ?? current;
     }
 
-    if (current === workingDirectory) {
+    if (current === wdPosix) {
       return workingDirectory;
     }
 
@@ -80,14 +89,12 @@ interface FileBrowserState {
 
   isLoadingDir: string | null;
   error: string | null;
-  showHiddenFiles: boolean;
 
   initialize: (cwd: string) => Promise<void>;
   loadDirectory: (dirPath: string) => Promise<void>;
   toggleDirectory: (dirPath: string) => void;
   refreshDirectory: (dirPath: string) => void;
   applyExternalChanges: (changes: FileSystemChange[]) => void;
-  setShowHidden: (show: boolean) => void;
   setError: (error: string | null) => void;
   clearError: () => void;
   reset: () => void;
@@ -100,7 +107,6 @@ export const useFileBrowserStore = create<FileBrowserState>((set, get) => ({
 
   isLoadingDir: null,
   error: null,
-  showHiddenFiles: false,
 
   initialize: async (cwd: string) => {
     if (!cwd?.trim()) {
@@ -138,7 +144,7 @@ export const useFileBrowserStore = create<FileBrowserState>((set, get) => ({
 
     try {
       const result = await window.levante.fs.readDir(dirPath, {
-        showHidden: get().showHiddenFiles,
+        showHidden: true,
         sortBy: 'type',
       });
 
@@ -226,17 +232,6 @@ export const useFileBrowserStore = create<FileBrowserState>((set, get) => ({
     }
   },
 
-  setShowHidden: (show: boolean) => {
-    set({ showHiddenFiles: show });
-
-    const dirs = Array.from(get().entries.keys());
-    set({ entries: new Map() });
-
-    for (const dir of dirs) {
-      void get().loadDirectory(dir);
-    }
-  },
-
   setError: (error: string | null) => {
     set({ error });
   },
@@ -252,7 +247,6 @@ export const useFileBrowserStore = create<FileBrowserState>((set, get) => ({
       expandedDirs: new Set(),
       isLoadingDir: null,
       error: null,
-      showHiddenFiles: false,
     });
   },
 }));

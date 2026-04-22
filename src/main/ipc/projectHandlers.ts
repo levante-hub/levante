@@ -57,5 +57,13 @@ export function setupProjectHandlers(): void {
     return await projectService.addFilesToProject(projectId, result.filePaths);
   });
 
+  ipcMain.removeHandler('levante/projects/addFilesWithPaths');
+  ipcMain.handle('levante/projects/addFilesWithPaths', async (_, projectId: string, filePaths: string[]) => {
+    if (!Array.isArray(filePaths) || filePaths.length === 0) {
+      return { data: [], success: true };
+    }
+    return await projectService.addFilesToProject(projectId, filePaths);
+  });
+
   logger.ipc.info('Project IPC handlers registered');
 }
