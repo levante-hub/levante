@@ -49,6 +49,8 @@ export interface SpawnTaskOptions {
   env?: NodeJS.ProcessEnv;
   onStdout?: (chunk: string) => void;
   onStderr?: (chunk: string) => void;
+  /** Absolute path to a shell binary to use instead of the auto-detected one. */
+  shellOverride?: string;
 }
 
 export interface GetOutputOptions {

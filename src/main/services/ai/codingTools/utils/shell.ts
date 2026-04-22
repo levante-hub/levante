@@ -14,9 +14,16 @@ const ANSI_CSI_PATTERN = /[\u001B\u009B][[()\]#;?]*(?:(?:[0-9]{1,4}(?:;[0-9]{0,4
 const ANSI_SINGLE_PATTERN = /\u001B[@-_]/g;
 
 /**
- * Obtener configuración de shell según plataforma
+ * Obtener configuración de shell según plataforma.
+ * Si se pasa `override`, se prioriza ese binario (útil cuando ensureCoworkPrerequisites
+ * ha provisto PortableGit u otro bash explícito).
  */
-export function getShellConfig(): { shell: string; args: string[] } {
+export function getShellConfig(override?: string): { shell: string; args: string[] } {
+  if (override && existsSync(override)) {
+    // PortableGit / Git Bash / /bin/bash siempre aceptan -c estilo POSIX
+    return { shell: override, args: ["-c"] };
+  }
+
   if (process.platform === "win32") {
     // Git Bash en Windows
     const gitBashPaths = [
@@ -117,6 +124,12 @@ export interface ExecuteCommandOptions {
   signal?: AbortSignal;
   onStdout?: (chunk: string) => void;
   onStderr?: (chunk: string) => void;
+  /**
+   * Absolute path to a shell binary that should be used instead of
+   * auto-detecting Git Bash / PowerShell / bash. Typically populated from
+   * ensureCoworkPrerequisites with a Levante-managed PortableGit.
+   */
+  shellOverride?: string;
 }
 
 export interface ExecuteCommandResult {
@@ -134,7 +147,7 @@ export async function executeCommand(
   command: string,
   options: ExecuteCommandOptions
 ): Promise<ExecuteCommandResult> {
-  const { shell, args } = getShellConfig();
+  const { shell, args } = getShellConfig(options.shellOverride);
   const env = options.env ?? getShellEnv();
   const timeout = options.timeout ?? 120000; // 2 minutos default
 

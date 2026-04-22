@@ -22,6 +22,12 @@ import type { ReasoningConfig } from "../../types/reasoning";
 import { getMCPTools, getCodeModeSystemPrompt } from "./ai/mcpToolsAdapter";
 import { buildSystemPrompt } from "./ai/systemPromptBuilder";
 import { getCodingTools } from "./ai/codingTools";
+import { RuntimeManager } from "./runtime/runtimeManager";
+import {
+  ensureCoworkPrerequisites,
+  type CoworkPrerequisitesResult,
+} from "./runtime/coworkPrerequisites";
+import { broadcastCoworkPrereqStatus } from "../ipc/coworkHandlers";
 import { isToolUseNotSupportedError } from "./ai/toolErrorDetector";
 import { classifyStreamingError } from "./ai/streamingErrorClassifier";
 import { calculateMaxSteps } from "./ai/stepsCalculator";
@@ -378,6 +384,37 @@ async function getReasoningProviderOptions(
 
 export class AIService {
   private logger = getLogger();
+  private runtimeManager = new RuntimeManager();
+  /**
+   * Cached Cowork prerequisites promise. The first Cowork stream of the
+   * process triggers provisioning (PortableGit on Windows + Python). Subsequent
+   * streams reuse the same result. Cleared on failure so we retry next time.
+   */
+  private coworkPrereqPromise: Promise<CoworkPrerequisitesResult> | null = null;
+
+  private getCoworkPrerequisites(): Promise<CoworkPrerequisitesResult> {
+    if (this.coworkPrereqPromise) return this.coworkPrereqPromise;
+
+    const promise = ensureCoworkPrerequisites(this.runtimeManager, this.logger, {
+      onProgress: (step, detail) => {
+        this.logger.aiSdk.info('Cowork prereq', { step, ...(detail ?? {}) });
+        broadcastCoworkPrereqStatus({ step, detail });
+      },
+    }).then((result) => {
+      if (result.warnings.length) {
+        broadcastCoworkPrereqStatus({ step: 'ready', warnings: result.warnings });
+      }
+      return result;
+    }).catch((err) => {
+      this.coworkPrereqPromise = null;
+      const message = err instanceof Error ? err.message : String(err);
+      broadcastCoworkPrereqStatus({ step: 'error', warnings: [message] });
+      throw err;
+    });
+
+    this.coworkPrereqPromise = promise;
+    return promise;
+  }
 
   /**
    * Convert dataURL to Blob for inference API
@@ -1238,10 +1275,27 @@ export class AIService {
             requestedCwd: request.codeMode.cwd,
           });
         } else {
+          // Ensure a POSIX shell + Python are available before loading
+          // coding tools. On Windows this may download PortableGit the first
+          // time. Errors are non-fatal: we fall back to auto-detection in
+          // getShellConfig so existing users keep working.
+          let prereq: CoworkPrerequisitesResult | null = null;
+          try {
+            prereq = await this.getCoworkPrerequisites();
+            if (prereq.warnings.length) {
+              this.logger.aiSdk.warn('Cowork prereq warnings', { warnings: prereq.warnings });
+            }
+          } catch (err) {
+            this.logger.aiSdk.warn('Cowork prereq provisioning failed; continuing with system shell', {
+              err: err instanceof Error ? err.message : String(err),
+            });
+          }
+
           const codingTools = getCodingTools({
             cwd: validCwd,
             sessionId: request.sessionId,
             enabled: request.codeMode.tools, // { bash: true, read: true, ... }
+            bash: prereq?.shellPath ? { shellOverride: prereq.shellPath } : undefined,
           });
 
           tools = {
@@ -1252,6 +1306,8 @@ export class AIService {
           this.logger.aiSdk.debug("Loaded coding tools", {
             tools: Object.keys(codingTools),
             cwd: validCwd,
+            shellOverride: prereq?.shellPath ?? null,
+            pythonPath: prereq?.pythonPath ?? null,
           });
         }
       }
