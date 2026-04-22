@@ -152,7 +152,7 @@ export class SupabaseClient {
     }
     async insertRuntimeUsage(
         userId: string,
-        runtimeType: 'node' | 'python',
+        runtimeType: import('../../../types/runtime').RuntimeType,
         runtimeVersion: string,
         runtimeSource: 'system' | 'shared',
         action: 'installed' | 'used',

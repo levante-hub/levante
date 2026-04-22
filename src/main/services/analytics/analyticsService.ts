@@ -110,7 +110,7 @@ export class AnalyticsService {
     }
 
     async trackRuntimeUsage(
-        runtimeType: 'node' | 'python',
+        runtimeType: import('../../../types/runtime').RuntimeType,
         runtimeVersion: string,
         runtimeSource: 'system' | 'shared',
         action: 'installed' | 'used',

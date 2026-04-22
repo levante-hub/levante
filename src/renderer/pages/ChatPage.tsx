@@ -29,6 +29,7 @@ import { WelcomeScreen } from '@/components/chat/WelcomeScreen';
 import { ChatPromptInput } from '@/components/chat/ChatPromptInput';
 import { ChatMessageItem } from '@/components/chat/ChatMessageItem';
 import { ChatModeTabs } from '@/components/chat/ChatModeTabs';
+import { CoworkPrerequisitesStatus } from '@/components/chat/CoworkPrerequisitesStatus';
 import { useTranslation } from 'react-i18next';
 import { BreathingLogo } from '@/components/ai-elements/breathing-logo';
 import { getRendererLogger } from '@/services/logger';
@@ -1412,6 +1413,7 @@ const ChatPage = () => {
             coworkMode={coworkMode ?? false}
             onCoworkModeChange={setCoworkMode}
           />
+          <CoworkPrerequisitesStatus />
           {isChatEmpty ? (
             // Empty state with welcome screen
             (<div className="flex-1 flex flex-col items-center justify-center px-4">

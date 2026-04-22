@@ -263,7 +263,7 @@ export function MCPDeepLinkModal({
     serverConfig: MCPServerConfig | null;
     metadata: {
       systemPath?: string;
-      runtimeType?: RuntimeType;
+      runtimeType?: 'node' | 'python';
       runtimeVersion?: string;
     };
   }>({

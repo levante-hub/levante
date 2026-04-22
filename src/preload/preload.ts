@@ -858,6 +858,14 @@ export interface LevanteAPI {
       data?: { path: string; canceled: boolean };
       error?: string;
     }>;
+    validateDirectory: (path: string) => Promise<{
+      success: boolean;
+      data?: { isDirectory: boolean; resolvedPath: string };
+      error?: string;
+    }>;
+    onPrerequisitesStatus: (
+      callback: (status: import('./api/cowork').CoworkPrereqStatus) => void
+    ) => () => void;
   };
 
   // Tasks API
@@ -972,6 +980,7 @@ export interface LevanteAPI {
           | 'directory-removed';
       }>;
     }) => void) => () => void;
+    getPathForFile: (file: File) => string;
   };
 
   // Anthropic OAuth API (Claude Max/Pro subscription) - legacy shim

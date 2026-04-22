@@ -102,7 +102,7 @@ class BackgroundTaskManager extends EventEmitter {
     options: SpawnTaskOptions
   ): { taskId: string; pid: number | null } {
     const taskId = randomUUID();
-    const { shell, args } = getShellConfig();
+    const { shell, args } = getShellConfig(options.shellOverride);
     const env = options.env ?? getShellEnv();
 
     const info: TaskInfo = {
