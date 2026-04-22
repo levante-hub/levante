@@ -1,4 +1,4 @@
-import { ipcRenderer } from 'electron';
+import { ipcRenderer, webUtils } from 'electron';
 
 export type FileSystemChangeKind =
   | 'file-added'
@@ -59,4 +59,11 @@ export const filesystemApi = {
       ipcRenderer.removeListener('levante/fs:filesChanged', listener);
     };
   },
+
+  /**
+   * Returns the absolute OS path of a dragged-in File object.
+   * Required because `File.path` is deprecated in Electron 32+.
+   * Works for both files and directories dropped via DataTransfer.
+   */
+  getPathForFile: (file: File): string => webUtils.getPathForFile(file),
 };
