@@ -145,6 +145,7 @@
     "@electron/osx-sign": "^2.3.0",
     "@felixrieseberg/electron-forge-maker-nsis": "^7.2.0",
     "@playwright/test": "^1.58.2",
+    "@pydantic/logfire-node": "^0.13.2",
     "@reforged/maker-appimage": "^5.2.0",
     "@types/fs-extra": "^11.0.4",
     "@types/node": "^24.11.0",

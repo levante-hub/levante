@@ -6,7 +6,7 @@ fixPath();
 import { app, BrowserWindow, protocol } from "electron";
 import { join } from "path";
 import { config } from "dotenv";
-import { initializeLogger } from "./services/logging";
+import { initializeLogger, initializeLogfire } from "./services/logging";
 import { updateService } from "./services/updateService";
 import { announcementService } from "./services/announcementService";
 import { deepLinkService } from "./services/deepLinkService";
@@ -46,6 +46,7 @@ protocol.registerSchemesAsPrivileged([
 
 // Initialize logger
 initializeLogger();
+void initializeLogfire();
 
 // Initialize auto-updates
 updateService.initialize();

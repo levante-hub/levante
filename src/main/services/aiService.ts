@@ -8,7 +8,7 @@ import {
   wrapLanguageModel,
   extractReasoningMiddleware,
 } from "ai";
-import { getLogger } from "./logging";
+import { getLogger, openSpan, closeSpan, failSpan, withActiveSpan, runWithSpanContext } from "./logging";
 import { getModelProvider } from "./ai/providerResolver";
 import { resolveModelTarget } from "./ai/modelTargetResolver";
 import { getRawModelId } from "../../shared/modelRefs";
@@ -1306,6 +1306,12 @@ export class AIService {
 
       const todoToolsEnabled = 'todo_write' in tools;
 
+      const llmSpan = openSpan('llm.stream', {
+        model,
+        toolsCount: Object.keys(tools).length,
+        sessionId: request.sessionId ?? '',
+      });
+
       const result = streamText({
         model: modelProvider,
         messages: modelMessages,
@@ -1347,6 +1353,7 @@ export class AIService {
               chunkType: chunk.type,
               model,
             });
+            if (llmSpan) llmSpan.setAttributes({ ttfb_ms: firstChunkTime - streamStartTime });
           }
         },
 
@@ -1370,6 +1377,28 @@ export class AIService {
               totalTokens: usage.totalTokens,
             } : null,
             avgMsPerChunk: chunkCount > 1 && ttfb ? Math.round((totalTime - ttfb) / (chunkCount - 1)) : null,
+          });
+
+          closeSpan(llmSpan, {
+            finish_reason: finishReason ?? '',
+            total_time_ms: totalTime,
+            chunk_count: chunkCount,
+            ...(usage ? {
+              'usage.input_tokens': usage.inputTokens ?? 0,
+              'usage.output_tokens': usage.outputTokens ?? 0,
+            } : {}),
+          });
+        },
+
+        // Create agent.step child spans nested under llm.stream using sync context activation
+        onStepFinish: (stepData: any) => {
+          runWithSpanContext(llmSpan, () => {
+            const stepSpan = openSpan('agent.step', {
+              model,
+              finishReason: stepData.finishReason ?? '',
+              stepType: stepData.stepType ?? '',
+            });
+            closeSpan(stepSpan);
           });
         },
       });

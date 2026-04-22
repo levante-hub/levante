@@ -9,7 +9,7 @@ import { tool, jsonSchema } from "ai";
 import { mcpService, configManager } from "../../ipc/mcpHandlers";
 import { mcpHealthService } from "../mcpHealthService";
 import type { Tool, DisabledTools } from "../../types/mcp";
-import { getLogger } from "../logging";
+import { getLogger, openSpan, closeSpan, failSpan, withActiveSpan, summarizeAttr } from "../logging";
 
 // Import from modules
 import { sanitizeSchema } from "./schemaSanitizer";
@@ -325,6 +325,11 @@ export function createAISDKTool(
     needsApproval: !skipApproval,
 
     execute: async (args: any) => {
+      const toolSpan = openSpan('mcp.tool.call', {
+        serverId,
+        toolName: mcpTool.name,
+        args: summarizeAttr(args),
+      });
       try {
         logger.aiSdk.debug("Executing MCP tool", {
           serverId,
@@ -332,10 +337,11 @@ export function createAISDKTool(
           args,
         });
 
-        const result = await mcpService.callTool(serverId, {
+        // Activate toolSpan so mcp.request (created inside the proxy) is nested under mcp.tool.call
+        const result = await withActiveSpan(toolSpan, () => mcpService.callTool(serverId, {
           name: mcpTool.name,
           arguments: args,
-        });
+        }));
 
         logger.aiSdk.debug("[AI-SDK] Raw MCP tool result", {
           toolName: mcpTool.name,
@@ -470,11 +476,16 @@ export function createAISDKTool(
           error,
         });
 
+        failSpan(toolSpan, error);
+
         // Record failed tool call
         mcpHealthService.recordError(serverId, mcpTool.name, errorMessage);
 
         // For tool execution errors, throw to let the AI SDK handle it
         throw new Error(errorMessage);
+      } finally {
+        // Close span on success paths (no-op if already closed by failSpan)
+        closeSpan(toolSpan);
       }
     },
 

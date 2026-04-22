@@ -40,6 +40,9 @@ export default defineConfig(({ command }) => {
         'sharp',
         /^@img\/.*/,
         // NOTE: mcp-use bundled by Vite, but winston kept external for Logger
+        // logfire-node is dev-only; keep external so it's never bundled in production
+        '@pydantic/logfire-node',
+        /^@pydantic\//,
       ]
     }
   },

@@ -3,7 +3,48 @@ import { MCPUseService } from "./mcpUseService.js";
 import { MCPLegacyService } from "./mcpLegacyService.js";
 import type { MCPPreferences } from "../../../types/preferences.js";
 import { DEFAULT_MCP_PREFERENCES } from "../../../types/preferences.js";
-import { getLogger } from "../logging";
+import { getLogger, openSpan, closeSpan, failSpan } from "../logging";
+
+/** Wrap an IMCPService with Logfire tracing for callTool and executeCode. */
+function withMCPTracing(service: IMCPService): IMCPService {
+  return new Proxy(service, {
+    get(target, prop, receiver) {
+      if (prop === 'callTool') {
+        return async (serverId: string, toolCall: Parameters<IMCPService['callTool']>[1]) => {
+          const span = openSpan('mcp.request', {
+            serverId,
+            toolName: (toolCall as any).name ?? '',
+          });
+          try {
+            const result = await target.callTool(serverId, toolCall);
+            closeSpan(span);
+            return result;
+          } catch (e) {
+            failSpan(span, e);
+            throw e;
+          }
+        };
+      }
+      if (prop === 'executeCode') {
+        return async (code: string, timeout?: number) => {
+          const span = openSpan('mcp.codeMode.execute', {
+            codeLength: code.length,
+            timeout: timeout ?? 30000,
+          });
+          try {
+            const result = await target.executeCode(code, timeout);
+            closeSpan(span, { hasError: result.error ? 1 : 0 });
+            return result;
+          } catch (e) {
+            failSpan(span, e);
+            throw e;
+          }
+        };
+      }
+      return Reflect.get(target, prop, receiver);
+    },
+  });
+}
 
 /**
  * Factory for creating MCP service instances based on user preferences.
@@ -47,7 +88,7 @@ export class MCPServiceFactory {
     // Initialize the service (configures loggers, etc.)
     await service.initialize();
 
-    return service;
+    return withMCPTracing(service);
   }
 
   /**

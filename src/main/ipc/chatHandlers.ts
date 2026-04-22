@@ -8,7 +8,7 @@
  */
 
 import { ipcMain, IpcMainInvokeEvent } from "electron";
-import { getLogger } from "../services/logging";
+import { getLogger, withAgentSpan, withAgentGenerator } from "../services/logging";
 import { AIService, ChatRequest } from "../services/aiService";
 
 const logger = getLogger();
@@ -67,29 +67,42 @@ async function handleChatStream(
     try {
       logger.aiSdk.debug("Starting AI stream", { streamId });
       let chunkCount = 0;
-      for await (const chunk of aiService.streamChat(request)) {
-        chunkCount++;
+      // withAgentSpan activates agent.chat.request in OTel context so agent.turn
+      // (created by withAgentGenerator below) is properly nested under it.
+      await withAgentSpan('agent.chat.request', {
+        streamId,
+        sessionId: request.sessionId ?? '',
+        model: request.model,
+        messageCount: request.messages.length,
+      }, async () => {
+        for await (const chunk of withAgentGenerator('agent.turn', {
+          sessionId: request.sessionId ?? '',
+          model: request.model,
+          messageCount: request.messages.length,
+        }, aiService.streamChat(request))) {
+          chunkCount++;
 
-        if (isCancelled) {
-          logger.aiSdk.info("Stream cancelled, stopping generation", { streamId });
-          event.sender.send(`levante/chat/stream/${streamId}`, {
-            error: "Stream cancelled by user",
-            done: true,
-          });
-          break;
+          if (isCancelled) {
+            logger.aiSdk.info("Stream cancelled, stopping generation", { streamId });
+            event.sender.send(`levante/chat/stream/${streamId}`, {
+              error: "Stream cancelled by user",
+              done: true,
+            });
+            break;
+          }
+
+          event.sender.send(`levante/chat/stream/${streamId}`, chunk);
+          // Note: for-await already yields to event loop between chunks
+
+          if (chunk.done) {
+            logger.aiSdk.info("AI stream completed successfully", {
+              streamId,
+              totalChunks: chunkCount,
+            });
+            break;
+          }
         }
-
-        event.sender.send(`levante/chat/stream/${streamId}`, chunk);
-        // Note: for-await already yields to event loop between chunks
-
-        if (chunk.done) {
-          logger.aiSdk.info("AI stream completed successfully", {
-            streamId,
-            totalChunks: chunkCount,
-          });
-          break;
-        }
-      }
+      });
       logger.aiSdk.info("Exited streaming loop", { streamId, totalChunks: chunkCount });
     } catch (error) {
       logger.aiSdk.error("AI Stream error", {
@@ -152,11 +165,13 @@ async function handleChatSend(
   request: ChatRequest
 ): Promise<{ success: boolean; content?: string; error?: string }> {
   try {
-    const result = await aiService.sendSingleMessage(request);
-    return {
-      success: true,
-      ...result,
-    };
+    const result = await withAgentSpan('agent.chat.request', {
+      sessionId: request.sessionId ?? '',
+      model: request.model,
+      messageCount: request.messages.length,
+      streaming: false,
+    }, () => aiService.sendSingleMessage(request));
+    return { success: true, ...result };
   } catch (error) {
     return {
       success: false,
