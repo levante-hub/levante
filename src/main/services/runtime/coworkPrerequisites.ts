@@ -94,17 +94,26 @@ export async function ensureCoworkPrerequisites(
 
     // Python: pre-provision on every platform so skill-creator and
     // Python-based MCPs work out of the box on first Cowork entry.
-    onProgress('ensuring-python', { version: DEFAULT_PYTHON_VERSION });
-    let pythonPath: string | null = null;
-    try {
-        pythonPath = await runtimeManager.ensureRuntime({
-            type: 'python',
-            version: DEFAULT_PYTHON_VERSION,
-        });
-    } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        warnings.push(`No se pudo preparar Python: ${message}`);
-        logger.core.warn('Cowork prereq: python provisioning failed', { err: message });
+    //
+    // Only emit `ensuring-python` progress when we're actually going to
+    // download/install. If a Levante-managed Python is already on disk,
+    // reuse it silently so subsequent app launches don't flash a toast.
+    let pythonPath: string | null = runtimeManager.findLevanteRuntime(
+        'python',
+        DEFAULT_PYTHON_VERSION
+    );
+    if (!pythonPath) {
+        onProgress('ensuring-python', { version: DEFAULT_PYTHON_VERSION });
+        try {
+            pythonPath = await runtimeManager.ensureRuntime({
+                type: 'python',
+                version: DEFAULT_PYTHON_VERSION,
+            });
+        } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+            warnings.push(`No se pudo preparar Python: ${message}`);
+            logger.core.warn('Cowork prereq: python provisioning failed', { err: message });
+        }
     }
 
     onProgress('ready');

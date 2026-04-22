@@ -82,6 +82,25 @@ describe('ensureCoworkPrerequisites', () => {
     expect(steps).not.toContain('installing-gitbash');
   });
 
+  it('skips ensuring-python when a managed Python is already on disk', async () => {
+    setPlatform('darwin');
+    const findLevanteRuntime = vi.fn((type: string) =>
+      type === 'python' ? '/levante/runtimes/python/3.13.0/python/bin/python3' : null
+    );
+    const ensureRuntime = vi.fn();
+    const rm = makeRuntimeManager({ findLevanteRuntime, ensureRuntime });
+
+    const steps: CoworkPrereqStep[] = [];
+    const result = await ensureCoworkPrerequisites(rm, makeLogger(), {
+      onProgress: (s) => steps.push(s),
+    });
+
+    expect(result.pythonPath).toBe('/levante/runtimes/python/3.13.0/python/bin/python3');
+    expect(ensureRuntime).not.toHaveBeenCalled();
+    expect(steps).not.toContain('ensuring-python');
+    expect(steps).toContain('ready');
+  });
+
   it('on win32 falls through system → managed → install', async () => {
     setPlatform('win32');
     const detectSystemRuntime = vi.fn(async () => null);
@@ -112,7 +131,7 @@ describe('ensureCoworkPrerequisites', () => {
   it('on darwin skips gitbash entirely', async () => {
     setPlatform('darwin');
     const detectSystemRuntime = vi.fn();
-    const findLevanteRuntime = vi.fn();
+    const findLevanteRuntime = vi.fn(() => null);
     const ensureRuntime = vi.fn(async () => '/py/python3');
     const rm = makeRuntimeManager({
       detectSystemRuntime,
@@ -123,7 +142,9 @@ describe('ensureCoworkPrerequisites', () => {
     const result = await ensureCoworkPrerequisites(rm, makeLogger());
 
     expect(detectSystemRuntime).not.toHaveBeenCalled();
-    expect(findLevanteRuntime).not.toHaveBeenCalled();
+    // findLevanteRuntime is consulted for Python (to skip progress events
+    // when it's already cached) but never for gitbash on non-Windows.
+    expect(findLevanteRuntime).not.toHaveBeenCalledWith('gitbash', expect.any(String));
     expect(result.shellPath).toBeNull();
     expect(ensureRuntime).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'python' })
