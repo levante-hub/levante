@@ -6,6 +6,7 @@
 
 import path from 'path-browserify';
 import { create } from 'zustand';
+import { toPosixPath } from '../lib/utils';
 
 export interface DirectoryEntry {
   name: string;
@@ -35,11 +36,11 @@ export function pruneEntriesSubtree(
   subtreeRoot: string
 ): Map<string, DirectoryEntry[]> {
   const next = new Map(entries);
-  const normalizedRoot = subtreeRoot.replace(/\\/g, '/').replace(/\/+$/, '');
+  const normalizedRoot = toPosixPath(subtreeRoot).replace(/\/+$/, '');
   const prefix = `${normalizedRoot}/`;
 
   for (const key of next.keys()) {
-    const normalizedKey = key.replace(/\\/g, '/').replace(/\/+$/, '');
+    const normalizedKey = toPosixPath(key).replace(/\/+$/, '');
     if (normalizedKey === normalizedRoot || normalizedKey.startsWith(prefix)) {
       next.delete(key);
     }
@@ -53,14 +54,22 @@ export function findNearestLoadedAncestor(
   loadedDirs: Set<string>,
   workingDirectory: string
 ): string {
-  let current = candidatePath;
+  const wdPosix = toPosixPath(workingDirectory);
+  const loadedPosix = new Set<string>();
+  const posixToOriginal = new Map<string, string>();
+  for (const dir of loadedDirs) {
+    const p = toPosixPath(dir);
+    loadedPosix.add(p);
+    posixToOriginal.set(p, dir);
+  }
+  let current = toPosixPath(candidatePath);
 
   while (true) {
-    if (loadedDirs.has(current)) {
-      return current;
+    if (loadedPosix.has(current)) {
+      return posixToOriginal.get(current) ?? current;
     }
 
-    if (current === workingDirectory) {
+    if (current === wdPosix) {
       return workingDirectory;
     }
 
