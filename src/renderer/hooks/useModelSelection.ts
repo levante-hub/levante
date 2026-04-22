@@ -12,10 +12,9 @@ import { modelService } from '@/services/modelService';
 import { getRendererLogger } from '@/services/logger';
 import { usePreference } from '@/hooks/usePreferences';
 import { usePlatformStore } from '@/stores/platformStore';
-import { loadSelectableModels, resolveStoredModelForCatalog } from '@/lib/selectableModels';
-import { isQualifiedModelRef } from '../../shared/modelRefs';
+import { useCatalogStore } from '@/stores/catalogStore';
+import { resolveStoredModelForCatalog } from '@/lib/selectableModels';
 import type { Model, GroupedModelsByProvider } from '../../types/models';
-import type { SelectableModelsResult } from '@/lib/selectableModels';
 
 const logger = getRendererLogger();
 
@@ -81,10 +80,6 @@ export function useModelSelection(options: UseModelSelectionOptions): UseModelSe
   const { currentSession, onLoadUserName } = options;
 
   const [model, setModel] = useState<string>('');
-  const [availableModels, setAvailableModels] = useState<Model[]>([]);
-  const [groupedModelsByProvider, setGroupedModelsByProvider] = useState<GroupedModelsByProvider | null>(null);
-  const [modelsLoading, setModelsLoading] = useState(true);
-  const [catalog, setCatalog] = useState<SelectableModelsResult | null>(null);
 
   // Platform mode state
   const appMode = usePlatformStore(s => s.appMode);
@@ -99,7 +94,19 @@ export function useModelSelection(options: UseModelSelectionOptions): UseModelSe
   const [lastUsedModel, setLastUsedModel] = usePreference('lastUsedModel');
   const [useOtherProviders] = usePreference('useOtherProviders');
 
-  const isHybridMode = isPlatformMode && (useOtherProviders ?? false);
+  // Catalog state from shared store (cached across mounts)
+  const catalog = useCatalogStore(s => s.result);
+  const catalogLoading = useCatalogStore(s => s.loading);
+  const ensureLoaded = useCatalogStore(s => s.ensureLoaded);
+
+  const availableModels = useMemo<Model[]>(
+    () => catalog?.availableModels ?? [],
+    [catalog]
+  );
+  const groupedModelsByProvider = useMemo<GroupedModelsByProvider | null>(
+    () => catalog?.groupedModelsByProvider ?? null,
+    [catalog]
+  );
 
   // Get current model info - search in grouped models if available, otherwise availableModels
   const currentModelInfo = useMemo(() => {
@@ -123,53 +130,37 @@ export function useModelSelection(options: UseModelSelectionOptions): UseModelSe
     return filterModelsBySessionType(availableModels, currentSession);
   }, [availableModels, currentSession]);
 
-  // Load available models on component mount
+  // Ensure catalog is loaded for current params; cached across mounts in catalogStore.
   useEffect(() => {
-    // In platform mode, if the catalog is still idle or loading, signal loading to consumers
+    // In platform mode, wait until the platform catalog is resolved before
+    // computing the selectable-models catalog (otherwise we'd load with an
+    // empty platformModels list and then re-load once it arrives).
     if (isPlatformMode && (platformModelsLoadState === 'idle' || platformModelsLoadState === 'loading')) {
-      setModelsLoading(true);
-      return; // will re-run when platformModels / platformModelsLoadState changes
+      return;
     }
 
-    const loadModels = async () => {
-      setModelsLoading(true);
-      try {
-        const result = await loadSelectableModels({
-          appMode,
-          useOtherProviders: useOtherProviders ?? false,
-          platformModels,
-        });
+    ensureLoaded({
+      appMode,
+      useOtherProviders: useOtherProviders ?? false,
+      platformModels,
+    }).catch((error) => {
+      // ensureLoaded already logs; nothing else to do here.
+      logger.models.debug('ensureLoaded threw', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+  }, [ensureLoaded, appMode, platformModels, platformModelsLoadState, useOtherProviders, isPlatformMode]);
 
-        setAvailableModels(result.availableModels);
-        setGroupedModelsByProvider(result.groupedModelsByProvider);
-        setCatalog(result);
-
-        logger.models.debug('Loaded models via selectableModels', {
-          count: result.availableModels.length,
-          grouped: result.groupedModelsByProvider?.totalModelCount ?? 0,
-          mode: appMode,
-          hybrid: isHybridMode,
-        });
-      } catch (error) {
-        logger.models.error('Failed to load models', {
-          error: error instanceof Error ? error.message : error
-        });
-      } finally {
-        setModelsLoading(false);
-      }
-    };
-
-    loadModels();
-
-    // Also load user name if callback provided
+  // Also load user name if callback provided (kept separate from catalog load)
+  useEffect(() => {
     if (onLoadUserName) {
       onLoadUserName();
     }
-  }, [onLoadUserName, appMode, platformModels, platformModelsLoadState, useOtherProviders, isHybridMode, isPlatformMode]);
+  }, [onLoadUserName]);
 
   // Auto-select model if only one is available OR use lastUsedModel when no model is selected
   useEffect(() => {
-    if (!modelsLoading && !model && !currentSession && catalog) {
+    if (!catalogLoading && !model && !currentSession && catalog) {
       let candidateModel = '';
 
       if (groupedModelsByProvider && groupedModelsByProvider.totalModelCount === 1) {
@@ -195,7 +186,7 @@ export function useModelSelection(options: UseModelSelectionOptions): UseModelSe
         setModel(candidateModel);
       }
     }
-  }, [availableModels, groupedModelsByProvider, modelsLoading, model, currentSession, lastUsedModel, catalog]);
+  }, [availableModels, groupedModelsByProvider, catalogLoading, model, currentSession, lastUsedModel, catalog]);
 
   // Sync model with current session when session changes
   useEffect(() => {
@@ -261,8 +252,7 @@ export function useModelSelection(options: UseModelSelectionOptions): UseModelSe
               model: newModelId
             });
             await modelService.setActiveProvider(newProviderId);
-            const models = await modelService.getAvailableModels();
-            setAvailableModels(models);
+            useCatalogStore.getState().invalidate('provider-sync');
           }
         } catch (err) {
           logger.models.error('Failed to auto-switch provider', {
@@ -322,12 +312,7 @@ export function useModelSelection(options: UseModelSelectionOptions): UseModelSe
             model: newModelId
           });
           await modelService.setActiveProvider(newProviderId);
-
-          const models = await modelService.getAvailableModels();
-          setAvailableModels(models);
-
-          const grouped = await modelService.getAllProvidersWithSelectedModels();
-          setGroupedModelsByProvider(grouped);
+          useCatalogStore.getState().invalidate('provider-sync');
         }
       } catch (err) {
         logger.models.error('Failed to auto-switch provider', {
@@ -347,8 +332,8 @@ export function useModelSelection(options: UseModelSelectionOptions): UseModelSe
 
   // Effective loading / error: in platform mode, reflect catalog state
   const effectiveModelsLoading = isPlatformMode
-    ? modelsLoading || platformModelsLoading
-    : modelsLoading;
+    ? catalogLoading || platformModelsLoading
+    : catalogLoading;
 
   const effectiveModelsError = isPlatformMode ? platformModelsError : null;
   const effectiveRetryModels = isPlatformMode ? platformRetryModels : null;
