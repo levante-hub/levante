@@ -52,6 +52,7 @@ interface ChatStore {
 
   // Session actions
   refreshSessions: () => Promise<void>;
+  refreshProjectSessions: (projectId: string) => Promise<void>;
   createSession: (
     title?: string,
     model?: string,
@@ -177,7 +178,7 @@ export const useChatStore = create<ChatStore>()(
         set({ loading: true, error: null });
 
         try {
-          const result = await window.levante.db.sessions.list({});
+          const result = await window.levante.db.sessions.list({ limit: 100, offset: 0 });
 
           if (result.success && result.data) {
             logger.database.info('Sessions refreshed', {
@@ -201,6 +202,36 @@ export const useChatStore = create<ChatStore>()(
           const error = err instanceof Error ? err.message : 'Unknown error';
           logger.database.error('Error refreshing sessions', { error });
           console.error('[chatStore] refreshSessions failed:', err);
+          set({ error, loading: false });
+        }
+      },
+
+      refreshProjectSessions: async (projectId: string) => {
+        logger.database.debug('Refreshing project sessions', { projectId });
+        set({ loading: true, error: null });
+
+        try {
+          const result = await window.levante.projects.getSessions(projectId);
+
+          if (result.success && result.data) {
+            logger.database.info('Project sessions refreshed', {
+              projectId,
+              count: result.data.length,
+            });
+            set({ sessions: result.data, loading: false });
+          } else {
+            logger.database.error('Failed to refresh project sessions', {
+              projectId,
+              error: result.error,
+            });
+            set({
+              error: result.error || 'Failed to load project sessions',
+              loading: false,
+            });
+          }
+        } catch (err) {
+          const error = err instanceof Error ? err.message : 'Unknown error';
+          logger.database.error('Error refreshing project sessions', { projectId, error });
           set({ error, loading: false });
         }
       },
@@ -868,8 +899,3 @@ export const useChatStore = create<ChatStore>()(
     { name: 'chat-store' }
   )
 );
-
-// Export initialization function
-export const initializeChatStore = () => {
-  return useChatStore.getState().refreshSessions();
-};
