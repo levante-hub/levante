@@ -8,6 +8,13 @@
 import { useEffect } from 'react';
 import { useSidePanelStore } from '@/stores/sidePanelStore';
 
+interface RunningTaskSnapshot {
+  id: string;
+  detectedPort: number | null;
+  command: string;
+  description?: string;
+}
+
 export function useWebPreview() {
   const addServerTab = useSidePanelStore((state) => state.addServerTab);
   const removeServerTab = useSidePanelStore((state) => state.removeServerTab);
@@ -37,13 +44,32 @@ export function useWebPreview() {
         const result = await window.levante.tasks.list({ status: 'running' });
         if (!mounted || !result.success) return;
 
-        const runningTaskIds = new Set(
-          Array.isArray(result.data)
-            ? result.data.map((task: { id: string }) => task.id)
-            : []
-        );
+        const runningTasks = Array.isArray(result.data)
+          ? (result.data as RunningTaskSnapshot[])
+          : [];
+
+        const runningTaskIds = new Set(runningTasks.map((task) => task.id));
 
         const serverTabs = useSidePanelStore.getState().getServerTabs();
+        const existingServerIds = new Set(serverTabs.map((server) => server.id));
+
+        // Rebuild preview tabs from running tasks when the push event was missed.
+        for (const task of runningTasks) {
+          if (task.detectedPort === null || existingServerIds.has(task.id)) {
+            continue;
+          }
+
+          addServerTab({
+            id: task.id,
+            port: task.detectedPort,
+            url: `http://localhost:${task.detectedPort}`,
+            command: task.command,
+            description: task.description,
+            detectedAt: Date.now(),
+            isAlive: true,
+          });
+        }
+
         for (const server of serverTabs) {
           if (!runningTaskIds.has(server.id)) {
             removeServerTab(server.id);
@@ -63,5 +89,5 @@ export function useWebPreview() {
       mounted = false;
       window.clearInterval(intervalId);
     };
-  }, [removeServerTab]);
+  }, [addServerTab, removeServerTab]);
 }

@@ -71,8 +71,13 @@
       "cwd_label": "Directorio de trabajo (CWD)",
       "cwd_placeholder": "Seleccionar un directorio...",
       "cwd_auto_preview": "~/levante/projects/...",
-      "cwd_use_custom": "Utilizar otra carpeta",
-      "cwd_use_auto": "Usar carpeta auto-generada",
+      "cwd_mode_new": "Nueva carpeta",
+      "cwd_mode_existing": "Carpeta existente",
+      "cwd_drop_zone": "Arrastra aquí la carpeta en la que quieres trabajar",
+      "cwd_drop_zone_hint": "o haz clic para buscarla",
+      "cwd_drop_error_not_directory": "El elemento arrastrado no es una carpeta",
+      "cwd_drop_error_missing_path": "No se pudo leer la ruta local de la carpeta arrastrada",
+      "cwd_clear": "Limpiar selección",
       "description_label": "Descripción / Instrucciones",
       "description_placeholder": "Contexto que se inyectará en el system prompt...",
       "save": "Guardar",
@@ -96,14 +101,20 @@
       "tab_chats": "Chats",
       "tab_files": "Archivos",
       "search_files_placeholder": "Buscar archivos...",
-      "show_hidden": "Mostrar archivos ocultos",
-      "hide_hidden": "Ocultar archivos ocultos",
-      "refresh": "Actualizar",
       "add_files": "Añadir archivos",
       "empty_directory": "Directorio vacío",
       "read_dir_error": "No se pudo leer el directorio",
       "searching": "Buscando...",
-      "no_search_results": "No se encontraron archivos"
+      "no_search_results": "No se encontraron archivos",
+      "add_modal": {
+        "title": "Añadir archivos",
+        "description": "Arrastra archivos al proyecto o búscalos en tu equipo.",
+        "drop_zone": "Arrastra archivos aquí",
+        "browse": "Buscar",
+        "success": "{{count}} archivo(s) añadidos",
+        "error_generic": "No se pudieron añadir los archivos",
+        "no_valid_paths": "No se detectaron rutas válidas"
+      }
     }
   },
   "project_page": {

@@ -250,7 +250,8 @@ export interface LevanteAPI {
       baseUrl?: string
     ) => Promise<{ success: boolean; data?: any[]; error?: string }>;
     fetchLocal: (
-      endpoint: string
+      endpoint: string,
+      apiKey?: string
     ) => Promise<{ success: boolean; data?: any[]; error?: string }>;
     fetchOpenAI: (
       params:
@@ -857,6 +858,14 @@ export interface LevanteAPI {
       data?: { path: string; canceled: boolean };
       error?: string;
     }>;
+    validateDirectory: (path: string) => Promise<{
+      success: boolean;
+      data?: { isDirectory: boolean; resolvedPath: string };
+      error?: string;
+    }>;
+    onPrerequisitesStatus: (
+      callback: (status: import('./api/cowork').CoworkPrereqStatus) => void
+    ) => () => void;
   };
 
   // Tasks API
@@ -882,6 +891,8 @@ export interface LevanteAPI {
     delete: (id: string) => Promise<DatabaseResult<boolean>>;
     getSessions: (projectId: string) => Promise<DatabaseResult<ChatSession[]>>;
     addFiles: (projectId: string) => Promise<DatabaseResult<string[]>>;
+    addFilesWithPaths: (projectId: string, filePaths: string[]) => Promise<DatabaseResult<string[]>>;
+    getPathForFile: (file: File) => string;
   };
 
   // Platform API
@@ -971,6 +982,7 @@ export interface LevanteAPI {
           | 'directory-removed';
       }>;
     }) => void) => () => void;
+    getPathForFile: (file: File) => string;
   };
 
   // Anthropic OAuth API (Claude Max/Pro subscription) - legacy shim

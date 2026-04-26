@@ -32,6 +32,7 @@ import { MessageAttachments } from '@/components/chat/MessageAttachments';
 import { getWidgetTabsFromPart } from '@/lib/widgetTabs';
 import { cn } from '@/lib/utils';
 import { getRendererLogger } from '@/services/logger';
+import { deriveToolCallVisualStatus } from '@/utils/toolCallStatus';
 import type { UIMessage } from '@ai-sdk/react';
 import { useState, useMemo } from 'react';
 import { Check, ChevronRight } from 'lucide-react';
@@ -539,18 +540,7 @@ function ToolCallPart({ part, partIndex, messageId, onPrompt, onSendMessage, cha
   // During streaming, AI SDK v5 doesn't include toolName field
   // Format: "tool-{toolName}" -> extract toolName
   const toolName = part.toolName || part.type.replace(/^tool-/, '');
-
-  // Map part states to ToolCall status
-  let status: 'pending' | 'running' | 'success' | 'error' = 'pending';
-  if (part.state === 'input-start') {
-    status = 'pending';
-  } else if (part.state === 'input-available') {
-    status = 'running';
-  } else if (part.state === 'output-available') {
-    status = 'success';
-  } else if (part.state === 'output-error') {
-    status = 'error';
-  }
+  const status = deriveToolCallVisualStatus(part);
 
   const toolCall = {
     id: part.toolCallId,

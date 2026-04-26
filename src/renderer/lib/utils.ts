@@ -17,3 +17,12 @@ export function formatPathTail(filePath: string, segmentCount = 2): string {
 
   return `.../${segments.slice(-segmentCount).join('/')}`
 }
+
+/**
+ * Normalize a filesystem path to POSIX-style forward slashes.
+ * Required before passing Windows paths (with `\`) to `path-browserify`,
+ * which is POSIX-only and would otherwise misinterpret them.
+ */
+export function toPosixPath(p: string): string {
+  return p.replace(/\\/g, '/');
+}

@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
+  Activity,
   Wrench,
   CheckCircle2,
   XCircle,
@@ -31,7 +32,7 @@ export interface ToolCallData {
     content?: any; // Can be object, string, number, etc.
     error?: string;
   };
-  status: 'pending' | 'running' | 'success' | 'error';
+  status: 'pending' | 'running' | 'background' | 'success' | 'error';
   serverId?: string;
   timestamp?: number;
 }
@@ -55,6 +56,11 @@ const statusConfig = {
     icon: Clock,
     label: 'Ejecutando...',
     className: 'text-muted-foreground animate-pulse'
+  },
+  background: {
+    icon: Activity,
+    label: 'En background',
+    className: 'text-blue-500 animate-pulse'
   },
   success: {
     icon: CheckCircle2,

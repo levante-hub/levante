@@ -26,6 +26,7 @@ import { FileMentionNode, type FileMentionPayload } from '@/components/chat/lexi
 import { FileMentionPlugin, replaceTriggerWithFileMention, insertFileMentionAtSelection } from '@/components/chat/lexical/FileMentionPlugin';
 import { FileAutocomplete } from '@/components/chat/FileAutocomplete';
 import { useFileBrowserStore, type DirectoryEntry } from '@/stores/fileBrowserStore';
+import { toPosixPath } from '@/lib/utils';
 import path from 'path-browserify';
 
 // ============================================================================
@@ -364,11 +365,15 @@ function DropPlugin({
         if (!fileData.path || !effectiveCwd) return;
 
         // Validate path is within CWD
-        const rel = path.relative(effectiveCwd, fileData.path);
+        // Normalize to POSIX: on Windows `fileData.path` and `effectiveCwd`
+        // use `\` and path-browserify cannot handle them.
+        const cwdPosix = toPosixPath(effectiveCwd);
+        const filePosix = toPosixPath(fileData.path);
+        const rel = path.relative(cwdPosix, filePosix);
         if (rel.startsWith('..') || path.isAbsolute(rel)) return;
 
         const payload: FileMentionPayload = {
-          fileName: fileData.name || path.basename(fileData.path),
+          fileName: fileData.name || path.basename(filePosix),
           filePath: fileData.path,
           relativePath: rel,
         };
@@ -581,7 +586,9 @@ export function PromptInputEditor({
         return;
       }
 
-      const rel = path.relative(effectiveCwd, entry.path);
+      const cwdPosix = toPosixPath(effectiveCwd);
+      const entryPosix = toPosixPath(entry.path);
+      const rel = path.relative(cwdPosix, entryPosix);
       if (rel.startsWith('..') || path.isAbsolute(rel)) {
         setMentionQuery(null);
         setMentionAnchorRect(null);

@@ -17,6 +17,12 @@ export interface BashToolConfig {
   timeout?: number; // ms, default 120000 (2 min)
   maxOutputLines?: number;
   maxOutputBytes?: number;
+  /**
+   * Absolute path to a shell binary to use instead of the auto-detected one.
+   * Populated by ensureCoworkPrerequisites when Levante provisions PortableGit
+   * on Windows systems that lack Git Bash / PowerShell.
+   */
+  shellOverride?: string;
 }
 
 export function createBashTool(config: BashToolConfig) {
@@ -61,6 +67,7 @@ IMPORTANT:
         const { taskId, pid } = taskManager.spawn(command, {
           cwd: config.cwd,
           description,
+          shellOverride: config.shellOverride,
         });
 
         return {
@@ -77,6 +84,7 @@ IMPORTANT:
         const result = await executeCommand(command, {
           cwd: config.cwd,
           timeout,
+          shellOverride: config.shellOverride,
         });
 
         // Combinar stdout y stderr

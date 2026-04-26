@@ -1,4 +1,6 @@
 import { type UIMessage } from 'ai';
+import { isCanonicalToolResult } from '../../../shared/canonicalToolResult';
+import { stripInlineImagesFromContent } from '../../../shared/toolOutputSanitizer';
 
 /**
  * Sanitize messages for model consumption.
@@ -118,13 +120,12 @@ export function sanitizeMessagesForModel(messages: UIMessage[]): UIMessage[] {
         }
       }
 
+      // IMPORTANT:
+      // Tool output semantic conversion happens in materializeToolResultForModel()
+      // via tool.toModelOutput(). This sanitizer must not duplicate image handling.
+      //
       // Sanitize tool invocation outputs that contain uiResources (MCP-UI)
-      // According to MCP spec 2025-11-25:
-      // - structuredContent → SEND to LLM (structured JSON for processing)
-      // - content → SEND to LLM (text for backwards compatibility)
-      // - _meta → NEVER send (client metadata, may contain secrets like game words)
-      // - uiResources → NEVER send (only for widget rendering)
-      // Note: Tool parts can have type 'tool-invocation' or 'tool-{toolName}' depending on source
+      // or legacy image payloads without altering canonical semantics.
       const isToolWithOutput = (
         // AI SDK format: tool-invocation with output-available state
         (// Stored format: tool-{name} with output-available state
@@ -132,47 +133,34 @@ export function sanitizeMessagesForModel(messages: UIMessage[]): UIMessage[] {
       );
       if (isToolWithOutput && part.output) {
         const output = part.output;
-        if (output && typeof output === 'object' && 'uiResources' in output) {
-          // Build clean output for LLM - include structuredContent and content text
-          // but strip _meta (client metadata) and uiResources (widget rendering)
+        if (isCanonicalToolResult(output)) {
+          return part;
+        }
+
+        if (output && typeof output === 'object') {
           const cleanOutput: Record<string, unknown> = {};
 
-          // 1. Include structuredContent if present (MCP spec: structured JSON for LLM)
-          if (output.structuredContent) {
-            cleanOutput.structuredContent = output.structuredContent;
+          if ((output as any).structuredContent) {
+            cleanOutput.structuredContent = (output as any).structuredContent;
           }
 
-          // 2. Extract text from content array (MCP spec: for backwards compatibility)
-          if (Array.isArray(output.content)) {
-            const contentTexts = output.content
-              .filter((item: any) => item?.type === 'text' && item?.text)
-              .map((item: any) => item.text);
-
-            if (contentTexts.length > 0) {
-              cleanOutput.text = contentTexts.join('\n');
-            }
+          if (typeof (output as any).text === 'string') {
+            cleanOutput.text = (output as any).text;
           }
 
-          // Fallback to output.text if content array didn't provide text
-          if (!cleanOutput.text && output.text) {
-            cleanOutput.text = output.text;
+          if (Array.isArray((output as any).content)) {
+            cleanOutput.content = stripInlineImagesFromContent(
+              (output as any).content as unknown[],
+            );
           }
 
-          // If we have structuredContent, return it (preferred by LLM)
-          // Otherwise fall back to text, or a placeholder
-          let outputForModel: unknown;
-          if (cleanOutput.structuredContent) {
-            // LLM can work with structured data directly
-            outputForModel = cleanOutput.structuredContent;
-          } else if (cleanOutput.text) {
-            outputForModel = cleanOutput.text;
-          } else {
-            outputForModel = '[Widget rendered]';
+          if (Object.keys(cleanOutput).length === 0) {
+            return { ...part, output: '[Widget rendered]' };
           }
 
           return {
             ...part,
-            output: outputForModel,
+            output: cleanOutput,
           };
         }
       }

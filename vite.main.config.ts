@@ -36,6 +36,9 @@ export default defineConfig(({ command }) => {
         'winston',
         /^winston\/.*/,
         'winston-daily-rotate-file',
+        // sharp is a native binary addon — must remain external and be copied in packageAfterCopy
+        'sharp',
+        /^@img\/.*/,
         // NOTE: mcp-use bundled by Vite, but winston kept external for Logger
       ]
     }

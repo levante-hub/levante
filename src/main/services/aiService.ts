@@ -22,10 +22,17 @@ import type { ReasoningConfig } from "../../types/reasoning";
 import { getMCPTools, getCodeModeSystemPrompt } from "./ai/mcpToolsAdapter";
 import { buildSystemPrompt } from "./ai/systemPromptBuilder";
 import { getCodingTools } from "./ai/codingTools";
+import { RuntimeManager } from "./runtime/runtimeManager";
+import {
+  ensureCoworkPrerequisites,
+  type CoworkPrerequisitesResult,
+} from "./runtime/coworkPrerequisites";
+import { broadcastCoworkPrereqStatus } from "../ipc/coworkHandlers";
 import { isToolUseNotSupportedError } from "./ai/toolErrorDetector";
 import { classifyStreamingError } from "./ai/streamingErrorClassifier";
 import { calculateMaxSteps } from "./ai/stepsCalculator";
 import { sanitizeMessagesForModel } from "./ai/toolMessageSanitizer";
+import { validateImagesForAPI } from "./image/imageValidation";
 import { InferenceDispatcher } from "./inference/InferenceDispatcher";
 import { attachmentStorage } from "./attachmentStorage";
 import { pdfExtractionService } from "./pdfExtractionService";
@@ -37,6 +44,7 @@ import type {
 } from "../../types/modelCategories";
 import type { InstalledSkill } from "../../types/skills";
 import { skillsService } from "./skillsService";
+import { buildHistoricalReplayTools } from "./toolResults/historicalToolReplayTools";
 
 export interface ChatRequest {
   messages: UIMessage[];
@@ -132,6 +140,13 @@ type PreExecutedTool = {
   result?: unknown;
   errorText?: string;
 };
+
+export {
+  collectLargestStrings,
+  collectImagePayloads,
+  logContextDiagnostics,
+} from "./ai/contextDiagnostics";
+import { logContextDiagnostics } from "./ai/contextDiagnostics";
 
 function isToolLikePart(part: any): boolean {
   if (!part || typeof part !== "object") return false;
@@ -377,6 +392,37 @@ async function getReasoningProviderOptions(
 
 export class AIService {
   private logger = getLogger();
+  private runtimeManager = new RuntimeManager();
+  /**
+   * Cached Cowork prerequisites promise. The first Cowork stream of the
+   * process triggers provisioning (PortableGit on Windows + Python). Subsequent
+   * streams reuse the same result. Cleared on failure so we retry next time.
+   */
+  private coworkPrereqPromise: Promise<CoworkPrerequisitesResult> | null = null;
+
+  private getCoworkPrerequisites(): Promise<CoworkPrerequisitesResult> {
+    if (this.coworkPrereqPromise) return this.coworkPrereqPromise;
+
+    const promise = ensureCoworkPrerequisites(this.runtimeManager, this.logger, {
+      onProgress: (step, detail) => {
+        this.logger.aiSdk.info('Cowork prereq', { step, ...(detail ?? {}) });
+        broadcastCoworkPrereqStatus({ step, detail });
+      },
+    }).then((result) => {
+      if (result.warnings.length) {
+        broadcastCoworkPrereqStatus({ step: 'ready', warnings: result.warnings });
+      }
+      return result;
+    }).catch((err) => {
+      this.coworkPrereqPromise = null;
+      const message = err instanceof Error ? err.message : String(err);
+      broadcastCoworkPrereqStatus({ step: 'error', warnings: [message] });
+      throw err;
+    });
+
+    this.coworkPrereqPromise = promise;
+    return promise;
+  }
 
   /**
    * Convert dataURL to Blob for inference API
@@ -884,28 +930,12 @@ export class AIService {
     try {
       const target = await resolveModelTarget(modelId);
       return target.providerType;
-    } catch {
-      // Fallback: try raw lookup in providers for backwards compat
-      try {
-        const rawId = getRawModelId(modelId);
-        const { preferencesService } = await import("./preferencesService");
-        const providers = (preferencesService.get("providers") as any[]) || [];
-
-        const providerWithModel = providers.find((provider) => {
-          if (provider.modelSource === "dynamic") {
-            return provider.selectedModelIds?.includes(rawId);
-          } else {
-            return provider.models.some(
-              (model: any) => model.id === rawId && model.isSelected !== false
-            );
-          }
-        });
-
-        return providerWithModel?.type;
-      } catch (error) {
-        this.logger.aiSdk.error("Failed to get provider type", { error, modelId });
-        return undefined;
-      }
+    } catch (error) {
+      this.logger.aiSdk.warn("Failed to resolve provider type", {
+        error: error instanceof Error ? error.message : String(error),
+        modelId,
+      });
+      return undefined;
     }
   }
 
@@ -1151,7 +1181,8 @@ export class AIService {
 
         const mcpTools = await getMCPTools({
           skipApproval: shouldSkipApproval,
-          disabledTools
+          disabledTools,
+          supportsVision: modelInfo?.capabilities?.supportsVision === true,
         });
         tools = { ...builtInTools, ...mcpTools };
         this.logger.aiSdk.debug("Passing tools to streamText", {
@@ -1236,10 +1267,27 @@ export class AIService {
             requestedCwd: request.codeMode.cwd,
           });
         } else {
+          // Ensure a POSIX shell + Python are available before loading
+          // coding tools. On Windows this may download PortableGit the first
+          // time. Errors are non-fatal: we fall back to auto-detection in
+          // getShellConfig so existing users keep working.
+          let prereq: CoworkPrerequisitesResult | null = null;
+          try {
+            prereq = await this.getCoworkPrerequisites();
+            if (prereq.warnings.length) {
+              this.logger.aiSdk.warn('Cowork prereq warnings', { warnings: prereq.warnings });
+            }
+          } catch (err) {
+            this.logger.aiSdk.warn('Cowork prereq provisioning failed; continuing with system shell', {
+              err: err instanceof Error ? err.message : String(err),
+            });
+          }
+
           const codingTools = getCodingTools({
             cwd: validCwd,
             sessionId: request.sessionId,
             enabled: request.codeMode.tools, // { bash: true, read: true, ... }
+            bash: prereq?.shellPath ? { shellOverride: prereq.shellPath } : undefined,
           });
 
           tools = {
@@ -1250,6 +1298,8 @@ export class AIService {
           this.logger.aiSdk.debug("Loaded coding tools", {
             tools: Object.keys(codingTools),
             cwd: validCwd,
+            shellOverride: prereq?.shellPath ?? null,
+            pythonPath: prereq?.pythonPath ?? null,
           });
         }
       }
@@ -1294,7 +1344,23 @@ export class AIService {
 
       const sanitizedMessages = sanitizeMessagesForModel(updatedMessages);
 
-      const modelMessages = await convertToModelMessages(sanitizedMessages);
+      // Safety-net: detect oversized image payloads that escaped the MCP pipeline
+      // (e.g. legacy history, user attachments as base64 data URLs) before we
+      // hand them off to the provider. Runs on sanitized messages so we see the
+      // exact shape convertToModelMessages will consume.
+      validateImagesForAPI(sanitizedMessages as unknown[]);
+
+      const replayTools = await buildHistoricalReplayTools({
+        messages: sanitizedMessages,
+        liveTools: tools,
+        supportsVision: modelInfo?.capabilities?.supportsVision === true,
+      });
+
+      const modelMessages = await convertToModelMessages(sanitizedMessages, {
+        tools: replayTools,
+      });
+      logContextDiagnostics(this.logger, "sanitizedMessages", sanitizedMessages);
+      logContextDiagnostics(this.logger, "modelMessages", modelMessages);
 
       const todoToolsEnabled = 'todo_write' in tools;
 
@@ -2053,7 +2119,10 @@ export class AIService {
         const prefs = await preferencesService.getAll();
         const disabledTools = prefs.mcp?.disabledTools;
 
-        tools = await getMCPTools(disabledTools);
+        tools = await getMCPTools({
+          disabledTools,
+          supportsVision: modelInfo?.capabilities?.supportsVision === true,
+        });
       }
 
       // Get built-in tools config for system prompt
@@ -2095,9 +2164,23 @@ export class AIService {
       const allSingleMsgTools = { ...singleMsgBuiltInTools, ...tools };
       const singleMsgTodoToolsEnabled = 'todo_write' in allSingleMsgTools;
 
+      const singleMsgSanitized = sanitizeMessagesForModel(messagesWithFileParts);
+      validateImagesForAPI(singleMsgSanitized as unknown[]);
+      const singleMsgReplayTools = await buildHistoricalReplayTools({
+        messages: singleMsgSanitized,
+        liveTools: allSingleMsgTools,
+        supportsVision: modelInfo?.capabilities?.supportsVision === true,
+      });
+
+      const singleMsgModelMessages = await convertToModelMessages(singleMsgSanitized, {
+        tools: singleMsgReplayTools,
+      });
+      logContextDiagnostics(this.logger, "singleMsgSanitized", singleMsgSanitized);
+      logContextDiagnostics(this.logger, "singleMsgModelMessages", singleMsgModelMessages);
+
       const result = await generateText({
         model: modelProvider,
-        messages: await convertToModelMessages(sanitizeMessagesForModel(messagesWithFileParts)),
+        messages: singleMsgModelMessages,
         tools: allSingleMsgTools,
         system: await buildSystemPrompt(
           webSearch,

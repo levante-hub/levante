@@ -6,7 +6,15 @@ import { promisify } from 'util';
 import { pipeline } from 'stream/promises';
 import { createWriteStream } from 'fs';
 import { RuntimeConfig, RuntimeInfo, RuntimeType } from '../../../types/runtime';
-import { DEFAULT_NODE_VERSION, DEFAULT_PYTHON_VERSION, LEVANTE_DIR_NAME, RUNTIME_DIR_NAME, NODE_DIST_BASE_URL } from './constants';
+import {
+    DEFAULT_NODE_VERSION,
+    DEFAULT_PYTHON_VERSION,
+    LEVANTE_DIR_NAME,
+    RUNTIME_DIR_NAME,
+    NODE_DIST_BASE_URL,
+    PORTABLE_GIT_ARCHIVE_X64,
+    PORTABLE_GIT_URL_X64,
+} from './constants';
 import { analyticsService } from '../analytics/analyticsService';
 
 const execAsync = promisify(exec);
@@ -136,7 +144,7 @@ export class RuntimeManager {
     /**
      * Finds an installed Levante runtime without triggering installation.
      */
-    private findLevanteRuntime(type: RuntimeType, version: string): string | null {
+    findLevanteRuntime(type: RuntimeType, version: string): string | null {
         const runtimeDir = path.join(this.runtimesPath, type, version);
 
         if (!fs.existsSync(runtimeDir)) {
@@ -147,6 +155,10 @@ export class RuntimeManager {
             const binPath = process.platform === 'win32'
                 ? path.join(runtimeDir, 'node.exe')
                 : path.join(runtimeDir, 'bin', 'node');
+            return fs.existsSync(binPath) ? binPath : null;
+        } else if (type === 'gitbash') {
+            // PortableGit layout: <runtimeDir>/bin/bash.exe
+            const binPath = path.join(runtimeDir, 'bin', 'bash.exe');
             return fs.existsSync(binPath) ? binPath : null;
         } else {
             // Python (python-build-standalone layout)
@@ -165,6 +177,31 @@ export class RuntimeManager {
    */
     async detectSystemRuntime(type: RuntimeType, version?: string): Promise<string | null> {
         try {
+            // gitbash: look for Git Bash in known Windows locations + `where bash`
+            if (type === 'gitbash') {
+                if (process.platform !== 'win32') return null;
+
+                const knownPaths = [
+                    'C:\\Program Files\\Git\\bin\\bash.exe',
+                    'C:\\Program Files (x86)\\Git\\bin\\bash.exe',
+                    path.join(app.getPath('home'), 'scoop', 'apps', 'git', 'current', 'bin', 'bash.exe'),
+                ];
+                for (const candidate of knownPaths) {
+                    if (fs.existsSync(candidate)) return candidate;
+                }
+
+                try {
+                    const { stdout } = await execAsync('where bash');
+                    const found = stdout.trim().split(/\r?\n/).find((line) =>
+                        line.toLowerCase().endsWith('bash.exe') && fs.existsSync(line)
+                    );
+                    if (found) return found;
+                } catch {
+                    // not found on PATH
+                }
+                return null;
+            }
+
             const command = type === 'node' ? 'node' : (process.platform === 'win32' ? 'python' : 'python3');
             const versionFlag = type === 'node' ? '-v' : '--version';
 
@@ -234,6 +271,51 @@ export class RuntimeManager {
 
         // Ensure directory exists
         fs.mkdirSync(runtimeDir, { recursive: true });
+
+        if (type === 'gitbash') {
+            // PortableGit only ships for Windows x64
+            if (process.platform !== 'win32' || process.arch !== 'x64') {
+                throw new Error('PortableGit auto-install is only supported on Windows x64');
+            }
+
+            const downloadPath = path.join(runtimeDir, PORTABLE_GIT_ARCHIVE_X64);
+
+            console.log(`Downloading PortableGit from ${PORTABLE_GIT_URL_X64}...`);
+
+            const response = await fetch(PORTABLE_GIT_URL_X64);
+            if (!response.ok) {
+                throw new Error(`Failed to download PortableGit: ${response.status} ${response.statusText}`);
+            }
+            if (!response.body) {
+                throw new Error('No response body when downloading PortableGit');
+            }
+
+            // @ts-ignore - fetch body is a ReadableStream (Node.js fetch vs web fetch types)
+            await pipeline(response.body, createWriteStream(downloadPath));
+
+            console.log(`Extracting PortableGit to ${runtimeDir}...`);
+
+            // PortableGit-*.7z.exe is a self-extracting 7z archive. It supports
+            // silent extraction with "-y -o<dir>" (no space between -o and the path).
+            await execAsync(`"${downloadPath}" -y -o"${runtimeDir}"`);
+
+            // Cleanup installer
+            try { fs.unlinkSync(downloadPath); } catch { /* ignore */ }
+
+            const binPath = path.join(runtimeDir, 'bin', 'bash.exe');
+            if (!fs.existsSync(binPath)) {
+                throw new Error(`bash.exe not found after extracting PortableGit at ${binPath}`);
+            }
+
+            await analyticsService.trackRuntimeUsage(
+                type,
+                version,
+                'shared',
+                'installed'
+            ).catch(() => { });
+
+            return binPath;
+        }
 
         if (type === 'node') {
             const arch = process.arch; // 'x64', 'arm64'

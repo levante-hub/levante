@@ -43,9 +43,9 @@ export function setupModelHandlers() {
 
   // Fetch local models
   ipcMain.removeHandler('levante/models/local');
-  ipcMain.handle('levante/models/local', async (_, endpoint: string) => {
+  ipcMain.handle('levante/models/local', async (_, endpoint: string, apiKey?: string) => {
     try {
-      const models = await ModelFetchService.fetchLocalModels(endpoint);
+      const models = await ModelFetchService.fetchLocalModels(endpoint, apiKey);
       return {
         success: true,
         data: models

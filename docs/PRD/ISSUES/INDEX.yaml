@@ -49,6 +49,10 @@ issues:
     labels: [mcp, performance, ai-optimization]
     priority: P0
     role: AI Engineer
-
+  - id: 0012
+    title: MCP Tool Results — Remove Legacy `images[]` Format After Canonical Rollout
+    labels: [mcp, technical-debt, replay, persistence, cleanup]
+    priority: P1
+    role: Platform Engineer
 
 

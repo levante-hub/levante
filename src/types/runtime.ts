@@ -1,4 +1,4 @@
-export type RuntimeType = 'node' | 'python';
+export type RuntimeType = 'node' | 'python' | 'gitbash';
 export type RuntimeSource = 'system' | 'shared';
 export type RuntimeErrorType = 'RUNTIME_NOT_FOUND' | 'RUNTIME_CHOICE_REQUIRED';
 

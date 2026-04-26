@@ -29,6 +29,7 @@ import { WelcomeScreen } from '@/components/chat/WelcomeScreen';
 import { ChatPromptInput } from '@/components/chat/ChatPromptInput';
 import { ChatMessageItem } from '@/components/chat/ChatMessageItem';
 import { ChatModeTabs } from '@/components/chat/ChatModeTabs';
+import { CoworkPrerequisitesStatus } from '@/components/chat/CoworkPrerequisitesStatus';
 import { useTranslation } from 'react-i18next';
 import { BreathingLogo } from '@/components/ai-elements/breathing-logo';
 import { getRendererLogger } from '@/services/logger';
@@ -179,6 +180,7 @@ const ChatPage = () => {
   // Project store (read-only for effectiveCwd / projectDescription)
   const projects = useProjectStore((state) => state.projects);
   const loadProjects = useProjectStore((state) => state.loadProjects);
+  const updateProject = useProjectStore((state) => state.updateProject);
 
   // MCP Resources hook
   const {
@@ -382,6 +384,17 @@ const ChatPage = () => {
   );
 
   const handleCoworkModeCwdChange = useCallback(async (cwd: string | null) => {
+    if (currentSession?.project_id) {
+      await updateProject({ id: currentSession.project_id, cwd });
+      setSessionCwdOverrides((prev) => {
+        if (!(currentSession.id in prev)) return prev;
+        const next = { ...prev };
+        delete next[currentSession.id];
+        return next;
+      });
+      return;
+    }
+
     if (currentSession?.id) {
       setSessionCwdOverrides((prev) => {
         const next = { ...prev };
@@ -396,7 +409,7 @@ const ChatPage = () => {
     }
 
     await setCoworkModeCwd(cwd);
-  }, [currentSession?.id, setCoworkModeCwd]);
+  }, [currentSession?.id, currentSession?.project_id, setCoworkModeCwd, updateProject]);
 
   const handleResetCoworkModeCwdOverride = useCallback(async () => {
     if (!currentSession?.id) return;
@@ -1341,19 +1354,32 @@ const ChatPage = () => {
           {/* Show error if any */}
           {chatError && (() => {
             const category = transport.lastErrorCategory;
+            const isPlatform = currentModelInfo?.provider === 'levante-platform';
             const friendlyKeys: Record<string, string> = {
               insufficient_balance: 'api.insufficient_balance',
               rate_limit: 'api.rate_limit',
               quota_exceeded: 'api.quota_exceeded',
-              unauthorized: 'api.unauthorized',
+              unauthorized: isPlatform ? 'api.unauthorized' : 'api.invalid_key',
               model_not_available: 'api.model_not_available',
             };
             const i18nKey = category && friendlyKeys[category];
             const friendlyMessage = i18nKey ? tErrors(i18nKey) : chatError.message;
+            // For non-platform providers, surface the original server message too so
+            // users can see what the endpoint actually returned (e.g. "Invalid API key: sk-***").
+            const showServerDetail =
+              !isPlatform &&
+              category === 'unauthorized' &&
+              chatError.message &&
+              chatError.message !== friendlyMessage;
 
             return (
               <div className="p-4 bg-destructive/10 border border-destructive/30 text-destructive text-sm flex items-start justify-between gap-3">
-                <span>{friendlyMessage}</span>
+                <span className="flex flex-col gap-1">
+                  <span>{friendlyMessage}</span>
+                  {showServerDetail && (
+                    <span className="text-xs opacity-80">{chatError.message}</span>
+                  )}
+                </span>
                 {category === 'insufficient_balance' && (
                   <button
                     type="button"
@@ -1370,7 +1396,7 @@ const ChatPage = () => {
                     {t('manage_balance')}
                   </button>
                 )}
-                {category === 'unauthorized' && (
+                {category === 'unauthorized' && isPlatform && (
                   <button
                     type="button"
                     className="shrink-0 underline underline-offset-2 hover:opacity-80 transition-opacity whitespace-nowrap"
@@ -1387,6 +1413,7 @@ const ChatPage = () => {
             coworkMode={coworkMode ?? false}
             onCoworkModeChange={setCoworkMode}
           />
+          <CoworkPrerequisitesStatus />
           {isChatEmpty ? (
             // Empty state with welcome screen
             (<div className="flex-1 flex flex-col items-center justify-center px-4">
