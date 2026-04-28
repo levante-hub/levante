@@ -378,4 +378,62 @@ describe('sanitizeMessagesForModel', () => {
     expect(part.output.content).toEqual([{ type: 'text', text: 'hi' }]);
     expect(part.output.uiResources).toBeUndefined();
   });
+
+  it('preserves coding tool plain-object outputs (bash) untouched', () => {
+    const output = {
+      status: 'success',
+      exitCode: 0,
+      output: 'hello\nworld',
+      truncated: false,
+    };
+
+    const messages: UIMessage[] = [
+      makeAssistantMessage([
+        makeToolPart({ state: 'output-available', output }),
+      ]),
+    ];
+
+    const result = sanitizeMessagesForModel(messages);
+    const part = result[0].parts[0] as any;
+
+    expect(part.output).toEqual(output);
+  });
+
+  it('preserves read-tool plain object with content as string', () => {
+    const output = {
+      success: true,
+      content: 'string contents',
+      totalLines: 50,
+    };
+
+    const messages: UIMessage[] = [
+      makeAssistantMessage([
+        makeToolPart({ state: 'output-available', output }),
+      ]),
+    ];
+
+    const result = sanitizeMessagesForModel(messages);
+    const part = result[0].parts[0] as any;
+
+    expect(part.output).toEqual(output);
+  });
+
+  it('preserves grep tool empty-match output', () => {
+    const output = {
+      success: true,
+      matches: 0,
+      message: 'No matches found',
+    };
+
+    const messages: UIMessage[] = [
+      makeAssistantMessage([
+        makeToolPart({ state: 'output-available', output }),
+      ]),
+    ];
+
+    const result = sanitizeMessagesForModel(messages);
+    const part = result[0].parts[0] as any;
+
+    expect(part.output).toEqual(output);
+  });
 });

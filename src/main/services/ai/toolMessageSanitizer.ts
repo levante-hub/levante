@@ -137,7 +137,15 @@ export function sanitizeMessagesForModel(messages: UIMessage[]): UIMessage[] {
           return part;
         }
 
-        if (output && typeof output === 'object') {
+        const isLegacyMcpUiOutput =
+          output && typeof output === 'object' && (
+            'uiResources' in output ||
+            'images' in output ||
+            (Array.isArray((output as any).content) &&
+              (output as any).content.some((c: any) => c?.type === 'image'))
+          );
+
+        if (isLegacyMcpUiOutput) {
           const cleanOutput: Record<string, unknown> = {};
 
           if ((output as any).structuredContent) {
